@@ -250,9 +250,14 @@ socket.on('update_player', (data) => {
           
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
-        socket.on('remove_player', (id) => {
+        
+socket.on('remove_player', (id) => {
           const pMesh = remotePlayers.get(id);
           if (pMesh) {
+            // Remove the name badge mesh from the diorama if it exists
+            if (pMesh.userData && pMesh.userData.badgeMesh) {
+              miniDiorama.remove(pMesh.userData.badgeMesh);
+            }
             miniDiorama.remove(pMesh);
             remotePlayers.delete(id);
           }
