@@ -2862,7 +2862,7 @@ miniDiorama.add(badgeMesh);
       return pGroup;
     }
 
-    function updatePlushieNameBadge(pGroup, displayName) {
+   function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
       const canvas = pGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
@@ -2870,7 +2870,7 @@ miniDiorama.add(badgeMesh);
       ctx.clearRect(0, 0, w, h);
 
       ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = '#00f0ff';
+      ctx.strokeStyle = teamColor;
       ctx.lineWidth = 8;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -2880,7 +2880,9 @@ miniDiorama.add(badgeMesh);
       }
       ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // Draw team colored accent text glow or matching text color
+      ctx.fillStyle = teamColor; 
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
       ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
@@ -2888,7 +2890,6 @@ miniDiorama.add(badgeMesh);
         pGroup.userData.badgeTexture.needsUpdate = true;
       }
     }
-
     function setPlushieVisualMode(group, mode) {
       if (!group) return;
       if (mode === 'invisible') {
@@ -2916,7 +2917,15 @@ miniDiorama.add(badgeMesh);
       });
     }
 
-    const localPlushie = createCutePlushie(0x00f0ff, "Guest 1");
+// Assign team based on guest name or slot (Guest 1 = Blue, others = Red)
+    const assignedTeam = localMyGuestName.toLowerCase().includes('2') ? 'RED' : 'BLUE';
+    const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
+    const plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+    const localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
+    localPlushie.userData.team = assignedTeam;
+    updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+    
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
