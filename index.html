@@ -56,7 +56,7 @@
     let isHostAuthorized = true;
     let socket = null;
     const remotePlayers = new Map();
-    let localMyGuestName = "Guest...";
+    let localMyGuestName = "Guest 1";
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -214,6 +214,19 @@
             miniDiorama.remove(pMesh);
             remotePlayers.delete(id);
           }
+        });
+
+        socket.on('ball_sync', (bData) => {
+          if (ballMesh) {
+            ballMesh.position.set(bData.x, bData.y, bData.z);
+            if (bData.vx !== undefined) ballVelocity.set(bData.vx, bData.vy, bData.vz);
+          }
+        });
+
+        socket.on('score_sync', (sData) => {
+          blueScore = sData.blue;
+          redScore = sData.red;
+          renderPitchScoreboard(blueScore, redScore);
         });
 
         socket.on('start_podium_countdown', (data) => {
@@ -2797,7 +2810,7 @@
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-    function createCutePlushie(color, initialName = "Guest") {
+    function createCutePlushie(color, initialName = "Guest 1") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2818,7 +2831,7 @@
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Floating Name Badge above head
+      // Billboarded Name Badge
       const bCanvas = document.createElement('canvas');
       bCanvas.width = 256; bCanvas.height = 96;
       const bTex = new THREE.CanvasTexture(bCanvas);
@@ -2827,6 +2840,7 @@
       });
       const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
       badgeMesh.position.set(0, 0.95, 0);
+      badgeMesh.matrixAutoUpdate = true;
       pGroup.add(badgeMesh);
 
       pGroup.userData = {
@@ -2856,7 +2870,7 @@
 
       ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST").toUpperCase(), w / 2, h / 2 + 2);
+      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
       if (pGroup.userData.badgeTexture) {
         pGroup.userData.badgeTexture.needsUpdate = true;
@@ -2890,7 +2904,7 @@
       });
     }
 
-    const localPlushie = createCutePlushie(0x00f0ff, "Guest");
+    const localPlushie = createCutePlushie(0x00f0ff, "Guest 1");
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -2927,7 +2941,7 @@
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, "Spectator");
+        const pGroup = createCutePlushie(col, `Spectator ${i + 1}`);
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3222,6 +3236,8 @@
     });
 
     let prevTime = performance.now();
+    let lastBallSyncTime = 0;
+
     function animate() {
       requestAnimationFrame(animate);
       const time = performance.now();
@@ -3264,16 +3280,6 @@
         }
       }
 
-      if (socket && socket.connected) {
-        socket.emit('player_move', {
-          name: localMyGuestName,
-          x: plushiePosition.x,
-          y: plushiePosition.y,
-          z: plushiePosition.z,
-          yaw: plushieRotation.yaw
-        });
-      }
-
       const inPitchArena = plushiePosition.x > 10.0;
       if (inPitchArena) {
         const ballPos = ballMesh.position;
@@ -3286,6 +3292,18 @@
           const bumpPower = 13.0;
           ballVelocity.addScaledVector(pushDir, bumpPower);
           playTone(600, 'triangle', 0.08, 0.1);
+
+          // Instantly sync when ball is struck
+          if (socket && socket.connected) {
+            socket.emit('ball_move', {
+              x: ballPos.x,
+              y: ballPos.y,
+              z: ballPos.z,
+              vx: ballVelocity.x,
+              vy: ballVelocity.y,
+              vz: ballVelocity.vz
+            });
+          }
         }
 
         ballPos.addScaledVector(ballVelocity, delta);
@@ -3300,18 +3318,59 @@
           playTone(200, 'sawtooth', 0.3, 0.15);
           ballMesh.position.set(34.0, 0.82, 0.0);
           ballVelocity.set(0, 0, 0);
+          if (socket && socket.connected) {
+            socket.emit('score_update', { blue: blueScore, red: redScore });
+            socket.emit('ball_move', {
+              x: ballMesh.position.x,
+              y: ballMesh.position.y,
+              z: ballMesh.position.z,
+              vx: 0, vy: 0, vz: 0
+            });
+          }
         } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
           blueScore++;
           renderPitchScoreboard(blueScore, redScore);
           playTone(800, 'sine', 0.3, 0.15);
           ballMesh.position.set(34.0, 0.82, 0.0);
           ballVelocity.set(0, 0, 0);
+          if (socket && socket.connected) {
+            socket.emit('score_update', { blue: blueScore, red: redScore });
+            socket.emit('ball_move', {
+              x: ballMesh.position.x,
+              y: ballMesh.position.y,
+              z: ballMesh.position.z,
+              vx: 0, vy: 0, vz: 0
+            });
+          }
         }
 
         ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+
+        // Continuous real-time network throttling (~30fps sync interval)
+        if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+          lastBallSyncTime = time;
+          socket.emit('ball_move', {
+            x: ballPos.x,
+            y: ballPos.y,
+            z: ballPos.z,
+            vx: ballVelocity.x,
+            vy: ballVelocity.y,
+            vz: ballVelocity.vz
+          });
+        }
       } else {
         ballMesh.position.set(34.0, 0.82, 0.0);
         ballVelocity.set(0, 0, 0);
+      }
+
+      if (socket && socket.connected) {
+        socket.emit('player_move', {
+          name: localMyGuestName,
+          x: plushiePosition.x,
+          y: plushiePosition.y,
+          z: plushiePosition.z,
+          yaw: plushieRotation.yaw
+        });
       }
 
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
@@ -3400,19 +3459,21 @@
         updatePlushieVisibility(sp, false, false);
       });
 
+      // Name tags billboard to face camera properly
+      const billboardMatrix = new THREE.Matrix4().extractRotation(camera.matrixWorld);
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        localPlushie.userData.badgeMesh.quaternion.copy(camera.quaternion);
+        localPlushie.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
       }
       remotePlayers.forEach(pMesh => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          pMesh.userData.badgeMesh.quaternion.copy(camera.quaternion);
+          pMesh.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
         }
       });
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(camera.quaternion);
+        pawn1.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(camera.quaternion);
+        pawn2.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
       }
 
       if (studioPower) {
