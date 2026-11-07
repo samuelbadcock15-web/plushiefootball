@@ -2777,7 +2777,7 @@ const canvas = document.getElementById('canvas3d');
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-    function createCutePlushie(color) {
+function createCutePlushie(color, initialName = "Guest") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2797,7 +2797,50 @@ const canvas = document.getElementById('canvas3d');
       snout.scale.set(1.2, 0.8, 1); snout.position.set(0, 0.56, 0.21); pGroup.add(snout);
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
+
+      // Floating Name Badge above head
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = 256; bCanvas.height = 96;
+      const bTex = new THREE.CanvasTexture(bCanvas);
+      const badgeMat = new THREE.MeshBasicMaterial({
+        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
+      });
+      const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
+      badgeMesh.position.set(0, 0.95, 0);
+      pGroup.add(badgeMesh);
+
+      pGroup.userData = {
+        badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
+      };
+      updatePlushieNameBadge(pGroup, initialName);
       return pGroup;
+    }
+
+    function updatePlushieNameBadge(pGroup, displayName) {
+      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
+      const canvas = pGroup.userData.badgeCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width; const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(4, 4, w - 8, h - 8, 20);
+      } else {
+        ctx.rect(4, 4, w - 8, h - 8);
+      }
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.fillText((displayName || "GUEST").toUpperCase(), w / 2, h / 2 + 2);
+
+      if (pGroup.userData.badgeTexture) {
+        pGroup.userData.badgeTexture.needsUpdate = true;
+      }
     }
 
     function setPlushieVisualMode(group, mode) {
