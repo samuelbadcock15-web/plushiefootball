@@ -178,11 +178,11 @@
 
         socket.on('update_player', (data) => {
           let pMesh = remotePlayers.get(data.id);
-          if (!pMesh) {
-            pMesh = createCutePlushie(0xff7675);
-            miniDiorama.add(pMesh);
-            remotePlayers.set(data.id, pMesh);
-          }
+    if (!pMesh) {
+      pMesh = createCutePlushie(0xff3838);
+      miniDiorama.add(pMesh);
+      remotePlayers.set(data.id, pMesh);
+    }
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
