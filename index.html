@@ -3362,7 +3362,7 @@ miniDiorama.add(badgeMesh);
         } else {
           // Non-host player cleanly interpolates ball position from the master host
           if (hasRemoteBallUpdate) {
-            ballPos.lerp(remoteBallTarget, 0.25);
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
           }
         }
       } else {
