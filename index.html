@@ -3457,23 +3457,24 @@
 
 const cameraRotation = camera.quaternion;
 
+      const camRot = camera.quaternion;
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        localPlushie.userData.badgeMesh.quaternion.copy(cameraRotation);
+        localPlushie.userData.badgeMesh.quaternion.copy(camRot);
       }
-      remotePlayers.forEach((pMesh) => {
+      remotePlayers.forEach(pMesh => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          pMesh.userData.badgeMesh.quaternion.copy(cameraRotation);
+          pMesh.userData.badgeMesh.quaternion.copy(camRot);
         }
       });
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(cameraRotation);
+        pawn1.userData.badgeMesh.quaternion.copy(camRot);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(cameraRotation);
+        pawn2.userData.badgeMesh.quaternion.copy(camRot);
       }
-      spectatorPlushies.forEach((sp) => {
+      spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.copy(cameraRotation);
+          sp.userData.badgeMesh.quaternion.copy(camRot);
         }
       });
 
