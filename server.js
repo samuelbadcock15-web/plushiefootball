@@ -1,165 +1,88 @@
 const express = require('express');
-
 const http = require('http');
-
 const { Server } = require('socket.io');
-
 const path = require('path');
 
-
-
 const app = express();
-
 const server = http.createServer(app);
-
-const io = new Server(server);
-
-
-
-// Serve static files from the current directory
+const io = new Server(server, {
+  cors: { origin: "*" }
+});
 
 app.use(express.static(path.join(__dirname)));
 
-
-
-// Track active players connected to the studio
-
-const activePlayers = new Map();
-
-let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
-
-
+const players = new Map();
+const lobbyPlayers = new Map();
 
 io.on('connection', (socket) => {
+  console.log(`Player connected: ${socket.id}`);
 
-  console.log(`User connected: ${socket.id}`);
+  // Send existing active players
+  players.forEach((playerData) => {
+    socket.emit('update_player', playerData);
+  });
 
-
-
-  // Assign a default guest name
-
-  const defaultName = `Guest ${Math.floor(Math.random() * 900 + 100)}`;
-
-  activePlayers.set(socket.id, { id: socket.id, name: defaultName, x: 32.0, y: 0.44, z: 2.5, yaw: 0 });
-
-
-
-  // If this is the first connected player, make them the official ball physics host
-
-  if (!ballPhysicsHostId) {
-
-    ballPhysicsHostId = socket.id;
-
-  }
-
-  
-
-  // Inform this client whether they are the designated ball physics host
-
-  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
-
-
-
-  // Send current players list to the newly connected client
-
-  socket.emit('current_players', Array.from(activePlayers.values()));
-
-
-
-  // Handle player avatar movement & rotation updates
-
-  socket.on('player_move', (data) => {
-
-    const player = activePlayers.get(socket.id);
-
-    if (player) {
-
-      player.name = data.name || player.name;
-
-      player.x = data.x;
-
-      player.y = data.y;
-
-      player.z = data.z;
-
-      player.yaw = data.yaw;
-
-
-
-      // Broadcast updated player position to everyone else
-
-      socket.broadcast.emit('update_player', player);
-
+  // Handle Lobby join & chat/presence
+  socket.on('join_lobby', (data) => {
+    if (lobbyPlayers.size >= 30) {
+      socket.emit('lobby_full');
+      return;
     }
-
+    lobbyPlayers.set(socket.id, {
+      id: socket.id,
+      name: data.name || `Player ${lobbyPlayers.size + 1}`,
+      ready: false
+    });
+    io.emit('sync_lobby', Array.from(lobbyPlayers.values()));
   });
 
-
-
-  // Handle real-time ball movement and physics synchronization from the host
-
-  socket.on('ball_move', (bData) => {
-
-    // Broadcast ball coordinates and velocity to all other connected clients
-
-    socket.broadcast.emit('ball_sync', bData);
-
+  socket.on('toggle_ready', (readyStatus) => {
+    const p = lobbyPlayers.get(socket.id);
+    if (p) {
+      p.ready = readyStatus;
+      io.emit('sync_lobby', Array.from(lobbyPlayers.values()));
+    }
   });
 
-
-
-  // Handle goal scores and reset triggers
-
-  socket.on('score_update', (sData) => {
-
-    // Broadcast updated score to all clients (including sender)
-
-    io.emit('score_sync', sData);
-
+  socket.on('start_game_from_lobby', () => {
+    io.emit('enter_main_game');
   });
 
+  // Handle real-time plushie movement synchronization
+  socket.on('player_move', (data) => {
+    players.set(socket.id, {
+      id: socket.id,
+      x: data.x,
+      y: data.y,
+      z: data.z,
+      yaw: data.yaw,
+      isSolid: data.isSolid !== undefined ? data.isSolid : true
+    });
+    socket.broadcast.emit('update_player', players.get(socket.id));
+  });
 
+  socket.on('sync_ball', (data) => {
+    socket.broadcast.emit('sync_ball', data);
+  });
 
-  // Handle disconnects
+  socket.on('start_podium_countdown', (data) => {
+    socket.broadcast.emit('start_podium_countdown', data);
+  });
+
+  socket.on('cancel_podium_countdown', () => {
+    socket.broadcast.emit('cancel_podium_countdown');
+  });
 
   socket.on('disconnect', () => {
-
-    console.log(`User disconnected: ${socket.id}`);
-
-    activePlayers.delete(socket.id);
-
+    console.log(`Player disconnected: ${socket.id}`);
+    players.delete(socket.id);
+    lobbyPlayers.delete(socket.id);
     io.emit('remove_player', socket.id);
-
-
-
-    // If the current ball physics host disconnects, reassign to the next available player
-
-    if (socket.id === ballPhysicsHostId) {
-
-      const remainingIds = Array.from(activePlayers.keys());
-
-      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
-
-      if (ballPhysicsHostId) {
-
-        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
-
-        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
-
-      }
-
-    }
-
+    io.emit('sync_lobby', Array.from(lobbyPlayers.values()));
   });
-
 });
 
-
-
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, () => {
-
-  console.log(`The Goody Tonight Show server running on http://localhost:${PORT}`);
-
+  console.log(`Goody Tonight Show server running on port ${PORT}`);
 });
