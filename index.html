@@ -3466,10 +3466,12 @@ const cameraRotation = camera.quaternion;
         badge.quaternion.copy(camRot);
       }
 
-      // Update remote player name tags
-      remotePlayers.forEach(pMesh => {
+      // Update remote player name tags so they track position and face the camera
+      remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          pMesh.userData.badgeMesh.quaternion.copy(camRot);
+          const badge = pMesh.userData.badgeMesh;
+          badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
+          badge.quaternion.copy(camera.quaternion);
         }
       });
 
