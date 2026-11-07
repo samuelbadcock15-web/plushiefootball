@@ -13,13 +13,32 @@ app.use(express.static(path.join(__dirname)));
 // Track active players connected to the studio
 const activePlayers = new Map();
 let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
+let connectionCount = 0;
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
+  // Alternate teams: 1st player is Blue, 2nd is Red, 3rd is Blue, etc.
+  connectionCount++;
+  const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
+  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
+
   // Assign a default guest name
   const defaultName = `Guest ${Math.floor(Math.random() * 900 + 100)}`;
-  activePlayers.set(socket.id, { id: socket.id, name: defaultName, x: 32.0, y: 0.44, z: 2.5, yaw: 0 });
+  
+  activePlayers.set(socket.id, { 
+    id: socket.id, 
+    name: defaultName, 
+    x: 32.0, 
+    y: 0.44, 
+    z: 2.5, 
+    yaw: 0,
+    team: assignedTeam,
+    teamColor: teamColorHex
+  });
+
+  // Inform this client what team they have been assigned to
+  socket.emit('assign_team', { team: assignedTeam, teamColor: teamColorHex });
 
   // If this is the first connected player, make them the official ball physics host
   if (!ballPhysicsHostId) {
@@ -32,7 +51,7 @@ io.on('connection', (socket) => {
   // Send current players list to the newly connected client
   socket.emit('current_players', Array.from(activePlayers.values()));
 
-  // Handle player avatar movement & rotation updates
+  // Handle player avatar movement, rotation, & team updates
   socket.on('player_move', (data) => {
     const player = activePlayers.get(socket.id);
     if (player) {
@@ -41,8 +60,10 @@ io.on('connection', (socket) => {
       player.y = data.y;
       player.z = data.z;
       player.yaw = data.yaw;
+      player.team = data.team || player.team;
+      player.teamColor = data.teamColor || player.teamColor;
 
-      // Broadcast updated player position to everyone else
+      // Broadcast updated player position and team data to everyone else
       socket.broadcast.emit('update_player', player);
     }
   });
