@@ -61,6 +61,12 @@
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
+      window.addEventListener('pointerdown', () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      }, { once: true });
+
       initAudio();
       initStudioWebRTC();
       initSocketConnection();
@@ -74,22 +80,8 @@
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
     document.getElementById('hud-code-val').textContent = studioRoomCode;
 
-    let currentMode = 'BEDROOM';
     let studioPower = false;
     let isGoodySpeaking = false;
-
-    let showPlayer1 = false;
-    let showPlayer2 = false;
-
-    const videoPlayer1 = document.createElement('video');
-    videoPlayer1.autoplay = true; videoPlayer1.playsInline = true; videoPlayer1.muted = false;
-    const videoPlayer2 = document.createElement('video');
-    videoPlayer2.autoplay = true; videoPlayer2.playsInline = true; videoPlayer2.muted = false;
-
-    let hasLivePlayer1Stream = false;
-    let hasLivePlayer2Stream = false;
-    let rawPlayer1Stream = null;
-    let rawPlayer2Stream = null;
 
     let gameState = "MODE_PROMPT";
     let isSoloMode = false;
@@ -117,8 +109,6 @@
     let activePlayer = "goody-contestant-1";
     let activeQuestion = null;
     let activeRecap = null;
-    let isTieBreakerActive = false;
-    let tieBreakerAnswered = false;
 
     let questionTimer = 0;
     let isQuestionTimerActive = false;
@@ -129,49 +119,9 @@
     let audienceCount = 1;
     const audienceCountEl = document.getElementById('audience-count');
     const countdownPill = document.getElementById('countdown-pill');
-    const timerValEl = document.getElementById('timer-val');
 
     let blueScore = 0;
     let redScore = 0;
-
-    const contestantRotations = {
-      "goody-contestant-1": { yaw: 0, pitch: -0.15 },
-      "goody-contestant-2": { yaw: 0, pitch: -0.15 }
-    };
-
-    const contestantNames = {
-      "goody-contestant-1": "Player 1",
-      "goody-contestant-2": "Player 2"
-    };
-
-    const contestantCities = {
-      "goody-contestant-1": "London",
-      "goody-contestant-2": "Nottingham"
-    };
-
-    const contestantTokens = {
-      "goody-contestant-1": null,
-      "goody-contestant-2": null
-    };
-
-    const playerStats = { asked: 0, correct: 0 };
-
-    let isP1Connected = false;
-    let isP2Connected = false;
-    let p1PeerId = null;
-    let p2PeerId = null;
-
-    let droppedOutContestant = null;
-    let droppedOutName = "";
-    let droppedOutCity = "";
-    let droppedOutSessionToken = null;
-
-    let savedTurnPlayer = null;
-    let intermissionTimeout = null;
-    let savedActiveCountry = null;
-    let savedGameState = null;
-
-    const spectatorPlushies = new Map();
 
     function initSocketConnection() {
       try {
@@ -189,7 +139,6 @@
             } else {
               let pMesh = remotePlayers.get(data.id);
               if (!pMesh) {
-                // Assign Team color based on connection order or ID
                 const isPlayerTwo = remotePlayers.size > 0;
                 pMesh = createCutePlushie(isPlayerTwo ? 0xff3838 : 0x00f0ff, isPlayerTwo ? 2 : 1);
                 miniDiorama.add(pMesh);
@@ -209,7 +158,6 @@
           }
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
         socket.on('remove_player', (id) => {
@@ -262,8 +210,7 @@
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        const speech = `Welcome to The Goody Tonight Show! Starting 1-Player Solo mode! Let's begin our 20-minute race to tile 32!`;
-        speakGoody(speech, () => {
+        speakGoody(`Welcome to 1-Player Solo mode! Let's begin our 20-minute race to tile 32!`, () => {
           startTurnCleanly(soloPlayerId);
         });
       } else if (modeType === "GOODY") {
@@ -275,8 +222,7 @@
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
 
         bootStudio();
-        const speech = `Welcome to 1-Player versus Goody mode! I am taking control of Player 2 (Red Team). Let's start the show!`;
-        speakGoody(speech, () => {
+        speakGoody(`Welcome to 1-Player versus Goody mode! I am taking control of Player 2 (Red Team). Let's start the show!`, () => {
           beginTenSecondDiceDuel();
         });
       } else if (modeType === "TWOPLAYER") {
@@ -286,8 +232,7 @@
         pawn2.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
         bootStudio();
-        const speech = `Welcome to Full 2-Player Mode! Player 1 is Blue Team, Player 2 is Red Team! Let's determine who goes first!`;
-        speakGoody(speech, () => {
+        speakGoody(`Welcome to Full 2-Player Mode! Player 1 is Blue Team, Player 2 is Red Team! Let's determine who goes first!`, () => {
           beginTenSecondDiceDuel();
         });
       }
@@ -303,23 +248,6 @@
             p2Index: p2Index
           });
         }
-      });
-    }
-
-    function forwardContestantStreamsToAudience(audiencePeerId) {
-      if (!studioPeer) return;
-      if (rawPlayer1Stream) {
-        try { studioPeer.call(audiencePeerId, rawPlayer1Stream, { metadata: { contestant: "goody-contestant-1" } }); } catch(e) {}
-      }
-      if (rawPlayer2Stream) {
-        try { studioPeer.call(audiencePeerId, rawPlayer2Stream, { metadata: { contestant: "goody-contestant-2" } }); } catch(e) {}
-      }
-    }
-
-    function broadcastNewStreamToAllAudience(stream, contestantSlot) {
-      if (!studioPeer || !stream) return;
-      connectedAudiencePeers.forEach(audPeerId => {
-        try { studioPeer.call(audPeerId, stream, { metadata: { contestant: contestantSlot } }); } catch(e) {}
       });
     }
 
@@ -398,7 +326,6 @@
       }
 
       renderStageQuestionBoard();
-      renderBackstageScreens();
 
       startDiceCountdown(() => {
         if (gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && !isPawnMoving && activePlayer === turnPlayer && !activeQuestion && !activeRecap) {
@@ -415,7 +342,6 @@
       else isDiceRollingP1 = true;
 
       renderStageQuestionBoard();
-      renderBackstageScreens();
       const rollVal = Math.floor(Math.random() * 6) + 1;
       setTimeout(() => {
         handlePlayerRoll(goodyPlayerSlot, "Goody", rollVal);
@@ -474,7 +400,6 @@
 
     let studioPeer = null;
     let connectedDataConns = [];
-    const connectedAudiencePeers = new Set();
 
     function initStudioWebRTC() {
       if (!isHostAuthorized || studioPeer) return;
@@ -796,7 +721,6 @@
     const remoteBallTarget = new THREE.Vector3(34.0, 0.82, 0.0);
     let hasRemoteBallUpdate = false;
 
-    // Podium 1 (Blue Team) & Podium 2 (Red Team)
     const p1PodiumGroup = new THREE.Group();
     const p1PodiumBase = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.48, 0.55, 20), new THREE.MeshStandardMaterial({ color: 0x1b0c30 }));
     p1PodiumBase.position.y = 0.275; p1PodiumGroup.add(p1PodiumBase);
@@ -834,7 +758,6 @@
       tile.position.set(x, 0.48, z); miniDiorama.add(tile);
     }
 
-    // Direct chest number creation (No flipped/backwards floating tags!)
     function createCutePlushie(colorHex, playerNumber) {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.95 });
@@ -847,7 +770,6 @@
       const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeL.position.set(-0.07, 0.60, 0.19); pGroup.add(eyeL);
       const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeR.position.set(0.07, 0.60, 0.19); pGroup.add(eyeR);
 
-      // Direct Chest Number Badge (Painted right onto the front of the body)
       const bCanvas = document.createElement('canvas'); bCanvas.width = 128; bCanvas.height = 128;
       const bCtx = bCanvas.getContext('2d');
       bCtx.fillStyle = colorHex === 0xff3838 ? '#ff3838' : '#00f0ff';
@@ -878,17 +800,17 @@
     }
 
     let p1Index = 0; let p2Index = 0;
-    const pawn1 = createCutePlushie(0x00d2d3, 1); // Blue Team Number 1
+    const pawn1 = createCutePlushie(0x00d2d3, 1);
     pawn1.position.set(boardTileCoords[0].x - 0.08, 0.52, boardTileCoords[0].z); pawn1.visible = false; miniDiorama.add(pawn1);
 
-    const pawn2 = createCutePlushie(0xff3838, 2); // Red Team Number 2
+    const pawn2 = createCutePlushie(0xff3838, 2);
     pawn2.position.set(boardTileCoords[0].x + 0.08, 0.52, boardTileCoords[0].z); pawn2.visible = false; miniDiorama.add(pawn2);
 
     const qBoardCanvas = document.createElement('canvas'); qBoardCanvas.width = 512; qBoardCanvas.height = 384;
     const qBoardCtx = qBoardCanvas.getContext('2d');
     const qBoardTex = new THREE.CanvasTexture(qBoardCanvas);
 
-    let isLocalOnPodium1 = false; let isLocalOnPodium2 = false;
+    let isLocalOnPodium1 = false;
 
     function renderStageQuestionBoard() {
       qBoardCtx.fillStyle = '#120726'; qBoardCtx.fillRect(0, 0, 512, 384);
@@ -942,7 +864,6 @@
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-    // Player 1 (Blue) Local Plushie
     const localPlushie = createCutePlushie(0x00f0ff, 1);
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
@@ -993,7 +914,6 @@
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
 
-      // Ball collision logic in rugby arena
       const inPitchArena = plushiePosition.x > 10.0;
       if (inPitchArena) {
         const ballPos = ballMesh.position;
@@ -1014,7 +934,6 @@
           if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; }
           if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; }
 
-          // Goal check
           if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
             redScore++;
             renderPitchScoreboard(blueScore, redScore);
