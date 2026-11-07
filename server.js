@@ -12,20 +12,24 @@ const io = new Server(server, {
   }
 });
 
-// Serve static files (like index.html) directly from the root directory
+// Serve static files directly from the root directory
 app.use(express.static(__dirname));
 
-// Global multiplayer state
+// Global multiplayer state & endless guest counter
 const players = new Map();
+let guestCounter = 0;
 let ballState = { x: 34.0, y: 0.82, z: 0.0, vx: 0, vz: 0 };
 let scores = { blue: 0, red: 0 };
 
 io.on('connection', (socket) => {
-  console.log(`Player connected: ${socket.id}`);
+  guestCounter++;
+  const guestName = `Guest ${guestCounter}`;
+  console.log(`Player connected: ${socket.id} as ${guestName}`);
 
-  // Initialize player in the lobby
+  // Initialize player in the lobby with their unique Guest name
   players.set(socket.id, {
     id: socket.id,
+    name: guestName,
     x: 32.0,
     y: 0.44,
     z: 2.5,
@@ -46,8 +50,9 @@ io.on('connection', (socket) => {
       player.y = data.y;
       player.z = data.z;
       player.yaw = data.yaw;
+      player.name = data.name || player.name;
 
-      // Broadcast updated position to everyone else
+      // Broadcast updated position and name to everyone else
       socket.broadcast.emit('update_player', player);
     }
   });
@@ -58,7 +63,6 @@ io.on('connection', (socket) => {
     ballState.z = data.z;
     ballState.vx = data.vx;
     ballState.vz = data.vz;
-    // Broadcast ball movement to all other clients
     socket.broadcast.emit('ball_update', ballState);
   });
 
