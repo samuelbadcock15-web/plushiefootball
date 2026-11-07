@@ -2918,7 +2918,10 @@ miniDiorama.add(badgeMesh);
     }
 
 // Assign team based on guest name or slot (Guest 1 = Blue, others = Red)
-    const assignedTeam = localMyGuestName.toLowerCase().includes('2') ? 'RED' : 'BLUE';
+// Automatically split teams evenly (e.g. using peer ID hash or connection index, with a safe fallback)
+    const myIdStr = (typeof myPeerId !== 'undefined' && myPeerId) ? myPeerId : Math.random().toString();
+    const isRedTeam = myIdStr.charCodeAt(myIdStr.length - 1) % 2 === 1;
+    const assignedTeam = isRedTeam ? 'RED' : 'BLUE';
     const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
     const plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
