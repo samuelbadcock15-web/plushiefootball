@@ -30,6 +30,49 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
+    /* Mobile Virtual D-Pad (Hidden on PC desktop) */
+    #mobile-dpad {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      display: none;
+      grid-template-areas: 
+        ". up ."
+        "left down right";
+      gap: 12px;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    /* Automatically show on touch/mobile devices */
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-dpad { display: grid; }
+    }
+
+    .dpad-btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(22, 9, 44, 0.85);
+      border: 2px solid #00f0ff;
+      border-radius: 14px;
+      color: #00f0ff;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+    }
+
+    /* Glowing highlight state when pressed or swiped */
+    .dpad-btn.active, .dpad-btn:active {
+      background: rgba(0, 240, 255, 0.45);
+      border-color: #39ff14;
+      color: #39ff14;
+      box-shadow: 0 0 22px #39ff14;
+    }
   </style>
 </head>
 <body>
@@ -46,7 +89,14 @@
     Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
   </div>
 
-  <canvas id="canvas3d"></canvas>
+<canvas id="canvas3d"></canvas>
+
+  <div id="mobile-dpad">
+    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
+    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
+    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
+    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+  </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
