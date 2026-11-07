@@ -56,6 +56,7 @@
     let isHostAuthorized = true;
     let socket = null;
     const remotePlayers = new Map();
+    let localMyGuestName = "Guest...";
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -176,22 +177,34 @@
       try {
         socket = io();
 
-socket.on('update_player', (data) => {
-  let pMesh = remotePlayers.get(data.id);
-  if (!pMesh) {
-    pMesh = createCutePlushie(0x00f0ff, data.name || "Guest"); // <-- Ensure 0x00f0ff here
-    miniDiorama.add(pMesh);
-    remotePlayers.set(data.id, pMesh);
-  }
-  pMesh.position.set(data.x, data.y, data.z);
-  pMesh.rotation.y = data.yaw + Math.PI;
-  if (data.name) {
-    updatePlushieNameBadge(pMesh, data.name);
-  }
-  setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
-});
+        socket.on('current_players', (playersList) => {
+          playersList.forEach(data => {
+            if (data.id === socket.id) {
+              localMyGuestName = data.name;
+              updatePlushieNameBadge(localPlushie, localMyGuestName);
+            } else {
+              let pMesh = remotePlayers.get(data.id);
+              if (!pMesh) {
+                pMesh = createCutePlushie(0x00f0ff, data.name || "Guest");
+                miniDiorama.add(pMesh);
+                remotePlayers.set(data.id, pMesh);
+              }
+            }
+          });
+        });
+
+        socket.on('update_player', (data) => {
+          let pMesh = remotePlayers.get(data.id);
+          if (!pMesh) {
+            pMesh = createCutePlushie(0x00f0ff, data.name || "Guest");
+            miniDiorama.add(pMesh);
+            remotePlayers.set(data.id, pMesh);
+          }
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
+          if (data.name) {
+            updatePlushieNameBadge(pMesh, data.name);
+          }
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -765,7 +778,7 @@ socket.on('update_player', (data) => {
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 150);
     camera.position.set(0, 5.8, -5.0);
 
-const canvas = document.getElementById('canvas3d');
+    const canvas = document.getElementById('canvas3d');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -2784,7 +2797,7 @@ const canvas = document.getElementById('canvas3d');
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-function createCutePlushie(color, initialName = "Guest") {
+    function createCutePlushie(color, initialName = "Guest") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2859,7 +2872,7 @@ function createCutePlushie(color, initialName = "Guest") {
       group.visible = true;
       const isOpaque = (mode === 'opaque');
       group.traverse(child => {
-        if (child.isMesh && child.material) {
+        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           mats.forEach(m => {
             if (isOpaque) {
@@ -2877,7 +2890,7 @@ function createCutePlushie(color, initialName = "Guest") {
       });
     }
 
-    const localPlushie = createCutePlushie(0x00f0ff);
+    const localPlushie = createCutePlushie(0x00f0ff, "Guest");
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -2914,7 +2927,7 @@ function createCutePlushie(color, initialName = "Guest") {
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col);
+        const pGroup = createCutePlushie(col, "Spectator");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3253,6 +3266,7 @@ function createCutePlushie(color, initialName = "Guest") {
 
       if (socket && socket.connected) {
         socket.emit('player_move', {
+          name: localMyGuestName,
           x: plushiePosition.x,
           y: plushiePosition.y,
           z: plushiePosition.z,
@@ -3386,6 +3400,14 @@ function createCutePlushie(color, initialName = "Guest") {
         updatePlushieVisibility(sp, false, false);
       });
 
+      if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
+        localPlushie.userData.badgeMesh.quaternion.copy(camera.quaternion);
+      }
+      remotePlayers.forEach(pMesh => {
+        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
+          pMesh.userData.badgeMesh.quaternion.copy(camera.quaternion);
+        }
+      });
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
         pawn1.userData.badgeMesh.quaternion.copy(camera.quaternion);
       }
