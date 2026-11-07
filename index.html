@@ -3236,6 +3236,8 @@
     });
 
     let prevTime = performance.now();
+    let lastBallSyncTime = 0;
+
     function animate() {
       requestAnimationFrame(animate);
       const time = performance.now();
@@ -3290,6 +3292,18 @@
           const bumpPower = 13.0;
           ballVelocity.addScaledVector(pushDir, bumpPower);
           playTone(600, 'triangle', 0.08, 0.1);
+
+          // Instantly sync when ball is struck
+          if (socket && socket.connected) {
+            socket.emit('ball_move', {
+              x: ballPos.x,
+              y: ballPos.y,
+              z: ballPos.z,
+              vx: ballVelocity.x,
+              vy: ballVelocity.y,
+              vz: ballVelocity.vz
+            });
+          }
         }
 
         ballPos.addScaledVector(ballVelocity, delta);
@@ -3306,6 +3320,12 @@
           ballVelocity.set(0, 0, 0);
           if (socket && socket.connected) {
             socket.emit('score_update', { blue: blueScore, red: redScore });
+            socket.emit('ball_move', {
+              x: ballMesh.position.x,
+              y: ballMesh.position.y,
+              z: ballMesh.position.z,
+              vx: 0, vy: 0, vz: 0
+            });
           }
         } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
           blueScore++;
@@ -3315,12 +3335,20 @@
           ballVelocity.set(0, 0, 0);
           if (socket && socket.connected) {
             socket.emit('score_update', { blue: blueScore, red: redScore });
+            socket.emit('ball_move', {
+              x: ballMesh.position.x,
+              y: ballMesh.position.y,
+              z: ballMesh.position.z,
+              vx: 0, vy: 0, vz: 0
+            });
           }
         }
 
         ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
-        if (socket && socket.connected) {
+        // Continuous real-time network throttling (~30fps sync interval)
+        if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+          lastBallSyncTime = time;
           socket.emit('ball_move', {
             x: ballPos.x,
             y: ballPos.y,
