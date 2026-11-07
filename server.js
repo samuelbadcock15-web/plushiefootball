@@ -12,8 +12,8 @@ const io = new Server(server, {
   }
 });
 
-// Serve frontend static files from 'public'
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files (like index.html) directly from the root directory
+app.use(express.static(__dirname));
 
 // Global multiplayer state
 const players = new Map();
