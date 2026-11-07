@@ -6,83 +6,80 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
-app.use(express.static(path.join(__dirname)));
+// Serve static files (like index.html) directly from the root directory
+app.use(express.static(__dirname));
 
+// Global multiplayer state
 const players = new Map();
-const lobbyPlayers = new Map();
+let ballState = { x: 34.0, y: 0.82, z: 0.0, vx: 0, vz: 0 };
+let scores = { blue: 0, red: 0 };
 
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
-  // Send existing active players
-  players.forEach((playerData) => {
-    socket.emit('update_player', playerData);
+  // Initialize player in the lobby
+  players.set(socket.id, {
+    id: socket.id,
+    x: 32.0,
+    y: 0.44,
+    z: 2.5,
+    yaw: 0,
+    isSolid: true
   });
 
-  // Handle Lobby join & chat/presence
-  socket.on('join_lobby', (data) => {
-    if (lobbyPlayers.size >= 30) {
-      socket.emit('lobby_full');
-      return;
-    }
-    lobbyPlayers.set(socket.id, {
-      id: socket.id,
-      name: data.name || `Player ${lobbyPlayers.size + 1}`,
-      ready: false
-    });
-    io.emit('sync_lobby', Array.from(lobbyPlayers.values()));
-  });
+  // Send current players and ball state to the newly joined player
+  socket.emit('current_players', Array.from(players.values()));
+  socket.emit('ball_update', ballState);
+  socket.emit('score_update', scores);
 
-  socket.on('toggle_ready', (readyStatus) => {
-    const p = lobbyPlayers.get(socket.id);
-    if (p) {
-      p.ready = readyStatus;
-      io.emit('sync_lobby', Array.from(lobbyPlayers.values()));
-    }
-  });
-
-  socket.on('start_game_from_lobby', () => {
-    io.emit('enter_main_game');
-  });
-
-  // Handle real-time plushie movement synchronization
+  // Listen for player movement from a client
   socket.on('player_move', (data) => {
-    players.set(socket.id, {
-      id: socket.id,
-      x: data.x,
-      y: data.y,
-      z: data.z,
-      yaw: data.yaw,
-      isSolid: data.isSolid !== undefined ? data.isSolid : true
-    });
-    socket.broadcast.emit('update_player', players.get(socket.id));
+    const player = players.get(socket.id);
+    if (player) {
+      player.x = data.x;
+      player.y = data.y;
+      player.z = data.z;
+      player.yaw = data.yaw;
+
+      // Broadcast updated position to everyone else
+      socket.broadcast.emit('update_player', player);
+    }
   });
 
-  socket.on('sync_ball', (data) => {
-    socket.broadcast.emit('sync_ball', data);
+  // Listen for football bumps/kicks from clients
+  socket.on('hit_ball', (data) => {
+    ballState.x = data.x;
+    ballState.z = data.z;
+    ballState.vx = data.vx;
+    ballState.vz = data.vz;
+    // Broadcast ball movement to all other clients
+    socket.broadcast.emit('ball_update', ballState);
   });
 
-  socket.on('start_podium_countdown', (data) => {
-    socket.broadcast.emit('start_podium_countdown', data);
+  // Listen for goals scored
+  socket.on('goal_scored', (team) => {
+    if (team === 'blue') scores.blue++;
+    if (team === 'red') scores.red++;
+    ballState = { x: 34.0, y: 0.82, z: 0.0, vx: 0, vz: 0 };
+    io.emit('score_update', scores);
+    io.emit('ball_update', ballState);
   });
 
-  socket.on('cancel_podium_countdown', () => {
-    socket.broadcast.emit('cancel_podium_countdown');
-  });
-
+  // Handle player disconnection
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
     players.delete(socket.id);
-    lobbyPlayers.delete(socket.id);
     io.emit('remove_player', socket.id);
-    io.emit('sync_lobby', Array.from(lobbyPlayers.values()));
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Goody Tonight Show server running on port ${PORT}`);
+  console.log(`The Goody Tonight Show server running on port ${PORT}`);
 });
