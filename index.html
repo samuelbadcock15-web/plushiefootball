@@ -3639,6 +3639,77 @@ const cameraRotation = camera.quaternion;
 
       renderer.render(scene, camera);
     }
+    // --- MOBILE VIRTUAL DPAD & SWIPE CONTROLS ---
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    function bindTouchButton(elem, stateKey, btnElement) {
+      if (!elem) return;
+      const activate = (e) => {
+        e.preventDefault();
+        moveState[stateKey] = true;
+        btnElement.classList.add('active');
+      };
+      const deactivate = (e) => {
+        e.preventDefault();
+        moveState[stateKey] = false;
+        btnElement.classList.remove('active');
+      };
+
+      elem.addEventListener('touchstart', activate, { passive: false });
+      elem.addEventListener('touchend', deactivate, { passive: false });
+      elem.addEventListener('touchcancel', deactivate, { passive: false });
+      elem.addEventListener('mousedown', activate);
+      elem.addEventListener('mouseup', deactivate);
+      elem.addEventListener('mouseleave', deactivate);
+    }
+
+    bindTouchButton(btnUp, 'forward', btnUp);
+    bindTouchButton(btnDown, 'backward', btnDown);
+    bindTouchButton(btnLeft, 'turnLeft', btnLeft);
+    bindTouchButton(btnRight, 'turnRight', btnRight);
+
+    // Screen Touch Swipe to Turn + Light up Left/Right buttons
+    let touchStartX = null;
+    let isSwipingScreen = false;
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        isSwipingScreen = true;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isSwipingScreen || touchStartX === null) return;
+      if (e.touches.length > 0) {
+        const currentX = e.touches[0].clientX;
+        const deltaX = currentX - touchStartX;
+        
+        const turnSensitivity = 0.008;
+        plushieRotation.yaw -= deltaX * turnSensitivity;
+
+        if (deltaX > 5) {
+          btnRight.classList.add('active');
+          btnLeft.classList.remove('active');
+        } else if (deltaX < -5) {
+          btnLeft.classList.add('active');
+          btnRight.classList.remove('active');
+        }
+
+        touchStartX = currentX;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      isSwipingScreen = false;
+      touchStartX = null;
+      btnLeft.classList.remove('active');
+      btnRight.classList.remove('active');
+    });
     animate();
   </script>
 </body>
