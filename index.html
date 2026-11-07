@@ -3455,21 +3455,27 @@
         updatePlushieVisibility(sp, false, false);
       });
 
-      const billboardMatrix = new THREE.Matrix4().extractRotation(camera.matrixWorld);
+const cameraRotation = camera.quaternion;
+
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        localPlushie.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
+        localPlushie.userData.badgeMesh.quaternion.copy(cameraRotation);
       }
-      remotePlayers.forEach(pMesh => {
+      remotePlayers.forEach((pMesh) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          pMesh.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
+          pMesh.userData.badgeMesh.quaternion.copy(cameraRotation);
         }
       });
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
+        pawn1.userData.badgeMesh.quaternion.copy(cameraRotation);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
+        pawn2.userData.badgeMesh.quaternion.copy(cameraRotation);
       }
+      spectatorPlushies.forEach((sp) => {
+        if (sp && sp.userData && sp.userData.badgeMesh) {
+          sp.userData.badgeMesh.quaternion.copy(cameraRotation);
+        }
+      });
 
       if (studioPower) {
         updateCameraAlignment();
