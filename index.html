@@ -2853,8 +2853,8 @@
       const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
       badgeMesh.position.set(0, 0.95, 0);
       badgeMesh.matrixAutoUpdate = true;
-      pGroup.add(badgeMesh);
-
+miniDiorama.add(badgeMesh);
+      
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -3458,20 +3458,30 @@
 const cameraRotation = camera.quaternion;
 
       const camRot = camera.quaternion;
+      
+      // Update local plushie badge world position & camera lock
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        localPlushie.userData.badgeMesh.quaternion.copy(camRot);
+        const badge = localPlushie.userData.badgeMesh;
+        badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
+        badge.quaternion.copy(camRot);
       }
+
+      // Update remote player name tags
       remotePlayers.forEach(pMesh => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           pMesh.userData.badgeMesh.quaternion.copy(camRot);
         }
       });
+
+      // Update game board pawns
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
         pawn1.userData.badgeMesh.quaternion.copy(camRot);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
         pawn2.userData.badgeMesh.quaternion.copy(camRot);
       }
+
+      // Update spectator plushies
       spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
           sp.userData.badgeMesh.quaternion.copy(camRot);
