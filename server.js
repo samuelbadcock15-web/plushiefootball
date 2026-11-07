@@ -7,31 +7,21 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from the current working directory
+// Serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
 
-// Track active players connected to the studio & arena
+// Track active players connected to the studio
 const activePlayers = new Map();
 let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Assign player slot & name based on connection order
-  const playerIndex = activePlayers.size;
-  const defaultName = playerIndex === 0 ? "Player 1" : `Player ${playerIndex + 1}`;
-  
-  activePlayers.set(socket.id, { 
-    id: socket.id, 
-    name: defaultName, 
-    x: 32.0, 
-    y: 0.44, 
-    z: 2.5, 
-    yaw: 0,
-    playerNum: playerIndex + 1
-  });
+  // Assign a default guest name
+  const defaultName = `Guest ${Math.floor(Math.random() * 900 + 100)}`;
+  activePlayers.set(socket.id, { id: socket.id, name: defaultName, x: 32.0, y: 0.44, z: 2.5, yaw: 0 });
 
-  // Designate the first connected client as the ball physics host
+  // If this is the first connected player, make them the official ball physics host
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
   }
@@ -39,8 +29,8 @@ io.on('connection', (socket) => {
   // Inform this client whether they are the designated ball physics host
   socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
-  // Broadcast current players list to everyone
-  io.emit('current_players', Array.from(activePlayers.values()));
+  // Send current players list to the newly connected client
+  socket.emit('current_players', Array.from(activePlayers.values()));
 
   // Handle player avatar movement & rotation updates
   socket.on('player_move', (data) => {
@@ -51,7 +41,6 @@ io.on('connection', (socket) => {
       player.y = data.y;
       player.z = data.z;
       player.yaw = data.yaw;
-      player.playerNum = data.playerNum || player.playerNum;
 
       // Broadcast updated player position to everyone else
       socket.broadcast.emit('update_player', player);
@@ -60,11 +49,13 @@ io.on('connection', (socket) => {
 
   // Handle real-time ball movement and physics synchronization from the host
   socket.on('ball_move', (bData) => {
+    // Broadcast ball coordinates and velocity to all other connected clients
     socket.broadcast.emit('ball_sync', bData);
   });
 
   // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
+    // Broadcast updated score to all clients (including sender)
     io.emit('score_sync', sData);
   });
 
@@ -74,12 +65,13 @@ io.on('connection', (socket) => {
     activePlayers.delete(socket.id);
     io.emit('remove_player', socket.id);
 
-    // Reassign ball physics host if necessary
+    // If the current ball physics host disconnects, reassign to the next available player
     if (socket.id === ballPhysicsHostId) {
       const remainingIds = Array.from(activePlayers.keys());
       ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
       if (ballPhysicsHostId) {
         io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
+        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
       }
     }
   });
