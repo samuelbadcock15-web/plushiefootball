@@ -275,8 +275,8 @@
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-       
-        pawn2.visible = false;
+        
+        p2Visiable = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
@@ -358,742 +358,6 @@
       });
     }
 
-    function handleMidGameDropout(contestantId) {
-      if (gameState === "GAME_OVER" || gameState === "INTERMISSION") return;
-
-      if (goodyUtterance) {
-        goodyUtterance.onend = null;
-        goodyUtterance.onerror = null;
-      }
-      window.speechSynthesis.cancel();
-      isGoodySpeaking = false;
-
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
-
-      stopDiceCountdown();
-      if (questionInterval) clearInterval(questionInterval);
-      if (matchTimerInterval) clearInterval(matchTimerInterval);
-
-      isPawnMoving = false;
-      hasPlayerRolledThisTurn = false;
-      isDiceRollingP1 = false;
-      isDiceRollingP2 = false;
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-
-      savedGameState = gameState;
-      savedTurnPlayer = activePlayer;
-      savedActiveCountry = activeQuestion ? activeQuestion.country : null;
-
-      activeQuestion = null;
-      activeRecap = null;
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-
-      gameState = "INTERMISSION";
-      droppedOutContestant = contestantId;
-      droppedOutName = contestantNames[contestantId] || "";
-      droppedOutCity = contestantCities[contestantId] || "";
-      droppedOutSessionToken = contestantTokens[contestantId] || null;
-
-      const droppedNum = contestantId === "goody-contestant-1" ? `Player 1 (${droppedOutName})` : `Player 2 (${droppedOutName})`;
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#ff7675;">INTERMISSION: WAITING FOR RECONNECT...</span>`;
-      renderStageQuestionBoard();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({ type: "INTERMISSION_PAUSE", droppedContestant: contestantId });
-      });
-
-      const speech = `Ladies and gentlemen, it appears ${droppedNum} has lost connection! We are taking a short intermission while our studio crew gets them back online!`;
-      speakGoody(speech);
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      intermissionTimeout = setTimeout(() => {
-        if (gameState === "INTERMISSION") {
-          triggerOfferChoiceMode();
-        }
-      }, 90000);
-    }
-
-    function triggerOnePlayerMode() {
-      if (gameState !== "INTERMISSION" && gameState !== "CONTESTANT_CHOOSING" && gameState !== "MODE_PROMPT") return;
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      isSoloMode = true;
-      isVsGoodyMode = false;
-
-      soloPlayerId = "goody-contestant-1";
-      const soloName = contestantNames[soloPlayerId];
-      activePlayer = soloPlayerId;
-
-      p2RollVal = null;
-      isDiceRollingP2 = false;
-      pawn2.visible = false;
-      pawn1.visible = true;
-      if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
-      gameState = "IN_PLAY";
-      renderStageQuestionBoard();
-
-      startTwentyMinuteMatchTimer();
-      broadcastBoardState();
-
-      const speech = `Welcome back to the show! ${soloName} will now race the board alone to see if they can reach the end before the 20-minute show clock expires! Let's play!`;
-      speakGoody(speech, () => {
-        if (savedActiveCountry && savedTurnPlayer === soloPlayerId) {
-          const countryToAsk = savedActiveCountry;
-          savedActiveCountry = null;
-          resumeWithFreshQuestion(soloPlayerId, countryToAsk);
-        } else {
-          savedActiveCountry = null;
-          startTurnCleanly(soloPlayerId);
-        }
-      });
-    }
-
-    function triggerOfferChoiceMode() {
-      if (gameState !== "INTERMISSION") return;
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      gameState = "CONTESTANT_CHOOSING";
-
-      const remainingId = isP1Connected ? "goody-contestant-1" : "goody-contestant-2";
-      const remainingName = contestantNames[remainingId];
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WAITING FOR ${remainingName.toUpperCase()}'S CHOICE...</span>`;
-      renderStageQuestionBoard();
-
-      const speech = `Welcome back to The Goody Tonight Show! Unfortunately, we have been unable to find a replacement. So ${remainingName}, you can choose to go solo against the 20-minute timer, or battle me, Goody, head-to-head! Make your choice now!`;
-      speakGoody(speech, () => {
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({ type: "OFFER_CONTESTANT_CHOICE" });
-        });
-      });
-    }
-
-    function triggerVsGoodyMode() {
-      isSoloMode = false;
-      isVsGoodyMode = true;
-
-      goodyPlayerSlot = droppedOutContestant || "goody-contestant-2";
-      contestantNames[goodyPlayerSlot] = "Goody";
-
-      pawn1.visible = true;
-      pawn2.visible = true;
-      if (goodyPlayerSlot === "goody-contestant-1") {
-        if (window.p1PodiumGroup) window.p1PodiumGroup.visible = true;
-        updatePawnNameBadge(pawn1, "Goody");
-      } else {
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-        updatePawnNameBadge(pawn2, "Goody");
-      }
-
-      const humanId = goodyPlayerSlot === "goody-contestant-1" ? "goody-contestant-2" : "goody-contestant-1";
-      const humanName = contestantNames[humanId];
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#00f0ff;">GOODY VS ${humanName.toUpperCase()}!</span>`;
-
-      if (gameState === "MODE_PROMPT" || savedGameState === "INTRO_SPEECH" || savedGameState === "OPENING_DUEL" || savedGameState === "IDLE") {
-        gameState = "OPENING_DUEL";
-        renderStageQuestionBoard();
-        const speech = `A bold choice! You have chosen to battle me, Goody! I am taking over the board! Let's roll our dice to determine who goes first! You have 10 seconds to roll your dice!`;
-        speakGoody(speech, () => {
-          beginTenSecondDiceDuel();
-        });
-        return;
-      }
-
-      gameState = "IN_PLAY";
-      renderStageQuestionBoard();
-      startTwentyMinuteMatchTimer();
-      broadcastBoardState();
-
-      const speech = `A bold choice! You have chosen to battle me, Goody! I am hopping into the hot seat! Let's resume!`;
-      speakGoody(speech, () => {
-        if (savedActiveCountry) {
-          const countryToAsk = savedActiveCountry;
-          savedActiveCountry = null;
-          resumeWithFreshQuestion(savedTurnPlayer, countryToAsk);
-        } else {
-          startTurnCleanly(savedTurnPlayer);
-        }
-      });
-    }
-
-    function resumeWithFreshQuestion(turnPlayer, country) {
-      activePlayer = turnPlayer;
-      const pName = contestantNames[activePlayer];
-      activeRecap = null;
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-      p1RollVal = null;
-      p2RollVal = null;
-      hasPlayerRolledThisTurn = false;
-      isDiceRollingP1 = false;
-      isDiceRollingP2 = false;
-
-      stopDiceCountdown();
-      if (questionInterval) clearInterval(questionInterval);
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-
-      const qPool = COUNTRY_QUESTIONS[country] || COUNTRY_QUESTIONS["UK"];
-      const rawQ = qPool[Math.floor(Math.random() * qPool.length)];
-
-      activeQuestion = {
-        country: country,
-        text: rawQ.q,
-        q: rawQ.q,
-        options: rawQ.options,
-        ans: rawQ.ans,
-        recap: rawQ.recap
-      };
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "SHOW_QUESTION_LOCKED",
-          question: activeQuestion,
-          activeContestantId: activePlayer,
-          activeContestantName: pName
-        });
-      });
-      renderStageQuestionBoard();
-
-      const speech = `Resuming on ${country} for ${pName}! Here is your fresh question: ${activeQuestion.q}... You have 30 seconds to lock in!`;
-      speakGoody(speech, () => {
-        if (gameState === "INTERMISSION") return;
-
-        if (activePlayer === goodyPlayerSlot) {
-          executeGoodyAnswer();
-        } else {
-          connectedDataConns.forEach(c => {
-            if (c.open) c.send({
-              type: "UNLOCK_QUESTION_INPUT",
-              activeContestantId: activePlayer,
-              activeContestantName: pName
-            });
-          });
-          broadcastMicState(activePlayer, true, "🎙️ Thinking out loud? Your mic is LIVE!");
-          startQuestionCountdown();
-        }
-      });
-    }
-
-    function startTurnCleanly(turnPlayer) {
-      stopDiceCountdown();
-      activePlayer = turnPlayer;
-      const pName = contestantNames[activePlayer];
-      activeQuestion = null;
-      activeRecap = null;
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-      p1RollVal = null;
-      p2RollVal = null;
-      hasPlayerRolledThisTurn = false;
-      isPawnMoving = false;
-      isDiceRollingP1 = false;
-      isDiceRollingP2 = false;
-
-      if (questionInterval) clearInterval(questionInterval);
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-
-      gameState = "IN_PLAY";
-      renderStageQuestionBoard();
-
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
-
-      if (activePlayer === goodyPlayerSlot) {
-        speakGoody(`It is my turn! Goody is rolling the dice!`, () => {
-          setTimeout(executeGoodyTurnRoll, 1000);
-        });
-      } else {
-        speakGoody(`It is now ${pName}'s turn! You have 10 seconds to roll your dice!`, () => {
-          if (gameState === "IN_PLAY" && activePlayer === turnPlayer && !hasPlayerRolledThisTurn && !isPawnMoving) {
-            startTurnDicePrompt(activePlayer, pName);
-          }
-        });
-      }
-    }
-
-    function startDiceCountdown(onTimeout) {
-      stopDiceCountdown();
-      diceCountdown = 10;
-      isDiceTimerActive = true;
-      renderStageQuestionBoard();
-
-      diceCountdownInterval = setInterval(() => {
-        diceCountdown--;
-        renderStageQuestionBoard();
-        if (diceCountdown <= 0) {
-          stopDiceCountdown();
-          if (onTimeout) onTimeout();
-        }
-      }, 1000);
-    }
-
-    function stopDiceCountdown() {
-      if (diceCountdownInterval) {
-        clearInterval(diceCountdownInterval);
-        diceCountdownInterval = null;
-      }
-      isDiceTimerActive = false;
-    }
-
-    function startTurnDicePrompt(turnPlayer, pName) {
-      stopDiceCountdown();
-      hasPlayerRolledThisTurn = false;
-      isPawnMoving = false;
-      p1RollVal = null;
-      p2RollVal = null;
-
-      if (turnPlayer === "goody-contestant-2") {
-        isDiceRollingP2 = true;
-        isDiceRollingP1 = false;
-      } else {
-        isDiceRollingP1 = true;
-        isDiceRollingP2 = false;
-      }
-
-      renderStageQuestionBoard();
-      renderBackstageScreens();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "ENABLE_TURN_ROLL",
-          activeContestantId: turnPlayer,
-          activeContestantName: pName
-        });
-      });
-
-      startDiceCountdown(() => {
-        if (gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && !isPawnMoving && activePlayer === turnPlayer && !activeQuestion && !activeRecap) {
-          const autoVal = Math.floor(Math.random() * 6) + 1;
-          handlePlayerRoll(turnPlayer, contestantNames[turnPlayer], autoVal);
-        }
-      });
-    }
-
-    function executeGoodyTurnRoll() {
-      if (hasPlayerRolledThisTurn || isPawnMoving) return;
-
-      const isGoodyP2 = goodyPlayerSlot === "goody-contestant-2";
-      if (isGoodyP2) isDiceRollingP2 = true;
-      else isDiceRollingP1 = true;
-
-      renderStageQuestionBoard();
-      renderBackstageScreens();
-      const rollVal = Math.floor(Math.random() * 6) + 1;
-      setTimeout(() => {
-        handlePlayerRoll(goodyPlayerSlot, "Goody", rollVal);
-      }, 1500);
-    }
-
-    function calculateGoodyAccuracy() {
-      let accuracy = 0.65;
-      if (playerStats.asked > 0) {
-        const humanRatio = playerStats.correct / playerStats.asked;
-        if (humanRatio > 0.7) accuracy += 0.15;
-        if (humanRatio < 0.4) accuracy -= 0.15;
-      }
-      const humanIdx = goodyPlayerSlot === "goody-contestant-1" ? p2Index : p1Index;
-      const goodyIdx = goodyPlayerSlot === "goody-contestant-1" ? p1Index : p2Index;
-      const leadGap = goodyIdx - humanIdx;
-      if (leadGap >= 4) accuracy -= 0.25;
-      else if (leadGap <= -4) accuracy += 0.20;
-      return Math.max(0.30, Math.min(0.90, accuracy));
-    }
-
-    function executeGoodyAnswer() {
-      const willBeCorrect = Math.random() < calculateGoodyAccuracy();
-      let chosen = activeQuestion.ans;
-
-      if (!willBeCorrect) {
-        const wrongOpts = activeQuestion.options.filter(o => o !== activeQuestion.ans);
-        chosen = wrongOpts[Math.floor(Math.random() * wrongOpts.length)];
-      }
-
-      setTimeout(() => {
-        stageSelectedOption = chosen;
-        stageOptionStatus = 'selected';
-        renderStageQuestionBoard();
-
-        connectedDataConns.forEach(c => {
-          if (c.open) {
-            c.send({
-              type: "OPPONENT_ANSWERED",
-              contestant: "goody-host-bot",
-              chosenAnswer: chosen
-            });
-          }
-        });
-
-        setTimeout(() => {
-          evaluateAnswer(goodyPlayerSlot, chosen);
-        }, 1400);
-      }, 2500);
-    }
-
-    function broadcastMicState(targetSlot, enabled, promptText = "") {
-      connectedDataConns.forEach(c => {
-        if (c.open && c.metadata && c.metadata.contestant === targetSlot) {
-          c.send({
-            type: "SET_MIC_STATE",
-            enabled: enabled,
-            promptText: promptText
-          });
-        }
-      });
-    }
-
-    let currentSubtitle = "STUDIO STANDBY - POWER OFF";
-
-    const COUNTRY_QUESTIONS = {
-      "UK": [
-        { q: "In the UK, before the 2019 stake reduction, what was the maximum stake per spin on a Fixed-Odds-Betting-Terminal?", options: ["£2", "£50", "£100", "£500"], ans: "£100", recap: "In April 2019, the UK reduced the maximum FOBT stake per spin from £100 down to £2 to combat severe harms." },
-        { q: "In the UK, what is the name of the land-based self-exclusion scheme that covers Betting Shops (Bookies)?", options: ["Bingo Association", "SENSE", "Bacta", "Moses"], ans: "Moses", recap: "MOSES allows people to self-exclude across high street bookmakers in their chosen localities." },
-        { q: "In the UK, what is the name of the land-based self-exclusion scheme that covers Casinos?", options: ["Bacta", "SENSE", "Moses", "Bingo Association"], ans: "SENSE", recap: "SENSE allows players to enroll once to be excluded from all UK commercial casinos." }
-      ],
-      "Canada": [
-        { q: "In Ontario, what is the name of the land-based self-exclusion scheme that covers Casinos?", options: ["SENSE", "MyPlay Break", "Bacta", "BetGuard"], ans: "MyPlay Break", recap: "MyPlay Break is Ontario's official casino self-exclusion initiative managed by OLG." },
-        { q: "What is the name of Ontario's national online self-exclusion scheme?", options: ["BetGuard", "RUA", "GamStop", "Oasis"], ans: "BetGuard", recap: "BetGuard centralizes online exclusion across licensed iGaming Ontario operators." }
-      ],
-      "Brazil": [
-        { q: "What is the name of Brazil's national online self-exclusion scheme?", options: ["Spelpaus", "Plataforma Centralizada de Autoexclusão", "Rofus", "RGIAJ"], ans: "Plataforma Centralizada de Autoexclusão", recap: "Brazil uses the Plataforma Centralizada de Autoexclusão across its regulated betting system." }
-      ],
-      "United States": [
-        { q: "Which city in Nevada is world-famous for gambling?", options: ["Las Vegas", "Atlantic City", "Macau", "Monte Carlo"], ans: "Las Vegas", recap: "Las Vegas, Nevada is internationally renowned for its casino entertainment corridors." }
-      ],
-      "Italy": [
-        { q: "What is the name of Italy's national online self-exclusion scheme?", options: ["Spelpaus", "RUA", "GamStop", "Oasis"], ans: "RUA", recap: "RUA (Registro Unico degli Autoesclusi) covers all licensed online platforms in Italy." }
-      ],
-      "Belgium": [
-        { q: "What is the name of Belgium's national self-exclusion scheme covering both online and land-based gambling?", options: ["Rofus", "EPIS", "Oasis", "GamStop"], ans: "EPIS", recap: "EPIS (Excluded Persons Information System) covers all regulated gambling in Belgium." }
-      ],
-      "Germany": [
-        { q: "What is the name of Germany's national self-exclusion scheme covering both online and land-based gambling?", options: ["Spelpaus", "Oasis", "Rofus", "GamStop"], ans: "Oasis", recap: "OASIS is Germany's mandatory federal exclusion register across arcades, casinos, and web gaming." }
-      ],
-      "Denmark": [
-        { q: "What is the name of Denmark's national self-exclusion scheme covering both online and land-based gambling?", options: ["Rofus", "Oasis", "GamStop", "EPIS"], ans: "Rofus", recap: "ROFUS is managed by the Danish Gambling Authority to enforce cross-platform player protection." }
-      ],
-      "Australia": [
-        { q: "What is the name of Australia's national online self-exclusion scheme?", options: ["Oasis", "Rofus", "BetStop", "SafePlay"], ans: "BetStop", recap: "BetStop is Australia's National Self-Exclusion Register for licensed online and telephone wagering." }
-      ],
-      "Sweden": [
-        { q: "What is the name of Sweden's centralized national self-exclusion system?", options: ["Spelpaus", "ROFUS", "BetStop", "EPIS"], ans: "Spelpaus", recap: "Spelpaus allows individuals in Sweden to block themselves across all licensed gaming." }
-      ],
-      "Spain": [
-        { q: "What is the acronym for Spain's national register of gaming access prohibitions?", options: ["RGIAJ", "RUA", "EPIS", "OASIS"], ans: "RGIAJ", recap: "RGIAJ enforces exclusion across physical and online gaming in Spain." }
-      ],
-      "Netherlands": [
-        { q: "What is the name of the central register for the exclusion of gaming in the Netherlands?", options: ["Cruks", "GamStop", "ROFUS", "Spelpaus"], ans: "Cruks", recap: "Cruks (Centraal Register Uitsluiting Kansspelen) is mandatory across all Dutch gaming operators." }
-      ]
-    };
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x040208);
-    scene.fog = new THREE.FogExp2(0x040208, 0.015);
-
-    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 150);
-    camera.position.set(0, 5.8, -5.0);
-
-    const canvas = document.getElementById('canvas3d');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-
-    const canvasPlayer1 = document.createElement('canvas');
-    canvasPlayer1.width = 640; canvasPlayer1.height = 360;
-
-    const canvasPlayer2 = document.createElement('canvas');
-    canvasPlayer2.width = 640; canvasPlayer2.height = 360;
-
-    const streamPlayer1 = canvasPlayer1.captureStream(30);
-    const streamPlayer2 = canvasPlayer2.captureStream(30);
-
-    let studioPeer = null;
-    let connectedDataConns = [];
-    const connectedAudiencePeers = new Set();
-
-    function initStudioWebRTC() {
-      if (!isHostAuthorized || studioPeer) return;
-
-      try {
-        studioPeer = new Peer("goody-main-studio");
-
-        studioPeer.on('open', (id) => console.log("Master Host Registered:", id));
-
-        studioPeer.on('call', (call) => {
-          const isAudience = call.metadata && call.metadata.role === 'AUDIENCE';
-
-          if (isAudience) {
-            call.answer();
-            return;
-          }
-
-          const passcode = call.metadata ? call.metadata.passcode : "";
-          if (passcode !== studioRoomCode) {
-            call.close();
-            return;
-          }
-
-          const cId = call.metadata ? call.metadata.contestant : null;
-          if (cId === "goody-contestant-1" && isP1Connected && p1PeerId && p1PeerId !== call.peer) {
-            call.close();
-            return;
-          }
-          if (cId === "goody-contestant-2" && isP2Connected && p2PeerId && p2PeerId !== call.peer) {
-            call.close();
-            return;
-          }
-
-          const isPlayer2 = cId === "goody-contestant-2";
-          const returnStream = isPlayer2 ? streamPlayer2 : streamPlayer1;
-          call.answer(returnStream);
-
-          call.on('stream', (remoteStream) => {
-            if (isPlayer2) {
-              rawPlayer2Stream = remoteStream;
-              videoPlayer2.srcObject = remoteStream;
-              videoPlayer2.muted = false;
-              videoPlayer2.play().catch(console.error);
-              hasLivePlayer2Stream = true;
-              showPlayer2 = true;
-              broadcastNewStreamToAllAudience(remoteStream, "goody-contestant-2");
-            } else {
-              rawPlayer1Stream = remoteStream;
-              videoPlayer1.srcObject = remoteStream;
-              videoPlayer1.muted = false;
-              videoPlayer1.play().catch(console.error);
-              hasLivePlayer1Stream = true;
-              showPlayer1 = true;
-              broadcastNewStreamToAllAudience(remoteStream, "goody-contestant-1");
-            }
-            broadcastBoardState();
-          });
-        });
-
-        studioPeer.on('connection', (conn) => {
-          const isAudience = conn.metadata && conn.metadata.role === 'AUDIENCE';
-
-          if (!isAudience) {
-            const passcode = conn.metadata ? conn.metadata.passcode : "";
-            if (passcode !== studioRoomCode) {
-              conn.on('open', () => {
-                conn.send({ type: "AUTH_FAILED", message: "Invalid 4-digit code." });
-                setTimeout(() => conn.close(), 500);
-              });
-              return;
-            }
-
-            const cId = conn.metadata ? conn.metadata.contestant : null;
-            const isSlot1Taken = (cId === "goody-contestant-1" && isP1Connected && p1PeerId && p1PeerId !== conn.peer);
-            const isSlot2Taken = (cId === "goody-contestant-2" && isP2Connected && p2PeerId && p2PeerId !== conn.peer);
-
-            if (isSlot1Taken || isSlot2Taken) {
-              conn.on('open', () => {
-                conn.send({
-                  type: "SLOT_TAKEN",
-                  takenNum: cId === "goody-contestant-1" ? "1" : "2",
-                  slotName: contestantNames[cId] || "Occupied",
-                  altNum: cId === "goody-contestant-1" ? "2" : "1",
-                  altSlotName: contestantNames[cId === "goody-contestant-1" ? "goody-contestant-2" : "goody-contestant-1"] || "Contestant"
-                });
-                setTimeout(() => conn.close(), 600);
-              });
-              return;
-            }
-          }
-
-          connectedDataConns.push(conn);
-
-          conn.on('open', () => {
-            if (isAudience) {
-              connectedAudiencePeers.add(conn.peer);
-              broadcastAudienceCount();
-
-              const mins = Math.max(0, Math.floor(matchTimerSeconds / 60)).toString().padStart(2, '0');
-              const secs = Math.max(0, (matchTimerSeconds % 60)).toString().padStart(2, '0');
-              conn.send({ type: "SYNC_MATCH_TIMER", timeStr: `${mins}:${secs}`, secondsLeft: matchTimerSeconds });
-
-              conn.send({
-                type: "SYNC_BOARD_STATE",
-                studioPower: studioPower,
-                p1Name: contestantNames["goody-contestant-1"] || "Player 1",
-                p2Name: contestantNames["goody-contestant-2"] || "Player 2",
-                p1Index: p1Index,
-                p2Index: p2Index
-              });
-
-              if (activeQuestion) {
-                conn.send({
-                  type: "SHOW_QUESTION_LOCKED",
-                  question: activeQuestion,
-                  activeContestantId: activePlayer,
-                  activeContestantName: contestantNames[activePlayer]
-                });
-              }
-
-              setTimeout(() => {
-                forwardContestantStreamsToAudience(conn.peer);
-              }, 400);
-
-              return;
-            }
-
-            const clientName = (conn.metadata && conn.metadata.name) ? conn.metadata.name.trim() : (cId === "goody-contestant-2" ? "Player 2" : "Player 1");
-            const clientCity = (conn.metadata && conn.metadata.city) ? conn.metadata.city.trim() : (cId === "goody-contestant-2" ? "Nottingham" : "London");
-            const clientToken = conn.metadata ? conn.metadata.sessionToken : null;
-            const cId = conn.metadata ? conn.metadata.contestant : null;
-
-            if (cId === "goody-contestant-1") {
-              isP1Connected = true;
-              p1PeerId = conn.peer;
-              if (clientToken) contestantTokens["goody-contestant-1"] = clientToken;
-              if (gameState !== "INTERMISSION") {
-                contestantNames["goody-contestant-1"] = clientName;
-                contestantCities["goody-contestant-1"] = clientCity;
-                updatePawnNameBadge(pawn1, clientName);
-              }
-            }
-            if (cId === "goody-contestant-2") {
-              isP2Connected = true;
-              p2PeerId = conn.peer;
-              if (clientToken) contestantTokens["goody-contestant-2"] = clientToken;
-              if (gameState !== "INTERMISSION") {
-                contestantNames["goody-contestant-2"] = clientName;
-                contestantCities["goody-contestant-2"] = clientCity;
-                updatePawnNameBadge(pawn2, clientName);
-              }
-            }
-
-            conn.send({ type: "AUTH_SUCCESS" });
-            broadcastAudienceCount();
-            broadcastBoardState();
-          });
-
-          conn.on('data', (data) => {
-            if (data.type === "SPECTATOR_MOVE") {
-              let p = spectatorPlushies.get(data.peerId);
-              if (!p) {
-                p = createCutePlushie(0x00f0ff);
-                miniDiorama.add(p);
-                spectatorPlushies.set(data.peerId, p);
-              }
-              p.position.set(data.x, data.y, data.z);
-              if (data.yaw !== undefined) p.rotation.y = data.yaw;
-
-              connectedDataConns.forEach(c => {
-                if (c.open && c.metadata && c.metadata.role === 'AUDIENCE' && c.peer !== conn.peer) {
-                  c.send({
-                    type: "SPECTATOR_POS_RELAY",
-                    peerId: data.peerId,
-                    name: data.name,
-                    x: data.x,
-                    y: data.y,
-                    z: data.z,
-                    yaw: data.yaw,
-                    zone: data.zone
-                  });
-                }
-              });
-              return;
-            }
-
-            if (gameState === "INTERMISSION") return;
-
-            if (data.type === "CONTESTANT_CHOSE_PATH") {
-              if (gameState !== "CONTESTANT_CHOOSING" && gameState !== "MODE_PROMPT") return;
-              if (data.choice === "SOLO") {
-                triggerOnePlayerMode();
-              } else if (data.choice === "GOODY") {
-                triggerVsGoodyMode();
-              } else if (data.choice === "TWOPLAYER") {
-                chooseHostGameMode("TWOPLAYER");
-              }
-            } else if (data.type === "PLAYER_ROLLED_DICE") {
-              handlePlayerRoll(data.contestant, data.name, data.roll);
-            } else if (data.type === "PLAYER_ANSWERED") {
-              broadcastMicState(data.contestant, false);
-
-              if (isTieBreakerActive) {
-                handleTieBreakerAnswer(data.contestant, data.chosenAnswer);
-                return;
-              }
-              stageSelectedOption = data.chosenAnswer;
-              stageOptionStatus = 'selected';
-              renderStageQuestionBoard();
-
-              connectedDataConns.forEach(c => {
-                if (c.open) {
-                  c.send({
-                    type: "OPPONENT_ANSWERED",
-                    contestant: data.contestant,
-                    chosenAnswer: data.chosenAnswer
-                  });
-                }
-              });
-
-              setTimeout(() => {
-                evaluateAnswer(data.contestant, data.chosenAnswer);
-              }, 1200);
-            } else if (data.type === "PLAYER_TIMEOUT") {
-              broadcastMicState(data.contestant, false);
-              if (isTieBreakerActive) return;
-              handleQuestionTimeout(data.contestant);
-            } else if (data.type === "PLUSHIE_MOVE") {
-              handlePlushieMovement(data.contestant, data.direction);
-            } else if (data.type === "PLUSHIE_LOOK") {
-              if (contestantRotations[data.contestant]) {
-                contestantRotations[data.contestant].yaw += data.deltaX * 0.005;
-                contestantRotations[data.contestant].pitch = Math.max(
-                  -0.8,
-                  Math.min(0.4, contestantRotations[data.contestant].pitch + data.deltaY * 0.005)
-                );
-              }
-            }
-          });
-
-          conn.on('close', () => {
-            connectedAudiencePeers.delete(conn.peer);
-            connectedDataConns = connectedDataConns.filter(c => c.peer !== conn.peer);
-            broadcastAudienceCount();
-
-            const sp = spectatorPlushies.get(conn.peer);
-            if (sp) {
-              miniDiorama.remove(sp);
-              spectatorPlushies.delete(conn.peer);
-            }
-
-            const cId = conn.metadata ? conn.metadata.contestant : null;
-            if (cId === "goody-contestant-1" && p1PeerId === conn.peer) {
-              isP1Connected = false;
-              p1PeerId = null;
-            }
-            if (cId === "goody-contestant-2" && p2PeerId === conn.peer) {
-              isP2Connected = false;
-              p2PeerId = null;
-            }
-          });
-        });
-
-      } catch(e) { console.error(e); }
-    }
-
-    function broadcastAudienceCount() {
-      audienceCount = Math.max(1, connectedAudiencePeers.size + 1);
-      audienceCountEl.textContent = audienceCount;
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({ type: "AUDIENCE_COUNT", count: audienceCount });
-      });
-    }
-
     let audioCtx = null;
     let goodyUtterance = null;
     function initAudio() {
@@ -1170,13 +434,6 @@
       isPawnMoving = false;
       hasPlayerRolledThisTurn = false;
 
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({ type: "START_DICE_COUNTDOWN" });
-      });
-
       startDiceCountdown(() => {
         if (gameState === "OPENING_DUEL") {
           if (p1RollVal === null) p1RollVal = Math.floor(Math.random() * 6) + 1;
@@ -1250,10 +507,6 @@
        
         gameClockValEl.textContent = timeStr;
         renderWallClockTexture(timeStr);
-
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({ type: "SYNC_MATCH_TIMER", timeStr: timeStr, secondsLeft: matchTimerSeconds });
-        });
 
         if (matchTimerSeconds <= 0) {
           clearInterval(matchTimerInterval);
@@ -1410,15 +663,6 @@
         questionTimer = 0;
 
         const activeName = contestantNames[activePlayer];
-
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({
-            type: "SHOW_QUESTION_LOCKED",
-            question: activeQuestion,
-            activeContestantId: activePlayer,
-            activeContestantName: activeName
-          });
-        });
         renderStageQuestionBoard();
 
         const speech = activePlayer === goodyPlayerSlot
@@ -1431,14 +675,6 @@
           if (activePlayer === goodyPlayerSlot) {
             executeGoodyAnswer();
           } else {
-            connectedDataConns.forEach(c => {
-              if (c.open) c.send({
-                type: "UNLOCK_QUESTION_INPUT",
-                activeContestantId: activePlayer,
-                activeContestantName: activeName
-              });
-            });
-            broadcastMicState(activePlayer, true, "🎙️ Thinking out loud? Your mic is LIVE!");
             startQuestionCountdown();
           }
         });
@@ -1462,7 +698,6 @@
         if (questionTimer <= 0) {
           clearInterval(questionInterval);
           isQuestionTimerActive = false;
-          broadcastMicState(activePlayer, false);
           handleQuestionTimeout(activePlayer);
         }
       }, 1000);
@@ -1473,7 +708,6 @@
       if (questionInterval) clearInterval(questionInterval);
       isQuestionTimerActive = false;
       questionTimer = 0;
-      broadcastMicState(contestant, false);
       const isCorrect = chosen === activeQuestion.ans;
 
       if (contestant !== goodyPlayerSlot) {
@@ -1483,17 +717,6 @@
 
       stageOptionStatus = isCorrect ? 'correct' : 'wrong';
       renderStageQuestionBoard();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "EVALUATION_RESULT",
-          forContestant: contestant,
-          chosenAnswer: chosen,
-          isCorrect: isCorrect,
-          recap: activeQuestion.recap,
-          country: activeQuestion.country
-        });
-      });
 
       activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect };
       activeQuestion = null;
@@ -1526,7 +749,6 @@
       if (questionInterval) clearInterval(questionInterval);
       isQuestionTimerActive = false;
       questionTimer = 0;
-      broadcastMicState(contestant, false);
 
       if (contestant !== goodyPlayerSlot) {
         playerStats.asked++;
@@ -1534,17 +756,6 @@
 
       stageOptionStatus = 'wrong';
       renderStageQuestionBoard();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "EVALUATION_RESULT",
-          forContestant: contestant,
-          chosenAnswer: null,
-          isCorrect: false,
-          recap: activeQuestion.recap,
-          country: activeQuestion.country
-        });
-      });
 
       activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect: false };
       activeQuestion = null;
@@ -1592,7 +803,6 @@
 
     function nextTurn() {
       if (gameState !== "IN_PLAY") return;
-
       stopDiceCountdown();
 
       if (isSoloMode) {
@@ -1633,20 +843,103 @@
       }
     }
 
+    function startDiceCountdown(onTimeout) {
+      stopDiceCountdown();
+      diceCountdown = 10;
+      isDiceTimerActive = true;
+      renderStageQuestionBoard();
+
+      diceCountdownInterval = setInterval(() => {
+        diceCountdown--;
+        renderStageQuestionBoard();
+        if (diceCountdown <= 0) {
+          stopDiceCountdown();
+          if (onTimeout) onTimeout();
+        }
+      }, 1000);
+    }
+
+    function startTurnDicePrompt(turnPlayer, pName) {
+      stopDiceCountdown();
+      hasPlayerRolledThisTurn = false;
+      isPawnMoving = false;
+      p1RollVal = null;
+      p2RollVal = null;
+
+      if (turnPlayer === "goody-contestant-2") {
+        isDiceRollingP2 = true;
+        isDiceRollingP1 = false;
+      } else {
+        isDiceRollingP1 = true;
+        isDiceRollingP2 = false;
+      }
+
+      renderStageQuestionBoard();
+      renderBackstageScreens();
+
+      startDiceCountdown(() => {
+        if (gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && !isPawnMoving && activePlayer === turnPlayer && !activeQuestion && !activeRecap) {
+          const autoVal = Math.floor(Math.random() * 6) + 1;
+          handlePlayerRoll(turnPlayer, contestantNames[turnPlayer], autoVal);
+        }
+      });
+    }
+
+    function executeGoodyTurnRoll() {
+      if (hasPlayerRolledThisTurn || isPawnMoving) return;
+      const isGoodyP2 = goodyPlayerSlot === "goody-contestant-2";
+      if (isGoodyP2) isDiceRollingP2 = true;
+      else isDiceRollingP1 = true;
+
+      renderStageQuestionBoard();
+      renderBackstageScreens();
+      const rollVal = Math.floor(Math.random() * 6) + 1;
+      setTimeout(() => {
+        handlePlayerRoll(goodyPlayerSlot, "Goody", rollVal);
+      }, 1500);
+    }
+
+    function calculateGoodyAccuracy() {
+      let accuracy = 0.65;
+      if (playerStats.asked > 0) {
+        const humanRatio = playerStats.correct / playerStats.asked;
+        if (humanRatio > 0.7) accuracy += 0.15;
+        if (humanRatio < 0.4) accuracy -= 0.15;
+      }
+      return Math.max(0.30, Math.min(0.90, accuracy));
+    }
+
+    function executeGoodyAnswer() {
+      const willBeCorrect = Math.random() < calculateGoodyAccuracy();
+      let chosen = activeQuestion.ans;
+
+      if (!willBeCorrect) {
+        const wrongOpts = activeQuestion.options.filter(o => o !== activeQuestion.ans);
+        chosen = wrongOpts[Math.floor(Math.random() * wrongOpts.length)];
+      }
+
+      setTimeout(() => {
+        stageSelectedOption = chosen;
+        stageOptionStatus = 'selected';
+        renderStageQuestionBoard();
+
+        setTimeout(() => {
+          evaluateAnswer(goodyPlayerSlot, chosen);
+        }, 1400);
+      }, 2500);
+    }
+
     function evaluateFinalShowdown() {
       stopDiceCountdown();
       if (questionInterval) clearInterval(questionInterval);
       isQuestionTimerActive = false;
       questionTimer = 0;
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
 
       if (isSoloMode) {
         gameState = "GAME_OVER";
         const soloName = contestantNames[soloPlayerId];
         const speech = `The 20-minute timer has expired! Unfortunately, ${soloName} was unable to complete the board in time! Tonight's prize rolls over. Goodnight everyone!`;
         speakGoody(speech);
-        broadcastGameOver("NOBODY", "SOLO_TIME_EXPIRED");
         return;
       }
 
@@ -1654,12 +947,6 @@
         gameState = "GAME_OVER";
         const speech = "The 20-minute show timer has run out, and both contestants are still on the starting square! Nobody wins tonight. Goodnight everyone!";
         speakGoody(speech);
-        broadcastGameOver("NOBODY", "ROLLOVER_START_SQUARE");
-        return;
-      }
-
-      if (p1Index === p2Index) {
-        triggerTieBreakerDuel();
         return;
       }
 
@@ -1669,82 +956,6 @@
 
       const speech = `The 20-minute timer is over! Well done to our winner ${winner}, and commiserations to ${loser}! Goodnight!`;
       speakGoody(speech);
-      broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
-    }
-   
-
-    function triggerTieBreakerDuel() {
-      isTieBreakerActive = true;
-      tieBreakerAnswered = false;
-
-      const tiePool = COUNTRY_QUESTIONS["UK"];
-      const rawQ = tiePool[Math.floor(Math.random() * tiePool.length)];
-      activeQuestion = {
-        country: "TIE-BREAKER",
-        text: rawQ.q,
-        q: rawQ.q,
-        options: rawQ.options,
-        ans: rawQ.ans,
-        recap: rawQ.recap
-      };
-
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-      renderStageQuestionBoard();
-
-      speakGoody("We have a dead heat draw! Both contestants finished on the exact same tile! We are going to a sudden death tie-breaker question!", () => {
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({
-            type: "START_TIE_BREAKER",
-            question: activeQuestion
-          });
-        });
-
-        if (isVsGoodyMode) {
-          setTimeout(() => {
-            if (!tieBreakerAnswered) {
-              handleTieBreakerAnswer(goodyPlayerSlot, activeQuestion.ans);
-            }
-          }, 8000 + Math.random() * 4000);
-        }
-      });
-    }
-
-    function handleTieBreakerAnswer(contestant, chosen) {
-      if (tieBreakerAnswered) return;
-      tieBreakerAnswered = true;
-      isTieBreakerActive = false;
-
-      const isP1 = contestant === "goody-contestant-1";
-      const answeringName = isP1 ? contestantNames["goody-contestant-1"] : contestantNames["goody-contestant-2"];
-      const opponentName = isP1 ? contestantNames["goody-contestant-2"] : contestantNames["goody-contestant-1"];
-      const isCorrect = chosen === activeQuestion.ans;
-
-      stageSelectedOption = chosen;
-      stageOptionStatus = isCorrect ? 'correct' : 'wrong';
-      renderStageQuestionBoard();
-
-      gameState = "GAME_OVER";
-      const winner = isCorrect ? answeringName : opponentName;
-      const loser = isCorrect ? opponentName : answeringName;
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "TIE_BREAKER_RESULT",
-          winner: winner,
-          loser: loser,
-          isCorrect: isCorrect,
-          chosenAnswer: chosen,
-          ans: activeQuestion.ans
-        });
-      });
-
-      const speech = isCorrect
-        ? `That is correct! Well done to our winner ${winner}! Goodnight!`
-        : `That is incorrect! By default, well done to our winner ${winner}! Goodnight!`;
-
-      speakGoody(speech);
-      broadcastGameOver(winner, "TIE_BREAKER_DECISION");
     }
 
     function triggerFinishLineVictory(winnerName, loserName) {
@@ -1752,23 +963,12 @@
       if (matchTimerInterval) clearInterval(matchTimerInterval);
       if (questionInterval) clearInterval(questionInterval);
       stopDiceCountdown();
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
 
       const speech = isSoloMode
         ? `Unbelievable! ${winnerName} has reached the final square and completed the solo challenge! Well done! Goodnight!`
         : `Unbelievable! ${winnerName} has reached the final square! Well done to our winner ${winnerName}, and commiserations to ${loserName}! Goodnight!`;
 
       speakGoody(speech);
-      broadcastGameOver(winnerName, "REACHED_THE_END");
-    }
-
-    function broadcastGameOver(winnerName, reason) {
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({ type: "GAME_OVER", winner: winnerName, reason: reason });
-      });
     }
 
     const ambientLight = new THREE.AmbientLight(0x181026, 0.85); scene.add(ambientLight);
@@ -2843,7 +2043,6 @@
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Billboarded Name Badge
       const bCanvas = document.createElement('canvas');
       bCanvas.width = 256; bCanvas.height = 96;
       const bTex = new THREE.CanvasTexture(bCanvas);
@@ -2852,7 +2051,6 @@
       });
       const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
       badgeMesh.position.set(0, 0.95, 0);
-      badgeMesh.matrixAutoUpdate = true;
       pGroup.add(badgeMesh);
 
       pGroup.userData = {
@@ -2860,60 +2058,6 @@
       };
       updatePlushieNameBadge(pGroup, initialName);
       return pGroup;
-    }
-
-    function updatePlushieNameBadge(pGroup, displayName) {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
-    }
-
-    function setPlushieVisualMode(group, mode) {
-      if (!group) return;
-      if (mode === 'invisible') {
-        group.visible = false;
-        return;
-      }
-      group.visible = true;
-      const isOpaque = (mode === 'opaque');
-      group.traverse(child => {
-        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(m => {
-            if (isOpaque) {
-              m.transparent = false;
-              m.opacity = 1.0;
-              m.depthWrite = true;
-            } else {
-              m.transparent = true;
-              m.opacity = 0.45;
-              m.depthWrite = false;
-            }
-            m.needsUpdate = true;
-          });
-        }
-      });
     }
 
     const localPlushie = createCutePlushie(0x00f0ff, "Guest 1");
@@ -2973,44 +2117,6 @@
       }
     });
     miniDiorama.add(miniAudience);
-
-    function handlePlushieMovement(contestant, direction) {
-      const targetPlushie = contestant === "goody-contestant-2" ? playerPlushie2 : playerPlushie1;
-      if (!targetPlushie) return;
-
-      const rot = contestantRotations[contestant] ? contestantRotations[contestant].yaw : 0;
-      const step = 0.35;
-
-      const fwdX = -Math.sin(rot);
-      const fwdZ = -Math.cos(rot);
-      const rightX = Math.cos(rot);
-      const rightZ = -Math.sin(rot);
-
-      if (direction === 'FORWARD') {
-        targetPlushie.position.x += fwdX * step;
-        targetPlushie.position.z += fwdZ * step;
-      }
-      if (direction === 'BACK') {
-        targetPlushie.position.x -= fwdX * step;
-        targetPlushie.position.z -= fwdZ * step;
-      }
-      if (direction === 'LEFT') {
-        targetPlushie.position.x -= rightX * step;
-        targetPlushie.position.z -= rightZ * step;
-      }
-      if (direction === 'RIGHT') {
-        targetPlushie.position.x += rightX * step;
-        targetPlushie.position.z += rightZ * step;
-      }
-
-      targetPlushie.position.x = Math.max(-6.8, Math.min(54.0, targetPlushie.position.x));
-      targetPlushie.position.z = Math.max(-14.0, Math.min(14.0, targetPlushie.position.z));
-      targetPlushie.position.y = 0.46;
-    }
-
-    function drawDiceFace(ctx, x, y, size, value) {
-      drawStudioDie(ctx, x + size / 2, y + size / 2, size, value, '#ff79b0');
-    }
 
     const studioScreenCanvas = document.createElement('canvas'); studioScreenCanvas.width = 512; studioScreenCanvas.height = 256;
     const sScreenCtx = studioScreenCanvas.getContext('2d');
@@ -3348,7 +2454,7 @@
             });
           }
         } else {
-          // Non-host player cleanly interpolates ball position from the master host
+          // Non-host player cleanly interpolates ball position from master host
           if (hasRemoteBallUpdate) {
             ballPos.lerp(remoteBallTarget, 0.25);
           }
