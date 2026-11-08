@@ -3455,21 +3455,26 @@
         updatePlushieVisibility(sp, false, false);
       });
 
-      const billboardMatrix = new THREE.Matrix4().extractRotation(camera.matrixWorld);
-      if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        localPlushie.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
-      }
-      remotePlayers.forEach(pMesh => {
-        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          pMesh.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
-        }
-      });
-      if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
-      }
-      if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.setFromRotationMatrix(billboardMatrix);
-      }
+      const camRot = camera.quaternion;
+      if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
+        localPlushie.userData.badgeMesh.quaternion.copy(camRot);
+      }
+      remotePlayers.forEach(pMesh => {
+        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
+          pMesh.userData.badgeMesh.quaternion.copy(camRot);
+        }
+      });
+      if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
+        pawn1.userData.badgeMesh.quaternion.copy(camRot);
+      }
+      if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
+        pawn2.userData.badgeMesh.quaternion.copy(camRot);
+      }
+      spectatorPlushies.forEach(sp => {
+        if (sp && sp.userData && sp.userData.badgeMesh) {
+          sp.userData.badgeMesh.quaternion.copy(camRot);
+        }
+      });
 
       if (studioPower) {
         updateCameraAlignment();
