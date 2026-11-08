@@ -214,7 +214,7 @@
 
     const remotePlayers = new Map();
 
-let localMyGuestName = "Connected...";
+let localMyGuestName = "Guest 1";
 
     let isBallPhysicsHost = false; // Single-authority physics flag
 
@@ -6064,36 +6064,37 @@ let assignedTeam = 'BLUE';
 
     let plushieColorHex = 0x00f0ff;
 
-    let localPlushie = null;
+  let localPlushie = null;
 
+// Ensure your base name is initialized before creating the plushie
+let localMyGuestName = "Connecting..."; 
 
+// Create the plushie first so localPlushie exists
+localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
 
-  // Listen for server-assigned team and name
-    if (socket) {
-      socket.on('assign_team', (data) => {
-        assignedTeam = data.team;
-        teamColorHex = data.teamColor;
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+// Listen for server-assigned team and name
+if (socket) {
+  socket.on('assign_team', (data) => {
+    assignedTeam = data.team;
+    teamColorHex = data.teamColor;
+    plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-        // This captures the server-assigned guest name (Guest 1, Guest 2, etc.)
-        if (data.name) {
-          localMyGuestName = data.name;
-        }
-
-        if (localPlushie) {
-          localPlushie.userData.team = assignedTeam;
-          localPlushie.traverse(child => {
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-              child.material.color.setHex(plushieColorHex);
-            }
-          });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-        }
-      });
+    // This captures the server-assigned guest name (Guest 1, Guest 2, etc.)
+    if (data.name) {
+      localMyGuestName = data.name;
     }
 
-
-    localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
+    if (localPlushie) {
+      localPlushie.userData.team = assignedTeam;
+      localPlushie.traverse(child => {
+        if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+          child.material.color.setHex(plushieColorHex);
+        }
+      });
+      updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+    }
+  });
+}
 
     localPlushie.userData.team = assignedTeam;
 
