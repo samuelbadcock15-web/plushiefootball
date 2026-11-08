@@ -30,6 +30,49 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
+    /* Mobile Virtual D-Pad (Hidden on PC desktop) */
+    #mobile-dpad {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      display: none;
+      grid-template-areas: 
+        ". up ."
+        "left down right";
+      gap: 12px;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    /* Automatically show on touch/mobile devices */
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-dpad { display: grid; }
+    }
+
+    .dpad-btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(22, 9, 44, 0.85);
+      border: 2px solid #00f0ff;
+      border-radius: 14px;
+      color: #00f0ff;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+    }
+
+    /* Glowing highlight state when pressed or swiped */
+    .dpad-btn.active, .dpad-btn:active {
+      background: rgba(0, 240, 255, 0.45);
+      border-color: #39ff14;
+      color: #39ff14;
+      box-shadow: 0 0 22px #39ff14;
+    }
   </style>
 </head>
 <body>
@@ -47,7 +90,14 @@
   </div>
 
   <canvas id="canvas3d"></canvas>
+<canvas id="canvas3d"></canvas>
 
+  <div id="mobile-dpad">
+    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
+    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
+    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
+    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+  </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
@@ -251,13 +301,17 @@ socket.on('update_player', (data) => {
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
-        socket.on('remove_player', (id) => {
-          const pMesh = remotePlayers.get(id);
-          if (pMesh) {
-            miniDiorama.remove(pMesh);
-            remotePlayers.delete(id);
-          }
-        });
+socket.on('remove_player', (id) => {
+          const pMesh = remotePlayers.get(id);
+          if (pMesh) {
+            // Remove the name badge mesh from the diorama if it exists
+            if (pMesh.userData && pMesh.userData.badgeMesh) {
+              miniDiorama.remove(pMesh.userData.badgeMesh);
+            }
+            miniDiorama.remove(pMesh);
+            remotePlayers.delete(id);
+          }
+        });
 
         socket.on('ball_sync', (bData) => {
           if (ballMesh) {
@@ -2863,39 +2917,51 @@ socket.on('update_player', (data) => {
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
       const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
-      const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear1.position.set(-0.14, 0.74, 0);
-      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
-      const blushMat = new THREE.MeshBasicMaterial({ color: 0xff69b4 });
-      const blush1 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush1.position.set(-0.11, 0.54, 0.17);
-      const blush2 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush2.position.set(0.11, 0.54, 0.17); pGroup.add(blush1, blush2);
-      const eyeBlackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-      const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeL.position.set(-0.07, 0.60, 0.19);
-      const shineL = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineL.position.set(-0.08, 0.612, 0.21); pGroup.add(eyeL, shineL);
-      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeR.position.set(0.07, 0.60, 0.19);
-      const shineR = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineR.position.set(0.06, 0.612, 0.21); pGroup.add(eyeR, shineR);
-      const snout = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff8fab, roughness: 0.6 }));
-      snout.scale.set(1.2, 0.8, 1); snout.position.set(0, 0.56, 0.21); pGroup.add(snout);
-      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
-      mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
+function createCutePlushie(color, initialName = "") {
+      const pGroup = new THREE.Group();
+      const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
+      const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
+      const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
+      const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear1.position.set(-0.14, 0.74, 0);
+      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
+      const blushMat = new THREE.MeshBasicMaterial({ color: 0xff69b4 });
+      const blush1 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush1.position.set(-0.11, 0.54, 0.17);
+      const blush2 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush2.position.set(0.11, 0.54, 0.17); pGroup.add(blush1, blush2);
+      const eyeBlackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+      const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeL.position.set(-0.07, 0.60, 0.19);
+      const shineL = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineL.position.set(-0.08, 0.612, 0.21); pGroup.add(eyeL, shineL);
+      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeR.position.set(0.07, 0.60, 0.19);
+      const shineR = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineR.position.set(0.06, 0.612, 0.21); pGroup.add(eyeR, shineR);
+      const snout = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff8fab, roughness: 0.6 }));
+      snout.scale.set(1.2, 0.8, 1); snout.position.set(0, 0.56, 0.21); pGroup.add(snout);
+      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
+      mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Billboarded Name Badge
-      const bCanvas = document.createElement('canvas');
-      bCanvas.width = 256; bCanvas.height = 96;
-      const bTex = new THREE.CanvasTexture(bCanvas);
-      const badgeMat = new THREE.MeshBasicMaterial({
-        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
-      });
-      const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
-      badgeMesh.position.set(0, 0.95, 0);
-      badgeMesh.matrixAutoUpdate = true;
-miniDiorama.add(badgeMesh);
-      pGroup.userData = {
-        badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
-      };
-      updatePlushieNameBadge(pGroup, initialName);
-      return pGroup;
-    }
+      // Only create a badge mesh if a name was actually passed
+      let badgeMesh = null;
+      let bCanvas = null;
+      let bTex = null;
+
+      if (initialName) {
+        bCanvas = document.createElement('canvas');
+        bCanvas.width = 256; bCanvas.height = 96;
+        bTex = new THREE.CanvasTexture(bCanvas);
+        const badgeMat = new THREE.MeshBasicMaterial({
+          map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
+        });
+        badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
+        badgeMesh.position.set(0, 0.95, 0);
+        badgeMesh.matrixAutoUpdate = true;
+        miniDiorama.add(badgeMesh);
+        updatePlushieNameBadge(pGroup, initialName);
+      }
+      
+      pGroup.userData = {
+        badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
+      };
+      return pGroup;
+    }
 
 function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
@@ -3016,7 +3082,7 @@ let assignedTeam = 'BLUE';
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, `Spectator ${i + 1}`);
+const pGroup = createCutePlushie(col, "");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3584,6 +3650,77 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
 
       renderer.render(scene, camera);
     }
+        // --- MOBILE VIRTUAL DPAD & SWIPE CONTROLS ---
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    function bindTouchButton(elem, stateKey, btnElement) {
+      if (!elem) return;
+      const activate = (e) => {
+        e.preventDefault();
+        moveState[stateKey] = true;
+        btnElement.classList.add('active');
+      };
+      const deactivate = (e) => {
+        e.preventDefault();
+        moveState[stateKey] = false;
+        btnElement.classList.remove('active');
+      };
+
+      elem.addEventListener('touchstart', activate, { passive: false });
+      elem.addEventListener('touchend', deactivate, { passive: false });
+      elem.addEventListener('touchcancel', deactivate, { passive: false });
+      elem.addEventListener('mousedown', activate);
+      elem.addEventListener('mouseup', deactivate);
+      elem.addEventListener('mouseleave', deactivate);
+    }
+
+    bindTouchButton(btnUp, 'forward', btnUp);
+    bindTouchButton(btnDown, 'backward', btnDown);
+    bindTouchButton(btnLeft, 'turnLeft', btnLeft);
+    bindTouchButton(btnRight, 'turnRight', btnRight);
+
+    // Screen Touch Swipe to Turn + Light up Left/Right buttons
+    let touchStartX = null;
+    let isSwipingScreen = false;
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        isSwipingScreen = true;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isSwipingScreen || touchStartX === null) return;
+      if (e.touches.length > 0) {
+        const currentX = e.touches[0].clientX;
+        const deltaX = currentX - touchStartX;
+        
+        const turnSensitivity = 0.008;
+        plushieRotation.yaw -= deltaX * turnSensitivity;
+
+        if (deltaX > 5) {
+          btnRight.classList.add('active');
+          btnLeft.classList.remove('active');
+        } else if (deltaX < -5) {
+          btnLeft.classList.add('active');
+          btnRight.classList.remove('active');
+        }
+
+        touchStartX = currentX;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      isSwipingScreen = false;
+      touchStartX = null;
+      btnLeft.classList.remove('active');
+      btnRight.classList.remove('active');
+    });
     animate();
   </script>
 </body>
