@@ -256,13 +256,22 @@ socket.on('update_player', (data) => {
           const remoteTeam = data.team || 'BLUE';
           const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
           const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          const playerName = data.name || "Guest";
 
           if (!pMesh) {
-            pMesh = createCutePlushie(remotePlushieHex, data.name || "Guest");
+            // Pass playerName here so the plushie gets the correct name right away!
+            pMesh = createCutePlushie(remotePlushieHex, playerName);
             pMesh.userData.team = remoteTeam;
-            updatePlushieNameBadge(pMesh, data.name || "Guest", remoteTeamColor);
+            updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
             miniDiorama.add(pMesh);
             remotePlayers.set(data.id, pMesh);
+          } else {
+            pMesh.userData.team = remoteTeam;
+            pMesh.traverse(child => {
+              if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
+                child.material.color.setHex(remotePlushieHex);
+              }
+            });
           }
           
           pMesh.position.set(data.x, data.y, data.z);
