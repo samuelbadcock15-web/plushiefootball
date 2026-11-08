@@ -35,7 +35,7 @@
       bottom: 30px;
       left: 30px;
       display: none;
-      grid-template-areas: 
+      grid-template-areas:
         ". up ."
         "left down right";
       gap: 12px;
@@ -276,14 +276,14 @@
               }
             });
           }
-          
+         
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-          
+         
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-          
+         
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -373,9 +373,9 @@ function startPodium1PriorityCountdown() {
   }
 
   function stopPodium1PriorityCountdown() {
-    if (podium1PriorityInterval) { 
-      clearInterval(podium1PriorityInterval); 
-      podium1PriorityInterval = null; 
+    if (podium1PriorityInterval) {
+      clearInterval(podium1PriorityInterval);
+      podium1PriorityInterval = null;
     }
     isPodium1WaitingForP2 = false;
   }
@@ -395,7 +395,7 @@ function startPodium1PriorityCountdown() {
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-        
+       
         pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
@@ -1945,10 +1945,10 @@ function startPodium1PriorityCountdown() {
     miniDiorama.add(feltCarpet);
 
     const miniWall = new THREE.Mesh(
-      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2), 
+      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2),
       new THREE.MeshStandardMaterial({ color: 0x15092a, side: THREE.BackSide })
     );
-    miniWall.position.y = 2.65; 
+    miniWall.position.y = 2.65;
     miniDiorama.add(miniWall);
 
     const enclosingWallsGroup = new THREE.Group();
@@ -1997,7 +1997,7 @@ function startPodium1PriorityCountdown() {
     partitionGroup.add(rightWall);
 
     const gateGroup = new THREE.Group();
-    gateGroup.position.set(0, 0, -4.0); 
+    gateGroup.position.set(0, 0, -4.0);
 
     const gateMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4.2, 3.0),
@@ -2026,14 +2026,14 @@ function startPodium1PriorityCountdown() {
     pitchSbTexture.minFilter = THREE.LinearFilter;
 
     const pitchBoardGeo = new THREE.PlaneGeometry(12, 6);
-    const pitchBoardMat = new THREE.MeshBasicMaterial({ 
-      map: pitchSbTexture, 
-      side: THREE.DoubleSide 
+    const pitchBoardMat = new THREE.MeshBasicMaterial({
+      map: pitchSbTexture,
+      side: THREE.DoubleSide
     });
 
     const pitchScoreboardMesh = new THREE.Mesh(pitchBoardGeo, pitchBoardMat);
     pitchScoreboardMesh.position.set(34.0, 3.5, 14.0);
-    pitchScoreboardMesh.rotation.y = Math.PI; 
+    pitchScoreboardMesh.rotation.y = Math.PI;
     miniDiorama.add(pitchScoreboardMesh);
 
     function renderPitchScoreboard(blue, red) {
@@ -2122,7 +2122,7 @@ function startPodium1PriorityCountdown() {
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
      
-      const goalSpan = 5.0; 
+      const goalSpan = 5.0;
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
       goalGroup.add(post1);
@@ -2968,7 +2968,7 @@ function startPodium1PriorityCountdown() {
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
-      
+     
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -2993,7 +2993,7 @@ function startPodium1PriorityCountdown() {
       }
       ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = teamColor; 
+      ctx.fillStyle = teamColor;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
       ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
@@ -3055,7 +3055,7 @@ function startPodium1PriorityCountdown() {
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-    
+   
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -3424,9 +3424,9 @@ function startPodium1PriorityCountdown() {
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
-            plushiePosition.x = 9.6; 
+            plushiePosition.x = 9.6;
           } else {
-            plushiePosition.x = 10.4; 
+            plushiePosition.x = 10.4;
           }
         }
       }
@@ -3531,7 +3531,7 @@ function startPodium1PriorityCountdown() {
       const distP1 = canUsePodium1 ? plushiePosition.distanceTo(p1Pos) : 999;
       const distP2 = canUsePodium2 ? plushiePosition.distanceTo(p2Pos) : 999;
 
-      // Keep plushie firmly on the floor
+      // Keep plushie firmly on the floor so it never ghosts or floats
       plushiePosition.y = 0.44;
 
       const prevPodium1 = isLocalOnPodium1;
@@ -3540,19 +3540,16 @@ function startPodium1PriorityCountdown() {
       isLocalOnPodium1 = distP1 < 0.65;
       isLocalOnPodium2 = distP2 < 0.65;
 
-      // Anti-troll step-off detection & 15s lockout penalty
-      if (prevPodium1 && !isLocalOnPodium1) {
-        p1LockoutUntil = Date.now() + 15000;
-        if (gameState === "IN_PLAY") {
-          handleMidGameDropout("goody-contestant-1");
-        }
+      // Anti-troll step-off detection & 30s lockout penalty
+      if (prevPodium1 && !isLocalOnPodium1 && gameState === "IN_PLAY") {
+        p1LockoutUntil = Date.now() + 30000;
+        handleMidGameDropout("goody-contestant-1");
       }
-      if (prevPodium2 && !isLocalOnPodium2) {
-        p2LockoutUntil = Date.now() + 15000;
-        if (gameState === "IN_PLAY") {
-          handleMidGameDropout("goody-contestant-2");
-        }
+      if (prevPodium2 && !isLocalOnPodium2 && gameState === "IN_PLAY") {
+        p2LockoutUntil = Date.now() + 30000;
+        handleMidGameDropout("goody-contestant-2");
       }
+
       // Trigger 10-second opening window when stepping onto Podium 1
       if (isLocalOnPodium1 && !prevPodium1 && gameState === "MODE_PROMPT" && !studioPower) {
         startPodium1PriorityCountdown();
@@ -3617,7 +3614,7 @@ function startPodium1PriorityCountdown() {
       });
 
       const camRot = camera.quaternion;
-      
+     
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
@@ -3707,7 +3704,7 @@ function startPodium1PriorityCountdown() {
       if (e.touches.length > 0) {
         const currentX = e.touches[0].clientX;
         const deltaX = currentX - touchStartX;
-        
+       
         const turnSensitivity = 0.008;
         plushieRotation.yaw -= deltaX * turnSensitivity;
 
