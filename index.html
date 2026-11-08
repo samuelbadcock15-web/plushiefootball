@@ -3531,11 +3531,8 @@ function startPodium1PriorityCountdown() {
       const distP1 = canUsePodium1 ? plushiePosition.distanceTo(p1Pos) : 999;
       const distP2 = canUsePodium2 ? plushiePosition.distanceTo(p2Pos) : 999;
 
-      if (distP1 < 0.65 || distP2 < 0.65) {
-        plushiePosition.y = 0.58;
-      } else {
-        plushiePosition.y = 0.44;
-      }
+      // Keep plushie firmly on the floor so it never ghosts or floats
+      plushiePosition.y = 0.44;
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
@@ -3543,6 +3540,7 @@ function startPodium1PriorityCountdown() {
       isLocalOnPodium1 = distP1 < 0.65;
       isLocalOnPodium2 = distP2 < 0.65;
 
+      // Anti-troll step-off detection & 30s lockout penalty
       if (prevPodium1 && !isLocalOnPodium1 && gameState === "IN_PLAY") {
         p1LockoutUntil = Date.now() + 30000;
         handleMidGameDropout("goody-contestant-1");
@@ -3552,17 +3550,12 @@ function startPodium1PriorityCountdown() {
         handleMidGameDropout("goody-contestant-2");
       }
 
+      // Trigger 10-second opening window when stepping onto Podium 1
       if (isLocalOnPodium1 && !prevPodium1 && gameState === "MODE_PROMPT" && !studioPower) {
         startPodium1PriorityCountdown();
       } else if (!isLocalOnPodium1 && prevPodium1 && isPodium1WaitingForP2) {
         stopPodium1PriorityCountdown();
         renderStageQuestionBoard();
-      }
-
-      if ((isLocalOnPodium1 !== prevPodium1) || (isLocalOnPodium2 !== prevPodium2)) {
-        if (!studioPower && gameState === "MODE_PROMPT") {
-          renderStageQuestionBoard();
-        }
       }
 
       const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
