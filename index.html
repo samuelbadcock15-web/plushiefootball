@@ -340,45 +340,45 @@
       renderStageQuestionBoard();
     }
 
-    function startPodium1PriorityCountdown() {
-      if (isPodium1WaitingForP2) return;
-      isPodium1WaitingForP2 = true;
-      podium1PriorityTimer = 10;
-      renderStageQuestionBoard();
+function startPodium1PriorityCountdown() {
+    if (isPodium1WaitingForP2) return;
+    isPodium1WaitingForP2 = true;
+    podium1PriorityTimer = 10;
+    renderStageQuestionBoard();
 
-      speakGoody("Podium 1 secured! Checking for Player 2 on Podium 2 for 10 seconds!", () => {
-        if (podium1PriorityInterval) clearInterval(podium1PriorityInterval);
-        podium1PriorityInterval = setInterval(() => {
-          if (!isLocalOnPodium1) {
-            stopPodium1PriorityCountdown();
-            return;
-          }
-          if (isLocalOnPodium2) {
-            stopPodium1PriorityCountdown();
-            speakGoody("Player 2 detected! Launching 2-Player mode!");
-            chooseHostGameMode("TWOPLAYER");
-            return;
-          }
+    speakGoody("Podium 1 secured! Checking for Player 2 on Podium 2 for 10 seconds!", () => {
+      if (podium1PriorityInterval) clearInterval(podium1PriorityInterval);
+      podium1PriorityInterval = setInterval(() => {
+        if (!isLocalOnPodium1) {
+          stopPodium1PriorityCountdown();
+          return;
+        }
+        if (isLocalOnPodium2) {
+          stopPodium1PriorityCountdown();
+          speakGoody("Player 2 detected! Launching 2-Player mode!");
+          chooseHostGameMode("TWOPLAYER");
+          return;
+        }
 
-          podium1PriorityTimer--;
+        podium1PriorityTimer--;
+        renderStageQuestionBoard();
+
+        if (podium1PriorityTimer <= 0) {
+          stopPodium1PriorityCountdown();
+          speakGoody("Time's up for Player 2! Solo and vs Goody modes unlocked.");
           renderStageQuestionBoard();
+        }
+      }, 1000);
+    });
+  }
 
-          if (podium1PriorityTimer <= 0) {
-            stopPodium1PriorityCountdown();
-            speakGoody("Time's up for Player 2! Solo and vs Goody modes unlocked.");
-            renderStageQuestionBoard();
-          }
-        }, 1000);
-      });
+  function stopPodium1PriorityCountdown() {
+    if (podium1PriorityInterval) { 
+      clearInterval(podium1PriorityInterval); 
+      podium1PriorityInterval = null; 
     }
-
-    function stopPodium1PriorityCountdown() {
-      if (podium1PriorityInterval) { 
-        clearInterval(podium1PriorityInterval); 
-        podium1PriorityInterval = null; 
-      }
-      isPodium1WaitingForP2 = false;
-    }
+    isPodium1WaitingForP2 = false;
+  }
 
     function chooseHostGameMode(modeType) {
       if (studioPower) return;
@@ -2546,7 +2546,7 @@
         qBoardCtx.fillStyle = '#ffffff';
         qBoardCtx.font = '16px sans-serif';
         qBoardCtx.fillText("WAITING FOR RECONNECT...", 256, 195);
-      } else if (gameState === "MODE_PROMPT") {
+     } else if (gameState === "MODE_PROMPT") {
         qBoardCtx.fillStyle = '#ffda66'; qBoardCtx.font = 'bold 24px sans-serif'; qBoardCtx.textAlign = 'center';
         qBoardCtx.fillText("CHOOSE GAME MODE", 256, 45);
 
