@@ -12,109 +12,113 @@ const app = express();
 
 const server = http.createServer(app);
 
-const io = new Server(server, {
-
-  cors: {
-
-    origin: "*",
-
-    methods: ["GET", "POST"]
-
-  }
-
-});
+const io = new Server(server);
 
 
 
-const PORT = process.env.PORT || 3000;
+// Serve static files from the current directory
+
+app.use(express.static(path.join(__dirname)));
 
 
 
-// Serve static files from public directory
-
-app.use(express.static(path.join(__dirname, 'public')));
-
-
-
-// Game state tracking
+// Track active players connected to the studio
 
 const activePlayers = new Map();
 
-let guestCounter = 1;
+let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
+
+let connectionCount = 0;
+
+let guestCounter = 0; // Sequential counter for Guest names
 
 
 
 io.on('connection', (socket) => {
 
-  console.log(`Player connected: ${socket.id}`);
+  console.log(`User connected: ${socket.id}`);
 
 
 
-  // Alternate teams or assign based on current count
+  // Alternate teams: 1st player is Blue, 2nd is Red, 3rd is Blue, etc.
 
-  const assignedTeam = guestCounter % 2 === 0 ? 'BLUE' : 'RED';
-
-  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
-
-  const defaultName = `Guest ${guestCounter}`;
+  connectionCount++;
 
   guestCounter++;
 
+  
+
+  const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
+
+  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
 
 
-  // Initialize player data
 
-  activePlayers.set(socket.id, {
+  // Assign sequential guest name (Guest 1, Guest 2, Guest 3, etc.)
 
-    id: socket.id,
+  const defaultName = `Guest ${guestCounter}`;
 
-    name: defaultName,
+  
 
-    x: 32.0,
+  activePlayers.set(socket.id, { 
 
-    y: 0.44,
+    id: socket.id, 
 
-    z: 2.5,
+    name: defaultName, 
+
+    x: 32.0, 
+
+    y: 0.44, 
+
+    z: 2.5, 
 
     yaw: 0,
 
     team: assignedTeam,
 
-    teamColor: teamColorHex,
-
-    animState: 'idle'
+    teamColor: teamColorHex
 
   });
 
 
 
-  // Send initial team assignment and assigned guest name back to client
+  // Inform this client what team they have been assigned to
 
-  socket.emit('assign_team', {
-
-    team: assignedTeam,
-
-    teamColor: teamColorHex,
-
-    name: defaultName
-
-  });
+  socket.emit('assign_team', { team: assignedTeam, teamColor: teamColorHex });
 
 
 
-  // Broadcast current player list to everyone
+  // If this is the first connected player, make them the official ball physics host
 
-  io.emit('update_players', Array.from(activePlayers.values()));
+  if (!ballPhysicsHostId) {
+
+    ballPhysicsHostId = socket.id;
+
+  }
+
+  
+
+  // Inform this client whether they are the designated ball physics host
+
+  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
 
 
-  // Handle player movement / transform updates
+  // Send current players list to the newly connected client
+
+  socket.emit('current_players', Array.from(activePlayers.values()));
+
+
+
+  // Handle player avatar movement, rotation, & team updates
 
   socket.on('player_move', (data) => {
 
     const player = activePlayers.get(socket.id);
 
     if (player) {
+
+      player.name = data.name || player.name;
 
       player.x = data.x;
 
@@ -124,33 +128,15 @@ io.on('connection', (socket) => {
 
       player.yaw = data.yaw;
 
-      player.animState = data.animState || 'idle';
+      player.team = data.team || player.team;
 
-      
-
-      // Broadcast movement to all other connected clients
-
-      socket.broadcast.emit('player_moved', player);
-
-    }
-
-  });
+      player.teamColor = data.teamColor || player.teamColor;
 
 
 
-  // Handle WebRTC signaling for voice/video feeds
+      // Broadcast updated player position and team data to everyone else
 
-  socket.on('webrtc_signal', (data) => {
-
-    if (data.to && data.signal) {
-
-      io.to(data.to).emit('webrtc_signal', {
-
-        from: socket.id,
-
-        signal: data.signal
-
-      });
+      socket.broadcast.emit('update_player', player);
 
     }
 
@@ -158,15 +144,59 @@ io.on('connection', (socket) => {
 
 
 
-  // Handle disconnection
+  // Handle real-time ball movement and physics synchronization from the host
+
+  socket.on('ball_move', (bData) => {
+
+    // Broadcast ball coordinates and velocity to all other connected clients
+
+    socket.broadcast.emit('ball_sync', bData);
+
+  });
+
+
+
+  // Handle goal scores and reset triggers
+
+  socket.on('score_update', (sData) => {
+
+    // Broadcast updated score to all clients (including sender)
+
+    io.emit('score_sync', sData);
+
+  });
+
+
+
+  // Handle disconnects
 
   socket.on('disconnect', () => {
 
-    console.log(`Player disconnected: ${socket.id}`);
+    console.log(`User disconnected: ${socket.id}`);
 
     activePlayers.delete(socket.id);
 
-    io.emit('player_disconnected', socket.id);
+    io.emit('remove_player', socket.id);
+
+
+
+    // If the current ball physics host disconnects, reassign to the next available player
+
+    if (socket.id === ballPhysicsHostId) {
+
+      const remainingIds = Array.from(activePlayers.keys());
+
+      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
+
+      if (ballPhysicsHostId) {
+
+        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
+
+        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
+
+      }
+
+    }
 
   });
 
@@ -174,8 +204,10 @@ io.on('connection', (socket) => {
 
 
 
+const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
 
-  console.log(`Server is running smoothly on port ${PORT}`);
+  console.log(`The Goody Tonight Show server running on http://localhost:${PORT}`);
 
 });
