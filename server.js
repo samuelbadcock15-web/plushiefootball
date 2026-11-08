@@ -64,7 +64,7 @@ io.on('connection', (socket) => {
       player.animState = data.animState || 'idle';
       
       // Broadcast movement to all other connected clients
-      socket.broadcast.emit('player_moved', player);
+socket.broadcast.emit('update_player', player);
     }
   });
 
@@ -82,7 +82,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`);
     activePlayers.delete(socket.id);
-    io.emit('player_disconnected', socket.id);
+io.emit('remove_player', socket.id);
   });
 });
 
