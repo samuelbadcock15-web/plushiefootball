@@ -3359,11 +3359,11 @@ miniDiorama.add(badgeMesh);
             });
           }
         } else {
-          // Non-host player cleanly interpolates ball position from the master host
-          if (hasRemoteBallUpdate) {
-            ballPos.lerp(remoteBallTarget, 0.25);
-          }
-        }
+          // Non-host player cleanly interpolates ball position from the master host
+          if (hasRemoteBallUpdate) {
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
+          }
+        }
       } else {
         ballMesh.position.set(34.0, 0.82, 0.0);
         ballVelocity.set(0, 0, 0);
