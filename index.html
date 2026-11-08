@@ -3495,13 +3495,41 @@ const pGroup = createCutePlushie(col, "");
       const p1Pos = new THREE.Vector3(-1.6, 0.44, -2.2);
       const p2Pos = new THREE.Vector3(1.6, 0.44, -2.2);
 
-      const distP1 = plushiePosition.distanceTo(p1Pos);
-      const distP2 = plushiePosition.distanceTo(p2Pos);
+      const nowSec = Date.now();
+      const canUsePodium1 = nowSec > p1LockoutUntil;
+      const canUsePodium2 = nowSec > p2LockoutUntil;
 
-      if (distP1 < 0.65 || distP2 < 0.65) {
-        plushiePosition.y = 0.58;
-      } else {
-        plushiePosition.y = 0.44;
+      const distP1 = canUsePodium1 ? plushiePosition.distanceTo(p1Pos) : 999;
+      const distP2 = canUsePodium2 ? plushiePosition.distanceTo(p2Pos) : 999;
+
+      plushiePosition.y = 0.44;
+
+      const prevPodium1 = isLocalOnPodium1;
+      const prevPodium2 = isLocalOnPodium2;
+
+      isLocalOnPodium1 = distP1 < 0.65;
+      isLocalOnPodium2 = distP2 < 0.65;
+
+      // Phase 2: Cooldown & Anti-Spam Lockout Penalty (15s lockout if stepping off)
+      if (prevPodium1 && !isLocalOnPodium1) {
+        p1LockoutUntil = Date.now() + 15000;
+        if (gameState === "IN_PLAY") {
+          handleMidGameDropout("goody-contestant-1");
+        }
+      }
+      if (prevPodium2 && !isLocalOnPodium2) {
+        p2LockoutUntil = Date.now() + 15000;
+        if (gameState === "IN_PLAY") {
+          handleMidGameDropout("goody-contestant-2");
+        }
+      }
+
+      // Phase 1: Podium 1 Launch Sequence & 10s P2 Grace Window
+      if (isLocalOnPodium1 && !prevPodium1 && gameState === "MODE_PROMPT" && !studioPower) {
+        startPodium1PriorityCountdown();
+      } else if (!isLocalOnPodium1 && prevPodium1 && isPodium1WaitingForP2) {
+        stopPodium1PriorityCountdown();
+        renderStageQuestionBoard();
       }
 
       localPlushie.position.copy(plushiePosition);
