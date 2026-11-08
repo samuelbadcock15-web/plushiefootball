@@ -43,6 +43,10 @@ io.on('connection', (socket) => {
     animState: 'idle'
   });
 
+  // Designate first connected player as ball physics authority
+  const isHost = activePlayers.size === 1;
+  socket.emit('ball_host_assignment', { isHost });
+
   // Send initial team assignment and assigned guest name back to client
   socket.emit('assign_team', {
     team: assignedTeam,
@@ -57,15 +61,28 @@ io.on('connection', (socket) => {
   socket.on('player_move', (data) => {
     const player = activePlayers.get(socket.id);
     if (player) {
+      player.name = data.name || player.name;
       player.x = data.x;
       player.y = data.y;
       player.z = data.z;
       player.yaw = data.yaw;
+      player.team = data.team || player.team;
+      player.teamColor = data.teamColor || player.teamColor;
       player.animState = data.animState || 'idle';
       
       // Broadcast movement to all other connected clients
       socket.broadcast.emit('player_moved', player);
     }
+  });
+
+  // Handle Ball Physics Synchronization
+  socket.on('ball_move', (bData) => {
+    socket.broadcast.emit('ball_sync', bData);
+  });
+
+  // Handle Score Updates
+  socket.on('score_update', (sData) => {
+    io.emit('score_sync', sData);
   });
 
   // Handle WebRTC signaling for voice/video feeds
