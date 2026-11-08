@@ -2998,12 +2998,10 @@ socket.on('assign_team', (data) => {
   teamColorHex = data.teamColor;
   plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-  // Capture the unique server-assigned guest name
   if (data.name) {
     localMyGuestName = data.name;
   }
 
-  // Update local plushie color and name tag badge immediately
   if (localPlushie) {
     localPlushie.userData.team = assignedTeam;
     localPlushie.traverse(child => {
