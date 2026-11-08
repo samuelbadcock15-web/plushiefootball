@@ -6068,42 +6068,29 @@ let assignedTeam = 'BLUE';
 
 
 
-    // Listen for the server telling us what team we are on
-
+  // Listen for server-assigned team and name
     if (socket) {
-
       socket.on('assign_team', (data) => {
-
         assignedTeam = data.team;
-
         teamColorHex = data.teamColor;
-
         plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-
-
-        if (localPlushie) {
-
-          localPlushie.userData.team = assignedTeam;
-
-          localPlushie.traverse(child => {
-
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-
-              child.material.color.setHex(plushieColorHex);
-
-            }
-
-          });
-
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-
+        // This captures the server-assigned guest name (Guest 1, Guest 2, etc.)
+        if (data.name) {
+          localMyGuestName = data.name;
         }
 
+        if (localPlushie) {
+          localPlushie.userData.team = assignedTeam;
+          localPlushie.traverse(child => {
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              child.material.color.setHex(plushieColorHex);
+            }
+          });
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+        }
       });
-
     }
-
 
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
