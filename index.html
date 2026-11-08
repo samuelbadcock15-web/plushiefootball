@@ -178,6 +178,11 @@ let localMyGuestName = "Guest " + Math.floor(100 + Math.random() * 900);
     let stageOptionStatus = null;
 
     let audienceCount = 1;
+    let podium1PriorityTimer = 10;
+   let podium1PriorityInterval = null;
+   let isPodium1WaitingForP2 = false;
+   let p1LockoutUntil = 0;
+   let p2LockoutUntil = 0;
     const audienceCountEl = document.getElementById('audience-count');
     const countdownPill = document.getElementById('countdown-pill');
     const timerValEl = document.getElementById('timer-val');
@@ -385,7 +390,45 @@ let localMyGuestName = "Guest " + Math.floor(100 + Math.random() * 900);
         });
       }
     }
+function startPodium1PriorityCountdown() {
+      if (isPodium1WaitingForP2) return;
+      isPodium1WaitingForP2 = true;
+      podium1PriorityTimer = 10;
+      renderStageQuestionBoard();
 
+      speakGoody("Podium 1 secured! Checking for Player 2 on Podium 2 for 10 seconds!", () => {
+        if (podium1PriorityInterval) clearInterval(podium1PriorityInterval);
+        podium1PriorityInterval = setInterval(() => {
+          if (!isLocalOnPodium1) {
+            stopPodium1PriorityCountdown();
+            return;
+          }
+          if (isLocalOnPodium2) {
+            stopPodium1PriorityCountdown();
+            speakGoody("Player 2 detected! Launching 2-Player mode!");
+            chooseHostGameMode("TWOPLAYER");
+            return;
+          }
+
+          podium1PriorityTimer--;
+          renderStageQuestionBoard();
+
+          if (podium1PriorityTimer <= 0) {
+            stopPodium1PriorityCountdown();
+            speakGoody("Time's up for Player 2! Solo and vs Goody modes unlocked.");
+            renderStageQuestionBoard();
+          }
+        }, 1000);
+      });
+    }
+
+    function stopPodium1PriorityCountdown() {
+      if (podium1PriorityInterval) { 
+        clearInterval(podium1PriorityInterval); 
+        podium1PriorityInterval = null; 
+      }
+      isPodium1WaitingForP2 = false;
+    }
     function broadcastBoardState() {
       connectedDataConns.forEach(c => {
         if (c.open) {
@@ -2499,47 +2542,39 @@ let localMyGuestName = "Guest " + Math.floor(100 + Math.random() * 900);
 
         qBoardCtx.fillStyle = '#ffffff';
         qBoardCtx.font = '16px sans-serif';
-        qBoardCtx.fillText("WAITING FOR RECONNECT...", 256, 195);
+qBoardCtx.fillText("WAITING FOR RECONNECT...", 256, 195);
       } else if (gameState === "MODE_PROMPT") {
-        qBoardCtx.fillStyle = '#ffda66';
-        qBoardCtx.font = 'bold 24px sans-serif';
-        qBoardCtx.textAlign = 'center';
-        qBoardCtx.fillText("CHOOSE GAME MODE", 256, 50);
-
-        qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 66, 440, 2);
+        qBoardCtx.fillStyle = '#ffda66'; qBoardCtx.font = 'bold 24px sans-serif'; qBoardCtx.textAlign = 'center';
+        qBoardCtx.fillText("CHOOSE GAME MODE", 256, 45);
 
         if (!isLocalOnPodium1) {
-          qBoardCtx.fillStyle = '#ff7675';
-          qBoardCtx.font = 'bold 16px sans-serif';
+          qBoardCtx.fillStyle = '#ff7675'; qBoardCtx.font = 'bold 15px sans-serif';
           qBoardCtx.fillText("STEP ON PODIUM 1 WITH YOUR PLUSHIE TO UNLOCK!", 256, 180);
+        } else if (isPodium1WaitingForP2) {
+          qBoardCtx.fillStyle = '#00f0ff'; qBoardCtx.font = 'bold 18px monospace';
+          qBoardCtx.fillText(`CHECKING FOR PLAYER 2... (${podium1PriorityTimer}s)`, 256, 110);
+          qBoardCtx.fillStyle = '#ff7675'; qBoardCtx.font = 'bold 14px sans-serif';
+          qBoardCtx.fillText("All modes locked while checking Podium 2", 256, 195);
         } else {
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = '15px sans-serif';
-          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 105);
+          qBoardCtx.fillStyle = '#ffffff'; qBoardCtx.font = '15px sans-serif';
+          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 85);
 
-          qBoardCtx.fillStyle = '#3498db';
-          qBoardCtx.fillRect(40, 125, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 152);
+          qBoardCtx.fillStyle = '#3498db'; qBoardCtx.fillRect(40, 110, 432, 42);
+          qBoardCtx.fillStyle = '#ffffff'; qBoardCtx.font = 'bold 16px monospace';
+          qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 137);
 
-          qBoardCtx.fillStyle = '#e74c3c';
-          qBoardCtx.fillRect(40, 178, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 205);
+          qBoardCtx.fillStyle = '#e74c3c'; qBoardCtx.fillRect(40, 162, 432, 42);
+          qBoardCtx.fillStyle = '#ffffff'; qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 189);
 
-          qBoardCtx.fillStyle = '#9b59b6';
-          qBoardCtx.fillRect(40, 231, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 258);
-
-          qBoardCtx.fillStyle = '#39ff14';
-          qBoardCtx.font = 'bold 13px monospace';
-          qBoardCtx.fillText("TAP ANY OPTION OR USE 1, 2, 3", 256, 315);
+          if (isLocalOnPodium2) {
+            qBoardCtx.fillStyle = '#9b59b6'; qBoardCtx.fillRect(40, 214, 432, 42);
+            qBoardCtx.fillStyle = '#ffffff'; qBoardCtx.fillText("[3] 2-PLAYER MODE (READY!)", 256, 241);
+          } else {
+            qBoardCtx.fillStyle = '#444444'; qBoardCtx.fillRect(40, 214, 432, 42);
+            qBoardCtx.fillStyle = '#888888'; qBoardCtx.fillText("[3] 2-PLAYER MODE (LOCKED: NEEDS P2)", 256, 241);
+          }
         }
+      }
       } else if (gameState === "OPENING_DUEL") {
         qBoardCtx.fillStyle = '#ffda66';
         qBoardCtx.font = 'bold 22px sans-serif';
@@ -3484,19 +3519,47 @@ const pGroup = createCutePlushie(col, "");
         });
       }
 
-      const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
+const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
       const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
 
       const p1Pos = new THREE.Vector3(-1.6, 0.44, -2.2);
       const p2Pos = new THREE.Vector3(1.6, 0.44, -2.2);
 
-      const distP1 = plushiePosition.distanceTo(p1Pos);
-      const distP2 = plushiePosition.distanceTo(p2Pos);
+      const nowSec = Date.now();
+      const canUsePodium1 = nowSec > p1LockoutUntil;
+      const canUsePodium2 = nowSec > p2LockoutUntil;
+
+      const distP1 = canUsePodium1 ? plushiePosition.distanceTo(p1Pos) : 999;
+      const distP2 = canUsePodium2 ? plushiePosition.distanceTo(p2Pos) : 999;
 
       if (distP1 < 0.65 || distP2 < 0.65) {
         plushiePosition.y = 0.58;
       } else {
         plushiePosition.y = 0.44;
+      }
+
+      const prevPodium1 = isLocalOnPodium1;
+      const prevPodium2 = isLocalOnPodium2;
+
+      isLocalOnPodium1 = distP1 < 0.65;
+      isLocalOnPodium2 = distP2 < 0.65;
+
+      // Anti-troll step-off detection & 30s lockout penalty
+      if (prevPodium1 && !isLocalOnPodium1 && gameState === "IN_PLAY") {
+        p1LockoutUntil = Date.now() + 30000;
+        handleMidGameDropout("goody-contestant-1");
+      }
+      if (prevPodium2 && !isLocalOnPodium2 && gameState === "IN_PLAY") {
+        p2LockoutUntil = Date.now() + 30000;
+        handleMidGameDropout("goody-contestant-2");
+      }
+
+      // Trigger 10-second opening window when stepping onto Podium 1
+      if (isLocalOnPodium1 && !prevPodium1 && gameState === "MODE_PROMPT" && !studioPower) {
+        startPodium1PriorityCountdown();
+      } else if (!isLocalOnPodium1 && prevPodium1 && isPodium1WaitingForP2) {
+        stopPodium1PriorityCountdown();
+        renderStageQuestionBoard();
       }
 
       localPlushie.position.copy(plushiePosition);
