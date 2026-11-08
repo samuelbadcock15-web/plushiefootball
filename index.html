@@ -1,701 +1,1401 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
+
   <title>The Goody Tonight Show - Plushie Foosball & Rugby Arena</title>
+
   <style>
+
     body, html {
+
       margin: 0; padding: 0; width: 100%; height: 100%;
+
       overflow: hidden; background-color: #05020a;
+
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
       touch-action: manipulation;
+
     }
+
     #canvas3d { width: 100%; height: 100%; display: block; cursor: pointer; }
 
+
+
     #hud {
+
       position: absolute; top: 15px; left: 15px; background: rgba(22, 9, 44, 0.9);
+
       border: 2px solid #ff79b0; border-radius: 12px; padding: 12px 18px; color: #fff;
+
       font-family: monospace; font-size: 0.85rem; pointer-events: none; z-index: 20;
+
       box-shadow: 0 0 20px rgba(255, 121, 176, 0.25);
+
     }
+
     #room-code-pill { margin-top: 5px; font-weight: bold; color: #39ff14; font-size: 0.95rem; }
+
     #countdown-pill { margin-top: 6px; font-weight: bold; color: #ffda66; font-size: 0.95rem; }
+
     #match-clock-hud { margin-top: 4px; font-weight: bold; color: #00f0ff; font-size: 0.95rem; }
+
     #audience-pill { margin-top: 4px; font-weight: bold; color: #39ff14; }
 
+
+
     #mode-banner {
+
       position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+
       background: rgba(22, 9, 44, 0.92); border: 2px solid #00f0ff; border-radius: 10px;
+
       padding: 10px 20px; color: #ffda66; font-family: monospace; font-size: 0.9rem;
+
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+
       pointer-events: none;
+
     }
+
     /* Mobile Virtual D-Pad (Hidden on PC desktop) */
+
     #mobile-dpad {
+
       position: absolute;
+
       bottom: 30px;
+
       left: 30px;
+
       display: none;
+
       grid-template-areas: 
+
         ". up ."
+
         "left down right";
+
       gap: 12px;
+
       z-index: 30;
+
       pointer-events: auto;
+
       touch-action: none;
+
     }
+
+
 
     /* Automatically show on touch/mobile devices */
+
     @media (pointer: coarse), (max-width: 900px) {
+
       #mobile-dpad { display: grid; }
+
     }
+
+
 
     .dpad-btn {
+
       width: 60px;
+
       height: 60px;
+
       background: rgba(22, 9, 44, 0.85);
+
       border: 2px solid #00f0ff;
+
       border-radius: 14px;
+
       color: #00f0ff;
+
       font-size: 22px;
+
       display: flex;
+
       align-items: center;
+
       justify-content: center;
+
       user-select: none;
+
       box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+
       transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+
     }
+
+
 
     /* Glowing highlight state when pressed or swiped */
+
     .dpad-btn.active, .dpad-btn:active {
+
       background: rgba(0, 240, 255, 0.45);
+
       border-color: #39ff14;
+
       color: #39ff14;
+
       box-shadow: 0 0 22px #39ff14;
+
     }
+
   </style>
+
 </head>
+
 <body>
+
   <div id="hud">
+
     <div class="hud-title" id="mode-title" style="color: #ffda66;">STUDIO FLOOR & WIDE PLUSHIE RUGBY-FOOTIE ARENA</div>
+
     <div class="hud-sub" id="mode-sub">Bump into the ball with your belly & bash into friends!</div>
+
     <div id="room-code-pill">CODE: <span id="hud-code-val">----</span></div>
+
     <div id="countdown-pill">STATUS: <span id="timer-val" style="color:#ffda66;">WALK WAY OUT EAST TO THE GIANT FOOTBALL PITCH!</span></div>
+
     <div id="match-clock-hud">SHOW CLOCK: <span id="game-clock-val" style="color:#ffda66;">20:00</span></div>
+
     <div id="audience-pill">AUDIENCE WATCHING: <span id="audience-count" style="color:#39ff14;">1</span></div>
+
   </div>
 
+
+
   <div id="mode-banner">
+
     Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
+
   </div>
+
+
 
 <canvas id="canvas3d"></canvas>
 
+
+
   <div id="mobile-dpad">
+
     <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
+
     <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
+
     <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
+
     <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+
   </div>
 
+
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
   <script src="/socket.io/socket.io.js"></script>
 
+
+
   <script>
+
     let isHostAuthorized = true;
+
     let socket = null;
+
     const remotePlayers = new Map();
-let localMyGuestName = "Connecting...";
+
+    let localMyGuestName = "Guest 1";
+
     let isBallPhysicsHost = false; // Single-authority physics flag
 
+
+
     let assignedTeam = 'BLUE';
+
     let teamColorHex = '#00f0ff';
+
     let plushieColorHex = 0x00f0ff;
+
     let localPlushie = null;
 
+
+
     function unlockHostEnvironment() {
+
       isHostAuthorized = true;
+
       initAudio();
+
       initStudioWebRTC();
+
       initSocketConnection();
+
       triggerImmediateModePrompt();
+
     }
 
+
+
     window.addEventListener('DOMContentLoaded', () => {
+
       unlockHostEnvironment();
+
     });
 
+
+
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+
     document.getElementById('hud-code-val').textContent = studioRoomCode;
 
+
+
     let studioPower = false;
+
     let isGoodySpeaking = false;
 
+
+
     let showPlayer1 = false;
+
     let showPlayer2 = false;
 
+
+
     const videoPlayer1 = document.createElement('video');
+
     videoPlayer1.autoplay = true; videoPlayer1.playsInline = true; videoPlayer1.muted = false;
+
     const videoPlayer2 = document.createElement('video');
+
     videoPlayer2.autoplay = true; videoPlayer2.playsInline = true; videoPlayer2.muted = false;
 
+
+
     let hasLivePlayer1Stream = false;
+
     let hasLivePlayer2Stream = false;
 
+
+
     let rawPlayer1Stream = null;
+
     let rawPlayer2Stream = null;
 
+
+
     let gameState = "MODE_PROMPT";
+
     let isSoloMode = false;
+
     let isVsGoodyMode = false;
+
     let goodyPlayerSlot = null;
+
     let soloPlayerId = null;
 
+
+
     let diceCountdown = 10;
+
     let diceCountdownInterval = null;
+
     let isDiceTimerActive = false;
 
+
+
     let p1RollVal = null;
+
     let p2RollVal = null;
+
     let isDiceRollingP1 = false;
+
     let isDiceRollingP2 = false;
 
+
+
     let isPawnMoving = false;
+
     let hasPlayerRolledThisTurn = false;
 
+
+
     let matchTimerSeconds = 20 * 60;
+
     let matchTimerInterval = null;
+
     let isTimeExpired = false;
+
     let gameClockValEl = document.getElementById('game-clock-val');
 
+
+
     let activePlayer = "goody-contestant-1";
+
     let activeQuestion = null;
+
     let activeRecap = null;
+
     let isTieBreakerActive = false;
+
     let tieBreakerAnswered = false;
 
+
+
     let questionTimer = 0;
+
     let isQuestionTimerActive = false;
+
     let questionInterval = null;
+
     let stageSelectedOption = null;
+
     let stageOptionStatus = null;
 
+
+
     let audienceCount = 1;
+
     const audienceCountEl = document.getElementById('audience-count');
+
     const countdownPill = document.getElementById('countdown-pill');
+
     const timerValEl = document.getElementById('timer-val');
 
+
+
     let blueScore = 0;
+
     let redScore = 0;
 
+
+
     const contestantRotations = {
+
       "goody-contestant-1": { yaw: 0, pitch: -0.15 },
+
       "goody-contestant-2": { yaw: 0, pitch: -0.15 }
+
     };
+
+
 
     const contestantNames = {
+
       "goody-contestant-1": "Player 1",
+
       "goody-contestant-2": "Player 2"
+
     };
+
+
 
     const contestantCities = {
+
       "goody-contestant-1": "London",
+
       "goody-contestant-2": "Nottingham"
+
     };
 
+
+
     const contestantTokens = {
+
       "goody-contestant-1": null,
+
       "goody-contestant-2": null
+
     };
+
+
 
     const playerStats = { asked: 0, correct: 0 };
 
+
+
     let isP1Connected = false;
+
     let isP2Connected = false;
+
     let p1PeerId = null;
+
     let p2PeerId = null;
 
+
+
     let droppedOutContestant = null;
+
     let droppedOutName = "";
+
     let droppedOutCity = "";
+
     let droppedOutSessionToken = null;
 
+
+
     let savedTurnPlayer = null;
+
     let intermissionTimeout = null;
+
     let savedActiveCountry = null;
+
     let savedGameState = null;
+
+
 
     const spectatorPlushies = new Map();
 
+
+
     function initSocketConnection() {
+
       try {
+
         socket = io();
 
+
+
         // Listen for server designation of ball physics authority
+
         socket.on('ball_host_assignment', (data) => {
+
           isBallPhysicsHost = data.isHost;
+
           console.log("Am I ball physics host?", isBallPhysicsHost);
+
         });
 
-socket.on('assign_team', (data) => {
+
+
+        socket.on('assign_team', (data) => {
+
           assignedTeam = data.team;
+
           teamColorHex = data.teamColor;
+
           plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
+
+
           if (data.name) {
-            localMyGuestName = data.name; // <--- This pulls the unique Guest 2, Guest 3, etc. from server
+
+            localMyGuestName = data.name;
+
           }
+
+
 
           if (localPlushie) {
+
             localPlushie.userData.team = assignedTeam;
+
             localPlushie.traverse(child => {
+
               if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+
                 child.material.color.setHex(plushieColorHex);
+
               }
+
             });
+
             updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+
           }
+
         });
+
+
 
         // Fixed single update_players handler
+
         socket.on('update_players', (playersList) => {
+
           playersList.forEach(data => {
+
             if (data.id === socket.id) return; // Skip self
 
+
+
             let pMesh = remotePlayers.get(data.id);
+
             const remoteTeam = data.team || 'BLUE';
+
             const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+
             const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
             const playerName = data.name || "Guest";
 
+
+
             if (!pMesh) {
+
               pMesh = createCutePlushie(remotePlushieHex, playerName);
+
               pMesh.userData.team = remoteTeam;
+
               updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+
               miniDiorama.add(pMesh);
+
               remotePlayers.set(data.id, pMesh);
+
             } else {
+
               pMesh.userData.team = remoteTeam;
+
               pMesh.traverse(child => {
+
                 if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
+
                   child.material.color.setHex(remotePlushieHex);
+
                 }
+
               });
+
             }
+
             
+
             pMesh.position.set(data.x, data.y, data.z);
+
             pMesh.rotation.y = data.yaw + Math.PI;
+
             
+
             if (data.name) {
+
               updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
+
             }
+
           });
+
         });
+
+
 
         socket.on('player_moved', (data) => {
+
           if (data.id === socket.id) return;
+
           let pMesh = remotePlayers.get(data.id);
+
           const remoteTeam = data.team || 'BLUE';
+
           const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+
           const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
+
+
           if (!pMesh) {
+
             pMesh = createCutePlushie(remotePlushieHex, data.name || "Guest");
+
             pMesh.userData.team = remoteTeam;
+
             updatePlushieNameBadge(pMesh, data.name || "Guest", remoteTeamColor);
+
             miniDiorama.add(pMesh);
+
             remotePlayers.set(data.id, pMesh);
+
           }
+
           
+
           pMesh.position.set(data.x, data.y, data.z);
+
           pMesh.rotation.y = data.yaw + Math.PI;
+
           if (data.name) {
+
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
+
           }
+
         });
+
         
+
         socket.on('player_disconnected', (id) => {
+
           const pMesh = remotePlayers.get(id);
+
           if (pMesh) {
+
             if (pMesh.userData && pMesh.userData.badgeMesh) {
+
               miniDiorama.remove(pMesh.userData.badgeMesh);
+
             }
+
             miniDiorama.remove(pMesh);
+
             remotePlayers.delete(id);
+
           }
+
         });
+
+
 
         socket.on('ball_sync', (bData) => {
+
           if (ballMesh) {
+
             remoteBallTarget.set(bData.x, bData.y, bData.z);
+
             if (bData.vx !== undefined) {
+
               ballVelocity.set(bData.vx, bData.vy, bData.vz);
+
             }
+
             hasRemoteBallUpdate = true;
+
           }
+
         });
+
+
 
         socket.on('score_sync', (sData) => {
+
           blueScore = sData.blue;
+
           redScore = sData.red;
+
           renderPitchScoreboard(blueScore, redScore);
+
         });
 
+
+
       } catch (e) {
+
         console.warn("Socket.io offline or unavailable:", e);
+
       }
+
     }
+
+
 
     function triggerImmediateModePrompt() {
+
       if (studioPower) return;
+
       gameState = "MODE_PROMPT";
+
       countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">SELECT GAME MODE (STEP ON PODIUM 1)</span>`;
+
       renderStageQuestionBoard();
+
     }
+
+
 
     function chooseHostGameMode(modeType) {
+
       if (studioPower) return;
+
       if (modeType === "SOLO") {
+
         isSoloMode = true;
+
         isVsGoodyMode = false;
+
         soloPlayerId = "goody-contestant-1";
+
         const soloName = contestantNames[soloPlayerId];
+
         activePlayer = soloPlayerId;
+
         p2RollVal = null;
+
         isDiceRollingP2 = false;
+
        
+
         pawn2.visible = false;
+
         pawn1.visible = true;
+
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
+
+
         bootStudio();
+
       }
+
     }
+
+
 
     // --- THREE.JS INITIALIZATION & GAME LOOP ---
+
     const scene = new THREE.Scene();
+
     scene.background = new THREE.Color(0x040208);
+
     scene.fog = new THREE.FogExp2(0x040208, 0.015);
 
+
+
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 150);
+
     camera.position.set(0, 5.8, -5.0);
 
+
+
     const canvas = document.getElementById('canvas3d');
+
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+
     renderer.setSize(window.innerWidth, window.innerHeight);
+
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
     renderer.shadowMap.enabled = true;
 
+
+
     // Minimalist dummy streams to prevent WebRTC crashes
+
     const canvasPlayer1 = document.createElement('canvas'); canvasPlayer1.width = 640; canvasPlayer1.height = 360;
+
     const streamPlayer1 = canvasPlayer1.captureStream(30);
 
+
+
     let studioPeer = null;
+
     let connectedDataConns = [];
 
+
+
     function initStudioWebRTC() {
+
       if (!isHostAuthorized || studioPeer) return;
+
       try {
+
         studioPeer = new Peer("goody-main-studio-" + Math.floor(Math.random() * 10000));
+
         studioPeer.on('open', (id) => console.log("Master Host Registered:", id));
+
       } catch(e) {}
+
     }
+
+
 
     let audioCtx = null;
+
     function initAudio() {
+
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
       if (audioCtx.state === 'suspended') audioCtx.resume();
+
     }
+
+
 
     function playTone(freq, type, duration, gainVal = 0.05) {
+
       if (!audioCtx) return;
+
       try {
+
         const osc = audioCtx.createOscillator();
+
         const g = audioCtx.createGain();
+
         osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
         g.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+
         g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
         osc.connect(g); g.connect(audioCtx.destination);
+
         osc.start(); osc.stop(audioCtx.currentTime + duration);
+
       } catch(e) {}
+
     }
+
+
 
     function speakGoody(text, onComplete) {
+
       if (onComplete) onComplete();
+
     }
+
+
 
     function bootStudio() {
+
       studioPower = true;
+
       gameState = "IN_PLAY";
+
       updateStudioLighting(true);
+
       renderStageQuestionBoard();
+
     }
+
+
 
     const ambientLight = new THREE.AmbientLight(0x181026, 0.85); scene.add(ambientLight);
+
     const ceilingLight = new THREE.PointLight(0xffecd2, 1.0, 50); ceilingLight.position.set(0, 13.5, 0); scene.add(ceilingLight);
+
     const deskLampLight = new THREE.PointLight(0xffea9f, 0, 20); deskLampLight.position.set(-6.5, 7.8, -4.5); scene.add(deskLampLight);
 
+
+
     const hostSpotlight = new THREE.SpotLight(0xffffff, 0, 16, Math.PI / 4.5, 0.25, 1.2);
+
     hostSpotlight.position.set(0, 10.5, -11.6);
+
     const hostSpotTarget = new THREE.Object3D();
+
     hostSpotTarget.position.set(0, 4.5, -11.6);
+
     scene.add(hostSpotTarget);
+
     hostSpotlight.target = hostSpotTarget;
+
     scene.add(hostSpotlight);
 
+
+
     function updateStudioLighting(power) {
+
       const val = power ? 5.0 : 0;
+
       deskLampLight.intensity = power ? 2.5 : 0;
+
       hostSpotlight.intensity = power ? 9.0 : 0;
+
     }
+
+
 
     const miniDiorama = new THREE.Group(); miniDiorama.position.set(0, 3.95, -9);
+
     const feltCarpet = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 0.08, 48), new THREE.MeshStandardMaterial({ color: 0x271147 }));
+
     feltCarpet.position.y = 0.44;
+
     miniDiorama.add(feltCarpet);
 
+
+
     // Enclosing walls & Foosball Arena
+
     const enclosingWallsGroup = new THREE.Group();
+
     enclosingWallsGroup.position.set(0, 0.44, 0.0);
+
     const studioWallMat = new THREE.MeshStandardMaterial({ color: 0x1f113a, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide });
+
     const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.0, 14.0), studioWallMat);
+
     westWall.position.set(-7.0, 2.5, 0.0);
+
     enclosingWallsGroup.add(westWall);
+
     miniDiorama.add(enclosingWallsGroup);
 
+
+
     // Scoreboard setup
+
     const pitchSbCanvas = document.createElement('canvas'); pitchSbCanvas.width = 1024; pitchSbCanvas.height = 512;
+
     const pitchSbCtx = pitchSbCanvas.getContext('2d');
+
     const pitchSbTexture = new THREE.CanvasTexture(pitchSbCanvas);
 
+
+
     function renderPitchScoreboard(blue, red) {
+
       pitchSbCtx.fillStyle = '#05020a';
+
       pitchSbCtx.fillRect(0, 0, 1024, 512);
+
       pitchSbCtx.fillStyle = '#ffda66';
+
       pitchSbCtx.font = 'bold 44px monospace';
+
       pitchSbCtx.textAlign = 'center';
+
       pitchSbCtx.fillText('★ PLUSHIE RUGBY-FOOTIE ARENA ★', 512, 85);
+
       pitchSbTexture.needsUpdate = true;
+
     }
+
     renderPitchScoreboard(0, 0);
 
+
+
     const foosballGroup = new THREE.Group();
+
     foosballGroup.position.set(34.0, 0.44, 0.0);
+
     const turfMesh = new THREE.Mesh(new THREE.BoxGeometry(36.0, 0.06, 24.0), new THREE.MeshStandardMaterial({ color: 0x27ae60 }));
+
     turfMesh.position.y = 0.03;
+
     foosballGroup.add(turfMesh);
+
     miniDiorama.add(foosballGroup);
 
+
+
     const ballMesh = new THREE.Mesh(
+
       new THREE.SphereGeometry(0.38, 24, 24),
+
       new THREE.MeshStandardMaterial({ color: 0xffda66, roughness: 0.3 })
+
     );
+
     ballMesh.position.set(34.0, 0.82, 0.0);
+
     miniDiorama.add(ballMesh);
 
+
+
     let ballVelocity = new THREE.Vector3(0, 0, 0);
+
     const remoteBallTarget = new THREE.Vector3(34.0, 0.82, 0.0);
+
     let hasRemoteBallUpdate = false;
 
+
+
     // UI Question board
+
     const qBoardCanvas = document.createElement('canvas'); qBoardCanvas.width = 512; qBoardCanvas.height = 384;
+
     const qBoardCtx = qBoardCanvas.getContext('2d');
+
     const qBoardTex = new THREE.CanvasTexture(qBoardCanvas);
 
+
+
     function renderStageQuestionBoard() {
+
       qBoardCtx.fillStyle = '#120726';
+
       qBoardCtx.fillRect(0, 0, 512, 384);
+
       qBoardCtx.fillStyle = '#ffda66';
+
       qBoardCtx.font = 'bold 24px sans-serif';
+
       qBoardCtx.textAlign = 'center';
+
       qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
+
       qBoardTex.needsUpdate = true;
+
     }
+
     renderStageQuestionBoard();
 
+
+
     const qBoardMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 2.7), new THREE.MeshBasicMaterial({ map: qBoardTex }));
+
     qBoardMesh.position.set(-4.8, 3.4, -3.2);
+
     qBoardMesh.rotation.y = 0.8;
+
     miniDiorama.add(qBoardMesh);
 
+
+
     // Plushie Creation & Badge Rendering
+
     function createCutePlushie(color, initialName = "") {
+
       const pGroup = new THREE.Group();
+
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
+
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
+
       const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
+
       
+
       let badgeMesh = null, bCanvas = null, bTex = null;
+
       if (initialName) {
+
         bCanvas = document.createElement('canvas'); bCanvas.width = 256; bCanvas.height = 96;
+
         bTex = new THREE.CanvasTexture(bCanvas);
+
         const badgeMat = new THREE.MeshBasicMaterial({ map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
+
         badgeMesh.position.set(0, 0.95, 0);
+
         miniDiorama.add(badgeMesh);
+
         updatePlushieNameBadge(pGroup, initialName);
+
       }
+
       pGroup.userData = { badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh };
+
       return pGroup;
+
     }
+
+
 
     function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
+
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
+
       const canvas = pGroup.userData.badgeCanvas;
+
       const ctx = canvas.getContext('2d');
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
+
       ctx.strokeStyle = teamColor;
+
       ctx.lineWidth = 8;
+
       ctx.fillRect(4, 4, canvas.width - 8, canvas.height - 8);
+
       ctx.fillStyle = teamColor; 
+
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
       ctx.font = 'bold 38px sans-serif';
+
       ctx.fillText((displayName || "GUEST").toUpperCase(), canvas.width / 2, canvas.height / 2 + 2);
+
       if (pGroup.userData.badgeTexture) pGroup.userData.badgeTexture.needsUpdate = true;
+
     }
+
+
 
     function setPlushieVisualMode(group, mode) {
+
       if (!group) return;
+
       group.visible = (mode !== 'invisible');
+
       const isOpaque = (mode === 'opaque');
+
       group.traverse(child => {
+
         if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
+
           child.material.transparent = !isOpaque;
+
           child.material.opacity = isOpaque ? 1.0 : 0.45;
+
           child.material.depthWrite = isOpaque;
+
           child.material.needsUpdate = true;
+
         }
+
       });
+
     }
 
+
+
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
+
     const plushiePosition = new THREE.Vector3(32.0, 0.44, 2.5);
+
     const plushieRotation = { yaw: 0 };
+
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
+
     localPlushie.position.copy(plushiePosition);
+
     miniDiorama.add(localPlushie);
+
     setPlushieVisualMode(localPlushie, 'opaque');
+
+
 
     const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
 
+
+
     document.addEventListener('keydown', (e) => {
+
       if (!isHostAuthorized) return;
+
       if (e.code === 'KeyW') moveState.forward = true;
+
       if (e.code === 'KeyS') moveState.backward = true;
+
       if (e.code === 'KeyA') moveState.turnLeft = true;
+
       if (e.code === 'KeyD') moveState.turnRight = true;
+
     });
 
+
+
     document.addEventListener('keyup', (e) => {
+
       if (!isHostAuthorized) return;
+
       if (e.code === 'KeyW') moveState.forward = false;
+
       if (e.code === 'KeyS') moveState.backward = false;
+
       if (e.code === 'KeyA') moveState.turnLeft = false;
+
       if (e.code === 'KeyD') moveState.turnRight = false;
+
     });
+
+
 
     scene.add(miniDiorama);
 
+
+
     let prevTime = performance.now();
+
     let lastBallSyncTime = 0;
 
+
+
     function animate() {
+
       requestAnimationFrame(animate);
+
       const time = performance.now();
+
       const delta = Math.min((time - prevTime) / 1000, 0.1);
 
+
+
       if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
+
       if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
 
+
+
       const moveSpeed = 4.2 * delta;
+
       if (moveState.forward) {
+
         plushieVelocity.x += -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
+
         plushieVelocity.z += -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
+
       }
+
       if (moveState.backward) {
+
         plushieVelocity.x -= -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
+
         plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
+
       }
+
+
 
       plushieVelocity.multiplyScalar(0.90);
+
       plushiePosition.addScaledVector(plushieVelocity, delta);
+
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
+
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
 
+
+
       // Ball Physics & Multiplayer Sync
+
       const inPitchArena = plushiePosition.x > 10.0;
+
       if (inPitchArena) {
+
         const ballPos = ballMesh.position;
+
         const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
+
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
+
         
+
         if (isBallPhysicsHost) {
+
           if (plushXZ.distanceTo(ballXZ) < 0.78) {
+
             const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+
             ballVelocity.addScaledVector(pushDir, 13.0);
+
             playTone(600, 'triangle', 0.08, 0.1);
+
           }
+
           ballPos.addScaledVector(ballVelocity, delta);
+
           ballVelocity.multiplyScalar(0.96);
 
+
+
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+
             lastBallSyncTime = time;
+
             socket.emit('ball_move', { x: ballPos.x, y: ballPos.y, z: ballPos.z, vx: ballVelocity.x, vy: ballVelocity.y, vz: ballVelocity.vz });
+
           }
+
         } else if (hasRemoteBallUpdate) {
+
           ballMesh.position.lerp(remoteBallTarget, 0.35);
+
         }
+
       }
+
+
 
       if (socket && socket.connected) {
+
         socket.emit('player_move', {
+
           name: localMyGuestName,
+
           x: plushiePosition.x,
+
           y: plushiePosition.y,
+
           z: plushiePosition.z,
+
           yaw: plushieRotation.yaw,
+
           team: assignedTeam,
+
           teamColor: teamColorHex
+
         });
+
       }
+
+
 
       localPlushie.position.copy(plushiePosition);
+
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
+
+
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
+
       const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
 
+
+
       const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+
       const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
+
       const camTargetY = plushieWorldPos.y + 1.6;
 
+
+
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
+
       camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
+
       camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
+
       camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+
       camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
 
+
+
       // Name badge orientation lock
+
       const camRot = camera.quaternion;
+
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
+
         localPlushie.userData.badgeMesh.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
+
         localPlushie.userData.badgeMesh.quaternion.copy(camRot);
+
       }
 
+
+
       remotePlayers.forEach((pMesh) => {
+
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
+
           pMesh.userData.badgeMesh.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
+
           pMesh.userData.badgeMesh.quaternion.copy(camRot);
+
         }
+
       });
 
+
+
       prevTime = time;
+
       renderer.render(scene, camera);
+
     }
 
+
+
     animate();
+
   </script>
+
 </body>
-</html>
+
+</html> 
