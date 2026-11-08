@@ -3514,17 +3514,32 @@ const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
 
 
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+    }
 
-        const podium1Occupied = isP1Connected || isLocalOnPodium1;
-        const shouldBeSolid = onPodium1 || (onPodium2 && podium1Occupied);
+    function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
+      if (!plushieMesh) return;
+      const pos = plushieMesh.position;
+      const dP1 = pos.distanceTo(p1Pos);
+      const dP2 = pos.distanceTo(p2Pos);
+      const onPodium1 = dP1 < 0.65;
+      const onPodium2 = dP2 < 0.65;
 
-        if (shouldBeSolid) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-        } else {
-          setPlushieVisualMode(plushieMesh, 'transparent');
-        }
+      const inPitchArena = pos.x > 10.0;
+      if (inPitchArena) {
+        setPlushieVisualMode(plushieMesh, 'opaque');
+        return;
       }
+
+      const podium1Occupied = isP1Connected || isLocalOnPodium1;
+      const shouldBeSolid = onPodium1 || (onPodium2 && podium1Occupied);
+
+      if (shouldBeSolid) {
+        setPlushieVisualMode(plushieMesh, 'opaque');
+      } else {
+        setPlushieVisualMode(plushieMesh, 'transparent');
+      }
+    }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
                                 (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
