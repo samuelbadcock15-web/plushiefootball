@@ -3298,17 +3298,29 @@ miniDiorama.add(badgeMesh);
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        // Single-authority physics check
-        if (isBallPhysicsHost) {
-          if (distToBall < 0.78) {
-            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-            const bumpPower = 13.0;
-            ballVelocity.addScaledVector(pushDir, bumpPower);
-            playTone(600, 'triangle', 0.08, 0.1);
-          }
+        // Single-authority physics check with multi-player collision support
+        if (isBallPhysicsHost) {
+          // 1. Check local player collision
+          if (distToBall < 0.78) {
+            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+            ballVelocity.addScaledVector(pushDir, 13.0);
+            playTone(600, 'triangle', 0.08, 0.1);
+          }
 
-          ballPos.addScaledVector(ballVelocity, delta);
-          ballVelocity.multiplyScalar(0.96);
+          // 2. Check all remote players for ball collisions
+          remotePlayers.forEach((pMesh) => {
+            if (pMesh) {
+              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
+              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
+                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
+                ballVelocity.addScaledVector(pushDir, 13.0);
+                playTone(600, 'triangle', 0.08, 0.1);
+              }
+            }
+          });
+
+          ballPos.addScaledVector(ballVelocity, delta);
+          ballVelocity.multiplyScalar(0.96);
 
           if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
           if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
