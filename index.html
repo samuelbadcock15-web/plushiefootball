@@ -106,7 +106,7 @@
     let isHostAuthorized = true;
     let socket = null;
     const remotePlayers = new Map();
-    let localMyGuestName = "Guest 1";
+let localMyGuestName = "Guest " + Math.floor(100 + Math.random() * 900);
     let isBallPhysicsHost = false;
 
     function unlockHostEnvironment() {
