@@ -274,7 +274,7 @@ socket.on('update_player', (data) => {
           
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
-
+        
 socket.on('update_player', (data) => {
           let pMesh = remotePlayers.get(data.id);
           const remoteTeam = data.team || 'BLUE';
