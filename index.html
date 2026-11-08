@@ -2958,25 +2958,25 @@ let assignedTeam = 'BLUE';
     let localPlushie = null;
 
     // Listen for the server telling us what team we are on
-    socket.on('assign_team', (data) => {
-      assignedTeam = data.team;
-      teamColorHex = data.teamColor;
-      plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+    if (socket) {
+      socket.on('assign_team', (data) => {
+        assignedTeam = data.team;
+        teamColorHex = data.teamColor;
+        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-      // If the plushie already spawned, update its color and badge to match the server's assignment
-      if (localPlushie) {
-        localPlushie.userData.team = assignedTeam;
-        // Update body mesh color
-        localPlushie.traverse(child => {
-          if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-            child.material.color.setHex(plushieColorHex);
-          }
-        });
-        updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-      }
-    });
-    
-localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
+        if (localPlushie) {
+          localPlushie.userData.team = assignedTeam;
+          localPlushie.traverse(child => {
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              child.material.color.setHex(plushieColorHex);
+            }
+          });
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+        }
+      });
+    }
+
+    localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
     
@@ -2984,92 +2984,92 @@ localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
 
-    document.addEventListener('keydown', (e) => {
-      if (!isHostAuthorized) return;
-      if (e.code === 'KeyW') moveState.forward = true;
-      if (e.code === 'KeyS') moveState.backward = true;
-      if (e.code === 'KeyA') moveState.turnLeft = true;
-      if (e.code === 'KeyD') moveState.turnRight = true;
+    document.addEventListener('keydown', (e) => {
+      if (!isHostAuthorized) return;
+      if (e.code === 'KeyW') moveState.forward = true;
+      if (e.code === 'KeyS') moveState.backward = true;
+      if (e.code === 'KeyA') moveState.turnLeft = true;
+      if (e.code === 'KeyD') moveState.turnRight = true;
 
-      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-        if (e.key === '1') chooseHostGameMode("SOLO");
-        if (e.key === '2') chooseHostGameMode("GOODY");
-        if (e.key === '3') chooseHostGameMode("TWOPLAYER");
-      }
-    });
+      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+        if (e.key === '1') chooseHostGameMode("SOLO");
+        if (e.key === '2') chooseHostGameMode("GOODY");
+        if (e.key === '3') chooseHostGameMode("TWOPLAYER");
+      }
+    });
 
-    document.addEventListener('keyup', (e) => {
-      if (!isHostAuthorized) return;
-      if (e.code === 'KeyW') moveState.forward = false;
-      if (e.code === 'KeyS') moveState.backward = false;
-      if (e.code === 'KeyA') moveState.turnLeft = false;
-      if (e.code === 'KeyD') moveState.turnRight = false;
-    });
+    document.addEventListener('keyup', (e) => {
+      if (!isHostAuthorized) return;
+      if (e.code === 'KeyW') moveState.forward = false;
+      if (e.code === 'KeyS') moveState.backward = false;
+      if (e.code === 'KeyA') moveState.turnLeft = false;
+      if (e.code === 'KeyD') moveState.turnRight = false;
+    });
 
-    const miniAudience = new THREE.Group();
-    const plushColors = [0xff7675, 0x74b9ff, 0xa29bfe, 0xffbe76, 0x55efc4, 0xfd79a8, 0xf6e58d, 0x48dbfb, 0xff9ff3];
-    let playerPlushie1 = null;
-    let playerPlushie2 = null;
+    const miniAudience = new THREE.Group();
+    const plushColors = [0xff7675, 0x74b9ff, 0xa29bfe, 0xffbe76, 0x55efc4, 0xfd79a8, 0xf6e58d, 0x48dbfb, 0xff9ff3];
+    let playerPlushie1 = null;
+    let playerPlushie2 = null;
 
-    [5.7, 6.4].forEach((radius, rowIdx) => {
-      const count = rowIdx === 0 ? 14 : 18;
-      for (let i = 0; i < count; i++) {
-        const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
-        const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, `Spectator ${i + 1}`);
+    [5.7, 6.4].forEach((radius, rowIdx) => {
+      const count = rowIdx === 0 ? 14 : 18;
+      for (let i = 0; i < count; i++) {
+        const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
+        const col = plushColors[(i + rowIdx * 3) % plushColors.length];
+        const pGroup = createCutePlushie(col, `Spectator ${i + 1}`);
 
-        const px = Math.sin(theta) * radius;
-        const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
-        pGroup.position.set(px, 0.46 + rowIdx * 0.25, pz);
-        pGroup.lookAt(0, 1.8, -2.6);
-        pGroup.userData = {
-          initialY: pGroup.position.y,
-          phase: Math.random() * Math.PI * 2,
-          theta: theta,
-          radius: radius,
-          isAudienceSeat: true
-        };
-        miniDiorama.add(pGroup);
+        const px = Math.sin(theta) * radius;
+        const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
+        pGroup.position.set(px, 0.46 + rowIdx * 0.25, pz);
+        pGroup.lookAt(0, 1.8, -2.6);
+        pGroup.userData = {
+          initialY: pGroup.position.y,
+          phase: Math.random() * Math.PI * 2,
+          theta: theta,
+          radius: radius,
+          isAudienceSeat: true
+        };
+        miniDiorama.add(pGroup);
 
-        if (rowIdx === 0 && i === 4) playerPlushie1 = pGroup;
-        if (rowIdx === 0 && i === 9) playerPlushie2 = pGroup;
-      }
-    });
-    miniDiorama.add(miniAudience);
+        if (rowIdx === 0 && i === 4) playerPlushie1 = pGroup;
+        if (rowIdx === 0 && i === 9) playerPlushie2 = pGroup;
+      }
+    });
+    miniDiorama.add(miniAudience);
 
-    function handlePlushieMovement(contestant, direction) {
-      const targetPlushie = contestant === "goody-contestant-2" ? playerPlushie2 : playerPlushie1;
-      if (!targetPlushie) return;
+    function handlePlushieMovement(contestant, direction) {
+      const targetPlushie = contestant === "goody-contestant-2" ? playerPlushie2 : playerPlushie1;
+      if (!targetPlushie) return;
 
-      const rot = contestantRotations[contestant] ? contestantRotations[contestant].yaw : 0;
-      const step = 0.35;
+      const rot = contestantRotations[contestant] ? contestantRotations[contestant].yaw : 0;
+      const step = 0.35;
 
-      const fwdX = -Math.sin(rot);
-      const fwdZ = -Math.cos(rot);
-      const rightX = Math.cos(rot);
-      const rightZ = -Math.sin(rot);
+      const fwdX = -Math.sin(rot);
+      const fwdZ = -Math.cos(rot);
+      const rightX = Math.cos(rot);
+      const rightZ = -Math.sin(rot);
 
-      if (direction === 'FORWARD') {
-        targetPlushie.position.x += fwdX * step;
-        targetPlushie.position.z += fwdZ * step;
-      }
-      if (direction === 'BACK') {
-        targetPlushie.position.x -= fwdX * step;
-        targetPlushie.position.z -= fwdZ * step;
-      }
-      if (direction === 'LEFT') {
-        targetPlushie.position.x -= rightX * step;
-        targetPlushie.position.z -= rightZ * step;
-      }
-      if (direction === 'RIGHT') {
-        targetPlushie.position.x += rightX * step;
-        targetPlushie.position.z += rightZ * step;
-      }
+      if (direction === 'FORWARD') {
+        targetPlushie.position.x += fwdX * step;
+        targetPlushie.position.z += fwdZ * step;
+      }
+      if (direction === 'BACK') {
+        targetPlushie.position.x -= fwdX * step;
+        targetPlushie.position.z -= fwdZ * step;
+      }
+      if (direction === 'LEFT') {
+        targetPlushie.position.x -= rightX * step;
+        targetPlushie.position.z -= rightZ * step;
+      }
+      if (direction === 'RIGHT') {
+        targetPlushie.position.x += rightX * step;
+        targetPlushie.position.z += rightZ * step;
+      }
 
-      targetPlushie.position.x = Math.max(-6.8, Math.min(54.0, targetPlushie.position.x));
-      targetPlushie.position.z = Math.max(-14.0, Math.min(14.0, targetPlushie.position.z));
-      targetPlushie.position.y = 0.46;
-    }
+      targetPlushie.position.x = Math.max(-6.8, Math.min(54.0, targetPlushie.position.x));
+      targetPlushie.position.z = Math.max(-14.0, Math.min(14.0, targetPlushie.position.z));
+      targetPlushie.position.y = 0.46;
+    }
 
     function drawDiceFace(ctx, x, y, size, value) {
       drawStudioDie(ctx, x + size / 2, y + size / 2, size, value, '#ff79b0');
