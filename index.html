@@ -178,13 +178,34 @@
       try {
         socket = io();
 
-        // Listen for server designation of ball physics authority
-        socket.on('ball_host_assignment', (data) => {
-          isBallPhysicsHost = data.isHost;
-          console.log("Am I ball physics host?", isBallPhysicsHost);
-        });
+        function initSocketConnection() {
+      try {
+        socket = io();
 
-        socket.on('current_players', (playersList) => {
+        // Listen for server designation of ball physics authority
+        socket.on('ball_host_assignment', (data) => {
+          isBallPhysicsHost = data.isHost;
+          console.log("Am I ball physics host?", isBallPhysicsHost);
+        });
+
+        // Listen for server-assigned team
+        socket.on('assign_team', (data) => {
+          assignedTeam = data.team;
+          teamColorHex = data.teamColor;
+          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+          if (localPlushie) {
+            localPlushie.userData.team = assignedTeam;
+            localPlushie.traverse(child => {
+              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+                child.material.color.setHex(plushieColorHex);
+              }
+            });
+            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+          }
+        });
+
+socket.on('current_players', (playersList) => {
           playersList.forEach(data => {
             if (data.id === socket.id) {
               localMyGuestName = data.name;
@@ -2876,32 +2897,34 @@ miniDiorama.add(badgeMesh);
       return pGroup;
     }
 
-    function updatePlushieNameBadge(pGroup, displayName) {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
+function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
+      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
+      const canvas = pGroup.userData.badgeCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width; const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
 
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
+      ctx.strokeStyle = teamColor;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(4, 4, w - 8, h - 8, 20);
+      } else {
+        ctx.rect(4, 4, w - 8, h - 8);
+      }
+      ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
+      // Draw team colored accent text glow or matching text color
+      ctx.fillStyle = teamColor; 
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
-    }
+      if (pGroup.userData.badgeTexture) {
+        pGroup.userData.badgeTexture.needsUpdate = true;
+      }
+    }
 
     function setPlushieVisualMode(group, mode) {
       if (!group) return;
@@ -2929,11 +2952,37 @@ miniDiorama.add(badgeMesh);
         }
       });
     }
+let assignedTeam = 'BLUE';
+    let teamColorHex = '#00f0ff';
+    let plushieColorHex = 0x00f0ff;
+    let localPlushie = null;
 
-    const localPlushie = createCutePlushie(0x00f0ff, "Guest 1");
-    localPlushie.position.copy(plushiePosition);
-    miniDiorama.add(localPlushie);
-    setPlushieVisualMode(localPlushie, 'opaque');
+    // Listen for the server telling us what team we are on
+    socket.on('assign_team', (data) => {
+      assignedTeam = data.team;
+      teamColorHex = data.teamColor;
+      plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+      // If the plushie already spawned, update its color and badge to match the server's assignment
+      if (localPlushie) {
+        localPlushie.userData.team = assignedTeam;
+        // Update body mesh color
+        localPlushie.traverse(child => {
+          if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+            child.material.color.setHex(plushieColorHex);
+          }
+        });
+        updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+      }
+    });
+    
+localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
+    localPlushie.userData.team = assignedTeam;
+    updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+    
+    localPlushie.position.copy(plushiePosition);
+    miniDiorama.add(localPlushie);
+    setPlushieVisualMode(localPlushie, 'opaque');
 
     document.addEventListener('keydown', (e) => {
       if (!isHostAuthorized) return;
@@ -3385,15 +3434,19 @@ miniDiorama.add(badgeMesh);
         hasRemoteBallUpdate = false;
       }
 
-      if (socket && socket.connected) {
-        socket.emit('player_move', {
-          name: localMyGuestName,
-          x: plushiePosition.x,
-          y: plushiePosition.y,
-          z: plushiePosition.z,
-          yaw: plushieRotation.yaw
-        });
-      }
+socket.on('player_move', (data) => {
+  // Broadcast player position and team info to other clients
+  socket.broadcast.emit('update_player', {
+    id: socket.id,
+    name: data.name,
+    x: data.x,
+    y: data.y,
+    z: data.z,
+    yaw: data.yaw,
+    team: data.team,          
+    teamColor: data.teamColor 
+  });
+});
 
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
       const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
