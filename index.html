@@ -178,6 +178,11 @@
     let stageOptionStatus = null;
 
     let audienceCount = 1;
+    let podium1PriorityTimer = 10;
+   let podium1PriorityInterval = null;
+   let isPodium1WaitingForP2 = false;
+   let p1LockoutUntil = 0;
+   let p2LockoutUntil = 0;
     const audienceCountEl = document.getElementById('audience-count');
     const countdownPill = document.getElementById('countdown-pill');
     const timerValEl = document.getElementById('timer-val');
