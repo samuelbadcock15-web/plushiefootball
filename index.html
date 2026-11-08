@@ -3056,10 +3056,6 @@ socket.on('assign_team', (data) => {
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
   }
 });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-        }
-      });
-    }
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
