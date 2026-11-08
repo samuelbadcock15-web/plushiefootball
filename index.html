@@ -470,45 +470,37 @@
 
 
 
-socket.on('assign_team', (data) => {
+        // Listen for server-assigned team
 
-        assignedTeam = data.team;
+        socket.on('assign_team', (data) => {
 
-        teamColorHex = data.teamColor;
+          assignedTeam = data.team;
 
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          teamColorHex = data.teamColor;
 
-
-
-        // This correctly updates your name to Guest 1, Guest 2, etc. from the server
-
-        if (data.name) {
-
-          localMyGuestName = data.name;
-
-        }
+          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
 
 
-        if (localPlushie) {
+          if (localPlushie) {
 
-          localPlushie.userData.team = assignedTeam;
+            localPlushie.userData.team = assignedTeam;
 
-          localPlushie.traverse(child => {
+            localPlushie.traverse(child => {
 
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
 
-              child.material.color.setHex(plushieColorHex);
+                child.material.color.setHex(plushieColorHex);
 
-            }
+              }
 
-          });
+            });
 
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
 
-        }
+          }
 
-      });
+        });
 
 
 
@@ -6073,6 +6065,44 @@ let assignedTeam = 'BLUE';
     let plushieColorHex = 0x00f0ff;
 
     let localPlushie = null;
+
+
+
+    // Listen for the server telling us what team we are on
+
+    if (socket) {
+
+      socket.on('assign_team', (data) => {
+
+        assignedTeam = data.team;
+
+        teamColorHex = data.teamColor;
+
+        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+
+
+        if (localPlushie) {
+
+          localPlushie.userData.team = assignedTeam;
+
+          localPlushie.traverse(child => {
+
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+
+              child.material.color.setHex(plushieColorHex);
+
+            }
+
+          });
+
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+
+        }
+
+      });
+
+    }
 
 
 
