@@ -107,7 +107,7 @@
     let socket = null;
     const remotePlayers = new Map();
     let localMyGuestName = "Guest 1";
-    let isBallPhysicsHost = false; // Single-authority physics flag
+    let isBallPhysicsHost = false;
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -228,11 +228,18 @@
       try {
         socket = io();
 
-        // Listen for server designation of ball physics authority
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
           console.log("Am I ball physics host?", isBallPhysicsHost);
         });
+
+        socket.on('assign_team', (data) => {
+          assignedTeam = data.team;
+          teamColorHex = data.teamColor;
+          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          if (data.name) {
+            localMyGuestName = data.name;
+          }
 
           if (localPlushie) {
             localPlushie.userData.team = assignedTeam;
@@ -241,43 +248,45 @@
                 child.material.color.setHex(plushieColorHex);
               }
             });
+            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+          }
+        });
 
-socket.on('update_player', (data) => {
-  let pMesh = remotePlayers.get(data.id);
-  const remoteTeam = data.team || 'BLUE';
-  const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
-  const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-  const playerName = data.name || "Guest";
+        socket.on('update_player', (data) => {
+          let pMesh = remotePlayers.get(data.id);
+          const remoteTeam = data.team || 'BLUE';
+          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          const playerName = data.name || "Guest";
 
-  if (!pMesh) {
-    pMesh = createCutePlushie(remotePlushieHex, playerName);
-    pMesh.userData.team = remoteTeam;
-    updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
-    miniDiorama.add(pMesh);
-    remotePlayers.set(data.id, pMesh);
-  } else {
-    pMesh.userData.team = remoteTeam;
-    pMesh.traverse(child => {
-      if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-        child.material.color.setHex(remotePlushieHex);
-      }
-    });
-  }
-  
-  pMesh.position.set(data.x, data.y, data.z);
-  pMesh.rotation.y = data.yaw + Math.PI;
-  
-  if (data.name) {
-    updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
-  }
-  
-  setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
-});
-        
-socket.on('remove_player', (id) => {
+          if (!pMesh) {
+            pMesh = createCutePlushie(remotePlushieHex, playerName);
+            pMesh.userData.team = remoteTeam;
+            updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+            miniDiorama.add(pMesh);
+            remotePlayers.set(data.id, pMesh);
+          } else {
+            pMesh.userData.team = remoteTeam;
+            pMesh.traverse(child => {
+              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+                child.material.color.setHex(remotePlushieHex);
+              }
+            });
+          }
+          
+          pMesh.position.set(data.x, data.y, data.z);
+          pMesh.rotation.y = data.yaw + Math.PI;
+          
+          if (data.name) {
+            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
+          }
+          
+          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
+        });
+
+        socket.on('remove_player', (id) => {
           const pMesh = remotePlayers.get(id);
           if (pMesh) {
-            // Remove the name badge mesh from the diorama if it exists
             if (pMesh.userData && pMesh.userData.badgeMesh) {
               miniDiorama.remove(pMesh.userData.badgeMesh);
             }
@@ -338,7 +347,7 @@ socket.on('remove_player', (id) => {
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-       
+        
         pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
@@ -1735,7 +1744,6 @@ socket.on('remove_player', (id) => {
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
    
-
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -2993,25 +3001,22 @@ let assignedTeam = 'BLUE';
 
     // Listen for the server telling us what team we are on
     if (socket) {
-socket.on('assign_team', (data) => {
-  assignedTeam = data.team;
-  teamColorHex = data.teamColor;
-  plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+      socket.on('assign_team', (data) => {
+        assignedTeam = data.team;
+        teamColorHex = data.teamColor;
+        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-  if (data.name) {
-    localMyGuestName = data.name;
-  }
-
-  if (localPlushie) {
-    localPlushie.userData.team = assignedTeam;
-    localPlushie.traverse(child => {
-      if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-        child.material.color.setHex(plushieColorHex);
-      }
-    });
-    updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-  }
-});
+        if (localPlushie) {
+          localPlushie.userData.team = assignedTeam;
+          localPlushie.traverse(child => {
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              child.material.color.setHex(plushieColorHex);
+            }
+          });
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+        }
+      });
+    }
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
@@ -3399,16 +3404,13 @@ const pGroup = createCutePlushie(col, "");
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        // Single-authority physics check with multi-player collision support
         if (isBallPhysicsHost) {
-          // 1. Check local player collision
           if (distToBall < 0.78) {
             const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
             ballVelocity.addScaledVector(pushDir, 13.0);
             playTone(600, 'triangle', 0.08, 0.1);
           }
 
-          // 2. Check all remote players for ball collisions
           remotePlayers.forEach((pMesh) => {
             if (pMesh) {
               const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
@@ -3460,7 +3462,6 @@ const pGroup = createCutePlushie(col, "");
             });
           }
         } else {
-          // Non-host player cleanly interpolates ball position from the master host
           if (hasRemoteBallUpdate) {
             ballMesh.position.lerp(remoteBallTarget, 0.35);
           }
@@ -3501,11 +3502,10 @@ const pGroup = createCutePlushie(col, "");
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
       const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
       const camTargetY = plushieWorldPos.y + 1.6;
 
-      // Framerate-independent smooth damping factor
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
       camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
@@ -3572,18 +3572,14 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
         updatePlushieVisibility(sp, false, false);
       });
 
-const cameraRotation = camera.quaternion;
-
       const camRot = camera.quaternion;
       
-      // Update local plushie badge world position & camera lock
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
         badge.quaternion.copy(camRot);
       }
 
-      // Update remote player name tags so they track position and face the camera
       remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
@@ -3592,7 +3588,6 @@ const cameraRotation = camera.quaternion;
         }
       });
 
-      // Update game board pawns
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
         pawn1.userData.badgeMesh.quaternion.copy(camRot);
       }
@@ -3600,7 +3595,6 @@ const cameraRotation = camera.quaternion;
         pawn2.userData.badgeMesh.quaternion.copy(camRot);
       }
 
-      // Update spectator plushies
       spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
           sp.userData.badgeMesh.quaternion.copy(camRot);
@@ -3621,7 +3615,7 @@ const cameraRotation = camera.quaternion;
 
       renderer.render(scene, camera);
     }
-    // --- MOBILE VIRTUAL DPAD & SWIPE CONTROLS ---
+
     const btnUp = document.getElementById('btn-up');
     const btnDown = document.getElementById('btn-down');
     const btnLeft = document.getElementById('btn-left');
@@ -3653,7 +3647,6 @@ const cameraRotation = camera.quaternion;
     bindTouchButton(btnLeft, 'turnLeft', btnLeft);
     bindTouchButton(btnRight, 'turnRight', btnRight);
 
-    // Screen Touch Swipe to Turn + Light up Left/Right buttons
     let touchStartX = null;
     let isSwipingScreen = false;
 
@@ -3696,3 +3689,4 @@ const cameraRotation = camera.quaternion;
   </script>
 </body>
 </html>
+```eof
