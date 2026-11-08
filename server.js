@@ -14,17 +14,20 @@ app.use(express.static(path.join(__dirname)));
 const activePlayers = new Map();
 let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
 let connectionCount = 0;
+let guestCounter = 0; // Sequential counter for Guest names
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Alternate teams: 1st player is Blue, 2nd is Red, 3rd is Blue, etc.
   connectionCount++;
+  guestCounter++;
+  
   const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
   const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
 
-  // Assign a default guest name
-  const defaultName = `Guest ${Math.floor(Math.random() * 900 + 100)}`;
+  // Assign sequential guest name (Guest 1, Guest 2, Guest 3, etc.)
+  const defaultName = `Guest ${guestCounter}`;
   
   activePlayers.set(socket.id, { 
     id: socket.id, 
