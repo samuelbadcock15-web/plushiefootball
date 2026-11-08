@@ -46,7 +46,7 @@ io.on('connection', (socket) => {
 
   guestCounter++;
 
-  
+ 
 
   const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
 
@@ -58,19 +58,19 @@ io.on('connection', (socket) => {
 
   const defaultName = `Guest ${guestCounter}`;
 
-  
+ 
 
-  activePlayers.set(socket.id, { 
+  activePlayers.set(socket.id, {
 
-    id: socket.id, 
+    id: socket.id,
 
-    name: defaultName, 
+    name: defaultName,
 
-    x: 32.0, 
+    x: 32.0,
 
-    y: 0.44, 
+    y: 0.44,
 
-    z: 2.5, 
+    z: 2.5,
 
     yaw: 0,
 
@@ -96,7 +96,7 @@ io.on('connection', (socket) => {
 
   }
 
-  
+ 
 
   // Inform this client whether they are the designated ball physics host
 
