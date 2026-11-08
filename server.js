@@ -19,26 +19,32 @@ let guestCounter = 0; // Sequential counter for Guest names
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Alternate teams: 1st player is Blue, 2nd is Red, 3rd is Blue, etc.
-  connectionCount++;
-  guestCounter++;
-  
-  const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
-  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
+  // Inside your socket connection handler (server.js)
+connectionCount++;
+guestCounter++;
 
-  // Assign sequential guest name (Guest 1, Guest 2, Guest 3, etc.)
-  const defaultName = `Guest ${guestCounter}`;
-  
-  activePlayers.set(socket.id, { 
-    id: socket.id, 
-    name: defaultName, 
-    x: 32.0, 
-    y: 0.44, 
-    z: 2.5, 
-    yaw: 0,
-    team: assignedTeam,
-    teamColor: teamColorHex
-  });
+const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
+const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
+const defaultName = `Guest ${guestCounter}`;
+
+// 1. Store the player in activePlayers map with their unique guest name
+activePlayers.set(socket.id, { 
+  id: socket.id, 
+  name: defaultName, 
+  x: 32.0, 
+  y: 0.44, 
+  z: 2.5, 
+  yaw: 0,
+  team: assignedTeam,
+  teamColor: teamColorHex
+});
+
+// 2. INCLUDE 'name: defaultName' in the assignment payload sent to the client
+socket.emit('assign_team', { 
+  team: assignedTeam, 
+  teamColor: teamColorHex, 
+  name: defaultName 
+});
 
   // Inform this client what team they have been assigned to
   socket.emit('assign_team', { team: assignedTeam, teamColor: teamColorHex });
