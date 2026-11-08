@@ -66,7 +66,6 @@
       transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
     }
 
-    /* Glowing highlight state when pressed or swiped */
     .dpad-btn.active, .dpad-btn:active {
       background: rgba(0, 240, 255, 0.45);
       border-color: #39ff14;
@@ -89,7 +88,7 @@
     Move with <span style="color:#39ff14;">W, A, S, D</span> • Step on <span style="color:#00d2d3;">Podium 1</span> to trigger Launch Sequence!
   </div>
 
-<canvas id="canvas3d"></canvas>
+  <canvas id="canvas3d"></canvas>
 
   <div id="mobile-dpad">
     <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
@@ -141,19 +140,20 @@
     let rawPlayer1Stream = null;
     let rawPlayer2Stream = null;
 
-    let gameState = "MODE_PROMPT"; // "MODE_PROMPT", "PODIUM_1_WAIT", "IN_PLAY", "INTERMISSION", "CONTESTANT_CHOOSING", "GAME_OVER"
+    let gameState = "MODE_PROMPT"; 
     let isSoloMode = false;
     let isVsGoodyMode = false;
     let goodyPlayerSlot = null;
     let soloPlayerId = null;
 
-    // Podium Launch & Anti-Spam variables
+    // Podium Launch, Anti-Spam & One-Time Extension variables
     let priorityTimer = null;
     let prioritySecondsLeft = 10;
     let antiSpamLockout = false;
     let antiSpamTimer = null;
     let podiumOffCount = 0;
     let lastPodiumOffTime = 0;
+    let hasTriggeredExtendedWindow = false; // Prevents infinite cycling
 
     let diceCountdown = 10;
     let diceCountdownInterval = null;
@@ -326,7 +326,6 @@
     function triggerPodium1PriorityLaunch() {
       if (studioPower || gameState === "PODIUM_1_WAIT") return;
 
-      // Check anti-spam lockout
       if (antiSpamLockout) {
         countdownPill.innerHTML = `STATUS: <span style="color:#ff7675;">ANTI-SPAM LOCKOUT! WAIT 15s</span>`;
         return;
@@ -344,7 +343,6 @@
         prioritySecondsLeft--;
         renderStageQuestionBoard();
 
-        // Check if Podium 2 is filled during the grace window
         if (isLocalOnPodium2 || isP2Connected) {
           clearInterval(priorityTimer);
           priorityTimer = null;
@@ -355,7 +353,6 @@
         if (prioritySecondsLeft <= 0) {
           clearInterval(priorityTimer);
           priorityTimer = null;
-          // If Player 2 didn't join in 10s, fallback to full options or Solo
           gameState = "MODE_PROMPT";
           renderStageQuestionBoard();
           speakGoody(`Player 2 window closed! Select your game mode from the screen!`);
@@ -366,7 +363,6 @@
     function cancelPodium1PriorityLaunch() {
       if (gameState !== "PODIUM_1_WAIT") return;
 
-      // Track podium off for anti-spam
       const now = Date.now();
       if (now - lastPodiumOffTime < 5000) {
         podiumOffCount++;
@@ -409,8 +405,57 @@
       }, 15000);
     }
 
+    // Extended 10-second window when option 3 is clicked and Podium 2 is empty
+    function triggerExtendedPodium2Window(onSuccess) {
+      if (hasTriggeredExtendedWindow) {
+        speakGoody(`You have already used your one-time extension! Please step onto Podium 2 or select Solo or vs Goody.`);
+        return;
+      }
+
+      hasTriggeredExtendedWindow = true;
+      gameState = "PODIUM_1_WAIT";
+      prioritySecondsLeft = 10;
+      renderStageQuestionBoard();
+
+      speakGoody(`Extended 10-second window opened! Step onto Podium 2 right now to start 2-Player mode!`);
+
+      if (priorityTimer) clearInterval(priorityTimer);
+      priorityTimer = setInterval(() => {
+        prioritySecondsLeft--;
+        renderStageQuestionBoard();
+
+        if (isLocalOnPodium2 || isP2Connected) {
+          clearInterval(priorityTimer);
+          priorityTimer = null;
+          onSuccess();
+          return;
+        }
+
+        if (prioritySecondsLeft <= 0) {
+          clearInterval(priorityTimer);
+          priorityTimer = null;
+          gameState = "MODE_PROMPT";
+          renderStageQuestionBoard();
+          speakGoody(`Extended window expired! Please select Solo or vs Goody.`);
+        }
+      }, 1000);
+    }
+
     function chooseHostGameMode(modeType) {
       if (studioPower) return;
+      
+      if (modeType === "TWOPLAYER" && !isLocalOnPodium2 && !isP2Connected) {
+        if (!hasTriggeredExtendedWindow) {
+          triggerExtendedPodium2Window(() => {
+            chooseHostGameMode("TWOPLAYER");
+          });
+          return;
+        } else {
+          speakGoody(`Need Player 2 on Podium 2 to start 2-Player mode!`);
+          return;
+        }
+      }
+
       if (priorityTimer) {
         clearInterval(priorityTimer);
         priorityTimer = null;
@@ -493,7 +538,6 @@
       });
     }
 
-    // --- MID-GAME DROPOUT & INTERMISSION HANDLER ---
     function handleMidGameDropout(contestantId) {
       if (gameState === "GAME_OVER" || gameState === "INTERMISSION") return;
 
@@ -545,11 +589,9 @@
       const speech = `Hold on everyone! It appears ${droppedNum} has stepped off or lost connection! We have opened a 10-second replacement grace window to let someone take their spot!`;
       speakGoody(speech);
 
-      // 10-second grace window to let a replacement step onto the podium
       if (replacementGraceTimeout) clearTimeout(replacementGraceTimeout);
       replacementGraceTimeout = setTimeout(() => {
         if (gameState === "INTERMISSION") {
-          // If no replacement stepped up in 10s, fallback to offering remaining player choice (Solo or vs Goody)
           triggerOfferChoiceMode();
         }
       }, 10000);
@@ -557,7 +599,6 @@
 
     function checkReplacementPodiumFill(slotId) {
       if (gameState !== "INTERMISSION") return;
-      // If someone steps onto the vacant podium during intermission grace window
       if (replacementGraceTimeout) clearTimeout(replacementGraceTimeout);
 
       gameState = savedGameState || "IN_PLAY";
@@ -2627,7 +2668,7 @@
           qBoardCtx.fillStyle = '#ff7675';
           qBoardCtx.font = 'bold 18px sans-serif';
           qBoardCtx.fillText("ANTI-SPAM LOCKOUT ACTIVE (15s)", 256, 180);
-        } else if (!isLocalOnPodium1) {
+        } else if (!isLocalOnPodium1 && !isP1Connected) {
           qBoardCtx.fillStyle = '#ff7675';
           qBoardCtx.font = 'bold 16px sans-serif';
           qBoardCtx.fillText("STEP ON PODIUM 1 TO START LAUNCH SEQUENCE!", 256, 180);
@@ -2979,7 +3020,7 @@
           return;
         }
 
-        if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+        if (gameState === "MODE_PROMPT" && (isLocalOnPodium1 || isP1Connected)) {
           const uv = hit.uv;
           if (uv) {
             if (uv.y > 0.60) chooseHostGameMode("SOLO");
@@ -3160,7 +3201,7 @@
       if (e.code === 'KeyA') moveState.turnLeft = true;
       if (e.code === 'KeyD') moveState.turnRight = true;
 
-      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+      if (gameState === "MODE_PROMPT" && (isLocalOnPodium1 || isP1Connected)) {
         if (e.key === '1') chooseHostGameMode("SOLO");
         if (e.key === '2') chooseHostGameMode("GOODY");
         if (e.key === '3') chooseHostGameMode("TWOPLAYER");
@@ -3647,14 +3688,12 @@
       isLocalOnPodium1 = distP1 < 0.65;
       isLocalOnPodium2 = distP2 < 0.65;
 
-      // --- PODIUM STATE CHANGE LOGIC ---
       if (isLocalOnPodium1 !== prevPodium1) {
         if (isLocalOnPodium1) {
           if (!studioPower && gameState === "MODE_PROMPT") {
             triggerPodium1PriorityLaunch();
           }
         } else {
-          // Stepped off Podium 1
           if (!studioPower && gameState === "PODIUM_1_WAIT") {
             cancelPodium1PriorityLaunch();
           }
@@ -3666,7 +3705,8 @@
 
       if (isLocalOnPodium2 !== prevPodium2) {
         if (isLocalOnPodium2) {
-          if (!studioPower && gameState === "PODIUM_1_WAIT") {
+          // If stepping on podium 2 during priority wait or extended wait, immediately start 2-player mode!
+          if (!studioPower && (gameState === "PODIUM_1_WAIT")) {
             chooseHostGameMode("TWOPLAYER");
           }
         } else {
@@ -3691,7 +3731,8 @@
         }
 
         const podium1Occupied = isP1Connected || isLocalOnPodium1;
-        const shouldBeSolid = onPodium1 || (onPodium2 && podium1Occupied);
+        const podium2Occupied = isP2Connected || isLocalOnPodium2;
+        const shouldBeSolid = (onPodium1 && podium1Occupied) || (onPodium2 && podium2Occupied);
 
         if (shouldBeSolid) {
           setPlushieVisualMode(plushieMesh, 'opaque');
@@ -3701,7 +3742,7 @@
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && (isLocalOnPodium1 || isLocalOnPodium2)) ||
                                 (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
