@@ -36,169 +36,169 @@ let guestCounter = 0; // Sequential counter for Guest names
 
 io.on('connection', (socket) => {
 
-  console.log(`User connected: ${socket.id}`);
+  console.log(`User connected: ${socket.id}`);
 
 
 
-  // Alternate teams: 1st player is Blue, 2nd is Red, 3rd is Blue, etc.
+  // Alternate teams: 1st player is Blue, 2nd is Red, 3rd is Blue, etc.
 
-  connectionCount++;
+  connectionCount++;
 
-  guestCounter++;
+  guestCounter++;
 
- 
+  
 
-  const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
+  const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
 
-  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
+  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
 
 
 
-  // Assign sequential guest name (Guest 1, Guest 2, Guest 3, etc.)
+  // Assign sequential guest name (Guest 1, Guest 2, Guest 3, etc.)
 
-  const defaultName = `Guest ${guestCounter}`;
+  const defaultName = `Guest ${guestCounter}`;
 
- 
+  
 
-  activePlayers.set(socket.id, {
+  activePlayers.set(socket.id, { 
 
-    id: socket.id,
+    id: socket.id, 
 
-    name: defaultName,
+    name: defaultName, 
 
-    x: 32.0,
+    x: 32.0, 
 
-    y: 0.44,
+    y: 0.44, 
 
-    z: 2.5,
+    z: 2.5, 
 
-    yaw: 0,
+    yaw: 0,
 
-    team: assignedTeam,
+    team: assignedTeam,
 
-    teamColor: teamColorHex
+    teamColor: teamColorHex
 
-  });
+  });
 
 
 
-  // Inform this client what team they have been assigned to
+  // Inform this client what team they have been assigned to
 
-  socket.emit('assign_team', { team: assignedTeam, teamColor: teamColorHex });
+  socket.emit('assign_team', { team: assignedTeam, teamColor: teamColorHex });
 
 
 
-  // If this is the first connected player, make them the official ball physics host
+  // If this is the first connected player, make them the official ball physics host
 
-  if (!ballPhysicsHostId) {
+  if (!ballPhysicsHostId) {
 
-    ballPhysicsHostId = socket.id;
+    ballPhysicsHostId = socket.id;
 
-  }
+  }
 
- 
+  
 
-  // Inform this client whether they are the designated ball physics host
+  // Inform this client whether they are the designated ball physics host
 
-  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
+  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
 
 
-  // Send current players list to the newly connected client
+  // Send current players list to the newly connected client
 
-  socket.emit('current_players', Array.from(activePlayers.values()));
+  socket.emit('current_players', Array.from(activePlayers.values()));
 
 
 
-  // Handle player avatar movement, rotation, & team updates
+  // Handle player avatar movement, rotation, & team updates
 
-  socket.on('player_move', (data) => {
+  socket.on('player_move', (data) => {
 
-    const player = activePlayers.get(socket.id);
+    const player = activePlayers.get(socket.id);
 
-    if (player) {
+    if (player) {
 
-      player.name = data.name || player.name;
+      player.name = data.name || player.name;
 
-      player.x = data.x;
+      player.x = data.x;
 
-      player.y = data.y;
+      player.y = data.y;
 
-      player.z = data.z;
+      player.z = data.z;
 
-      player.yaw = data.yaw;
+      player.yaw = data.yaw;
 
-      player.team = data.team || player.team;
+      player.team = data.team || player.team;
 
-      player.teamColor = data.teamColor || player.teamColor;
+      player.teamColor = data.teamColor || player.teamColor;
 
 
 
-      // Broadcast updated player position and team data to everyone else
+      // Broadcast updated player position and team data to everyone else
 
-      socket.broadcast.emit('update_player', player);
+      socket.broadcast.emit('update_player', player);
 
-    }
+    }
 
-  });
+  });
 
 
 
-  // Handle real-time ball movement and physics synchronization from the host
+  // Handle real-time ball movement and physics synchronization from the host
 
-  socket.on('ball_move', (bData) => {
+  socket.on('ball_move', (bData) => {
 
-    // Broadcast ball coordinates and velocity to all other connected clients
+    // Broadcast ball coordinates and velocity to all other connected clients
 
-    socket.broadcast.emit('ball_sync', bData);
+    socket.broadcast.emit('ball_sync', bData);
 
-  });
+  });
 
 
 
-  // Handle goal scores and reset triggers
+  // Handle goal scores and reset triggers
 
-  socket.on('score_update', (sData) => {
+  socket.on('score_update', (sData) => {
 
-    // Broadcast updated score to all clients (including sender)
+    // Broadcast updated score to all clients (including sender)
 
-    io.emit('score_sync', sData);
+    io.emit('score_sync', sData);
 
-  });
+  });
 
 
 
-  // Handle disconnects
+  // Handle disconnects
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', () => {
 
-    console.log(`User disconnected: ${socket.id}`);
+    console.log(`User disconnected: ${socket.id}`);
 
-    activePlayers.delete(socket.id);
+    activePlayers.delete(socket.id);
 
-    io.emit('remove_player', socket.id);
+    io.emit('remove_player', socket.id);
 
 
 
-    // If the current ball physics host disconnects, reassign to the next available player
+    // If the current ball physics host disconnects, reassign to the next available player
 
-    if (socket.id === ballPhysicsHostId) {
+    if (socket.id === ballPhysicsHostId) {
 
-      const remainingIds = Array.from(activePlayers.keys());
+      const remainingIds = Array.from(activePlayers.keys());
 
-      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
+      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
 
-      if (ballPhysicsHostId) {
+      if (ballPhysicsHostId) {
 
-        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
+        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
 
-        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
+        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
 
-      }
+      }
 
-    }
+    }
 
-  });
+  });
 
 });
 
@@ -208,6 +208,6 @@ const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
 
-  console.log(`The Goody Tonight Show server running on http://localhost:${PORT}`);
+  console.log(`The Goody Tonight Show server running on http://localhost:${PORT}`);
 
 });
