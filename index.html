@@ -3547,18 +3547,6 @@ const pGroup = createCutePlushie(col, "");
 
       camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
 
-      const prevPodium1 = isLocalOnPodium1;
-      const prevPodium2 = isLocalOnPodium2;
-
-      isLocalOnPodium1 = distP1 < 0.65;
-      isLocalOnPodium2 = distP2 < 0.65;
-
-      if ((isLocalOnPodium1 !== prevPodium1) || (isLocalOnPodium2 !== prevPodium2)) {
-        if (!studioPower && gameState === "MODE_PROMPT") {
-          renderStageQuestionBoard();
-        }
-        if (gameState === "IDLE" && isLocalOnPodium1 && isLocalOnPodium2 && !studioPower) {
-          chooseHostGameMode("TWOPLAYER");
         }
       }
 
