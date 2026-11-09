@@ -2,15 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The Goody Tonight Show - Plushie Foosball & Rugby Arena</title>
+  <title>The Goody Tonight Show - Live Studio Host</title>
   <style>
     body, html {
       margin: 0; padding: 0; width: 100%; height: 100%;
       overflow: hidden; background-color: #05020a;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      touch-action: manipulation;
     }
     #canvas3d { width: 100%; height: 100%; display: block; cursor: pointer; }
+    #crosshair {
+      position: absolute; top: 50%; left: 50%; width: 8px; height: 8px;
+      background: rgba(255, 255, 255, 0.85); border-radius: 50%;
+      transform: translate(-50%, -50%); pointer-events: none;
+      box-shadow: 0 0 8px #00f0ff; transition: transform 0.15s; z-index: 10;
+    }
+    #crosshair.hover-active { transform: translate(-50%, -50%) scale(2.2); background: #ff69b4; }
 
     #hud {
       position: absolute; top: 15px; left: 15px; background: rgba(22, 9, 44, 0.9);
@@ -28,245 +34,47 @@
       background: rgba(22, 9, 44, 0.92); border: 2px solid #00f0ff; border-radius: 10px;
       padding: 10px 20px; color: #ffda66; font-family: monospace; font-size: 0.9rem;
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
-      pointer-events: none;
-    }
-
-    #mobile-dpad {
-      position: absolute;
-      bottom: 40px;
-      left: 40px;
-      display: none;
-      grid-template-areas:
-        ". up ."
-        "left down right";
-      gap: 16px;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-    }
-
-    @media (pointer: coarse), (max-width: 900px) {
-      #mobile-dpad { display: grid; }
-    }
-
-    .dpad-btn {
-      width: 80px;
-      height: 80px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 3px solid #00f0ff;
-      border-radius: 18px;
-      color: #00f0ff;
-      font-size: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
-      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
-    }
-
-    .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
-      border-color: #39ff14;
-      color: #39ff14;
-      box-shadow: 0 0 22px #39ff14;
-    }
-
-    #look-pad {
-      position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 140px;
-      height: 140px;
-      background: rgba(22, 9, 44, 0.65);
-      border: 2px solid rgba(0, 240, 255, 0.6);
-      border-radius: 50%;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
-      user-select: none;
-      cursor: grab;
-    }
-
-    #look-pad:active {
-      cursor: grabbing;
-    }
-
-    #look-pad-thumb {
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.3);
-      border: 2px solid #39ff14;
-      border-radius: 50%;
-      color: #39ff14;
-      font-family: monospace;
-      font-size: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      pointer-events: none;
-      transition: transform 0.05s linear;
-    }
-
-    #mobile-crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(0, 240, 255, 0.8);
-      border-radius: 50%;
-      pointer-events: none;
-      display: none;
-      z-index: 15;
-    }
-
-    @media (pointer: coarse), (max-width: 900px) {
-      #mobile-crosshair { display: block; }
+      display: none; pointer-events: none;
     }
   </style>
 </head>
 <body>
+  <div id="crosshair"></div>
+ 
   <div id="hud">
-    <div class="hud-title" id="mode-title" style="color: #ffda66;">STUDIO FLOOR & WIDE PLUSHIE RUGBY-FOOTIE ARENA</div>
-    <div class="hud-sub" id="mode-sub">Bump into the ball with your belly & bash into friends!</div>
+    <div class="hud-title" id="mode-title" style="color: #ffda66;">BEDROOM WORKSHOP</div>
+    <div class="hud-sub" id="mode-sub">WebRTC Studio Host: ONLINE • FULL GAME LOOP READY</div>
     <div id="room-code-pill">CODE: <span id="hud-code-val">----</span></div>
-    <div id="countdown-pill">STATUS: <span id="timer-val" style="color:#ffda66;">WALK WAY OUT EAST TO THE GIANT FOOTBALL PITCH!</span></div>
+    <div id="countdown-pill">BROADCAST STARTS IN: <span id="timer-val" style="color:#ff7675;">10s</span></div>
     <div id="match-clock-hud">SHOW CLOCK: <span id="game-clock-val" style="color:#ffda66;">20:00</span></div>
     <div id="audience-pill">AUDIENCE WATCHING: <span id="audience-count" style="color:#39ff14;">1</span></div>
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
+    CURSOR MODE ACTIVE (Press <span style="color:#39ff14;">ESC</span> to re-lock view, or Click screen to interact)
   </div>
 
   <canvas id="canvas3d"></canvas>
 
-  <div id="mobile-dpad">
-    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
-    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
-    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
-    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
-  </div>
-
-  <div id="look-pad">
-    <div id="look-pad-thumb">LOOK / AIM</div>
-  </div>
-
-  <div id="mobile-crosshair"></div>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
 
   <script>
     let isHostAuthorized = true;
-    let socket = null;
-    const remotePlayers = new Map();
-    let localMyGuestName = "Guest 1";
-    let isBallPhysicsHost = false;
+
+    const modeBanner = document.getElementById('mode-banner');
+    const crosshairEl = document.getElementById('crosshair');
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
       initAudio();
       initStudioWebRTC();
-      initSocketConnection();
-      triggerImmediateModePrompt();
+      startAutoCountdown();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
-    });
-
-    const lookPad = document.getElementById('look-pad');
-    const lookPadThumb = document.getElementById('look-pad-thumb');
-
-    let isLooking = false;
-    let lookTouchId = null;
-    let lookStartX = 0;
-    let lookStartY = 0;
-
-    function handleLookStart(clientX, clientY, identifier = null) {
-      isLooking = true;
-      lookTouchId = identifier;
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
-
-    function handleLookMove(clientX, clientY) {
-      if (!isLooking) return;
-
-      const deltaX = clientX - lookStartX;
-      const deltaY = clientY - lookStartY;
-      const lookSensitivity = 0.005;
-
-      if (typeof plushieRotation !== 'undefined') {
-        plushieRotation.yaw -= deltaX * lookSensitivity;
-      }
-
-      const maxThumbOffset = 40;
-      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
-      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
-      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
-
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
-
-    function handleLookEnd() {
-      isLooking = false;
-      lookTouchId = null;
-      lookPadThumb.style.transform = `translate(0px, 0px)`;
-    }
-
-    lookPad.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      const touch = e.changedTouches[0];
-      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
-    }, { passive: false });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isLooking) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === lookTouchId) {
-          handleLookMove(touch.clientX, touch.clientY);
-          break;
-        }
-      }
-    }, { passive: false });
-
-    window.addEventListener('touchend', (e) => {
-      if (!isLooking) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === lookTouchId) {
-          handleLookEnd();
-          break;
-        }
-      }
-    });
-
-    lookPad.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      handleLookStart(e.clientX, e.clientY);
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (isLooking && lookTouchId === null) {
-        handleLookMove(e.clientX, e.clientY);
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (isLooking && lookTouchId === null) {
-        handleLookEnd();
-      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -290,14 +98,14 @@
     let rawPlayer1Stream = null;
     let rawPlayer2Stream = null;
 
-    let gameState = "MODE_PROMPT";
+    let gameState = "IDLE";
     let isSoloMode = false;
     let isVsGoodyMode = false;
     let goodyPlayerSlot = null;
     let soloPlayerId = null;
 
     let diceCountdown = 10;
-    let diceCountdownInterval = null;
+    let diceInterval = null;
     let isDiceTimerActive = false;
 
     let p1RollVal = null;
@@ -330,9 +138,6 @@
     const countdownPill = document.getElementById('countdown-pill');
     const timerValEl = document.getElementById('timer-val');
 
-    let blueScore = 0;
-    let redScore = 0;
-
     const contestantRotations = {
       "goody-contestant-1": { yaw: 0, pitch: -0.15 },
       "goody-contestant-2": { yaw: 0, pitch: -0.15 }
@@ -360,6 +165,7 @@
     let p1PeerId = null;
     let p2PeerId = null;
 
+    let timerExpired = false;
     let droppedOutContestant = null;
     let droppedOutName = "";
     let droppedOutCity = "";
@@ -370,118 +176,36 @@
     let savedActiveCountry = null;
     let savedGameState = null;
 
-    const spectatorPlushies = new Map();
+    let autoStartSeconds = 10;
+    let autoStartInterval = null;
 
-    function initSocketConnection() {
-      try {
-        socket = io();
-
-        socket.on('ball_host_assignment', (data) => {
-          isBallPhysicsHost = data.isHost;
-        });
-
-        socket.on('assign_team', (data) => {
-          assignedTeam = data.team;
-          teamColorHex = data.teamColor;
-          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          if (data.name) {
-            localMyGuestName = data.name;
-          }
-
-          if (localPlushie) {
-            localPlushie.userData.team = assignedTeam;
-            localPlushie.traverse(child => {
-              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-                child.material.color.setHex(plushieColorHex);
-              }
-            });
-            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-          }
-        });
-
-        socket.on('update_player', (data) => {
-          let pMesh = remotePlayers.get(data.id);
-          const remoteTeam = data.team || 'BLUE';
-          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
-          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          const playerName = data.name || "Guest";
-
-          if (!pMesh) {
-            pMesh = createCutePlushie(remotePlushieHex, playerName);
-            pMesh.userData.team = remoteTeam;
-            updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
-            miniDiorama.add(pMesh);
-            remotePlayers.set(data.id, pMesh);
-          } else {
-            pMesh.userData.team = remoteTeam;
-            pMesh.traverse(child => {
-              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-                child.material.color.setHex(remotePlushieHex);
-              }
-            });
-          }
-         
-          pMesh.position.set(data.x, data.y, data.z);
-          pMesh.rotation.y = data.yaw + Math.PI;
-         
-          if (data.name) {
-            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
-          }
-         
-          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
-        });
-
-        socket.on('remove_player', (id) => {
-          const pMesh = remotePlayers.get(id);
-          if (pMesh) {
-            if (pMesh.userData && pMesh.userData.badgeMesh) {
-              miniDiorama.remove(pMesh.userData.badgeMesh);
-            }
-            miniDiorama.remove(pMesh);
-            remotePlayers.delete(id);
-          }
-        });
-
-        socket.on('ball_sync', (bData) => {
-          if (ballMesh) {
-            remoteBallTarget.set(bData.x, bData.y, bData.z);
-            if (bData.vx !== undefined) {
-              ballVelocity.set(bData.vx, bData.vy, bData.vz);
-            }
-            hasRemoteBallUpdate = true;
-          }
-        });
-
-        socket.on('score_sync', (sData) => {
-          blueScore = sData.blue;
-          redScore = sData.red;
-          renderPitchScoreboard(blueScore, redScore);
-        });
-
-        socket.on('start_podium_countdown', (data) => {
-          countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">PODIUM 1 SECURED! 10S PRIORITY COUNTDOWN ACTIVE</span>`;
-        });
-
-        socket.on('unlock_mode_options', () => {
-          if (gameState === "MODE_PROMPT") {
-            isLocalOnPodium1 = true;
-            renderStageQuestionBoard();
-          }
-        });
-
-        socket.on('cancel_podium_countdown', () => {
-          countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WALK WAY OUT EAST TO THE GIANT FOOTBALL PITCH!</span>`;
-        });
-      } catch (e) {
-        console.warn("Socket.io offline or unavailable:", e);
-      }
+    function startAutoCountdown() {
+      if (autoStartInterval) return;
+      autoStartInterval = setInterval(() => {
+        autoStartSeconds--;
+        if (autoStartSeconds > 0) {
+          timerValEl.textContent = `${autoStartSeconds}s`;
+        } else {
+          clearInterval(autoStartInterval);
+          timerExpired = true;
+          triggerStudioModePrompt();
+        }
+        renderStageQuestionBoard();
+      }, 1000);
     }
 
-    function triggerImmediateModePrompt() {
+    function triggerStudioModePrompt() {
       if (studioPower) return;
       gameState = "MODE_PROMPT";
-      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">SELECT GAME MODE (STEP ON PODIUM 1)</span>`;
+      countdownPill.innerHTML = ` <span style="color:#ffda66;">SELECT GAME MODE</span>`;
       renderStageQuestionBoard();
+      speakGoody("The initial standby countdown has elapsed! Studio director, please choose how we begin tonight's broadcast: 1-Player Solo Race, 1-Player versus Goody, or standard 2-Player mode if both podiums are occupied!", () => {
+        if (gameState === "MODE_PROMPT") {
+          connectedDataConns.forEach(c => {
+            if (c.open) c.send({ type: "OFFER_CONTESTANT_CHOICE" });
+          });
+        }
+      });
     }
 
     function chooseHostGameMode(modeType) {
@@ -494,10 +218,8 @@
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-       
         pawn2.visible = false;
-        pawn1.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
+        p2PodiumGroup.visible = false;
 
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
@@ -509,9 +231,8 @@
         isVsGoodyMode = true;
         goodyPlayerSlot = "goody-contestant-2";
         contestantNames["goody-contestant-2"] = "Goody";
-        pawn1.visible = true;
         pawn2.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+        p2PodiumGroup.visible = true;
         updatePawnNameBadge(pawn2, "Goody");
 
         bootStudio();
@@ -522,9 +243,8 @@
       } else if (modeType === "TWOPLAYER") {
         isSoloMode = false;
         isVsGoodyMode = false;
-        pawn1.visible = true;
         pawn2.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+        p2PodiumGroup.visible = true;
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
         speakGoody(speech, () => {
@@ -618,7 +338,7 @@
 
       const droppedNum = contestantId === "goody-contestant-1" ? `Player 1 (${droppedOutName})` : `Player 2 (${droppedOutName})`;
 
-      countdownPill.innerHTML = `STATUS: <span style="color:#ff7675;">INTERMISSION: WAITING FOR RECONNECT...</span>`;
+      countdownPill.innerHTML = ` <span style="color:#ff7675;">INTERMISSION: WAITING FOR RECONNECT...</span>`;
       renderStageQuestionBoard();
 
       connectedDataConns.forEach(c => {
@@ -650,10 +370,9 @@
       p2RollVal = null;
       isDiceRollingP2 = false;
       pawn2.visible = false;
-      pawn1.visible = true;
-      if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
+      p2PodiumGroup.visible = false;
 
-      countdownPill.innerHTML = `STATUS: <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
+      countdownPill.innerHTML = ` <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
       gameState = "IN_PLAY";
       renderStageQuestionBoard();
 
@@ -682,7 +401,7 @@
       const remainingId = isP1Connected ? "goody-contestant-1" : "goody-contestant-2";
       const remainingName = contestantNames[remainingId];
 
-      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WAITING FOR ${remainingName.toUpperCase()}'S CHOICE...</span>`;
+      countdownPill.innerHTML = ` <span style="color:#ffda66;">WAITING FOR ${remainingName.toUpperCase()}'S CHOICE...</span>`;
       renderStageQuestionBoard();
 
       const speech = `Welcome back to The Goody Tonight Show! Unfortunately, we have been unable to find a replacement. So ${remainingName}, you can choose to go solo against the 20-minute timer, or battle me, Goody, head-to-head! Make your choice now!`;
@@ -700,20 +419,20 @@
       goodyPlayerSlot = droppedOutContestant || "goody-contestant-2";
       contestantNames[goodyPlayerSlot] = "Goody";
 
-      pawn1.visible = true;
-      pawn2.visible = true;
       if (goodyPlayerSlot === "goody-contestant-1") {
-        if (window.p1PodiumGroup) window.p1PodiumGroup.visible = true;
+        pawn1.visible = true;
+        p1PodiumGroup.visible = true;
         updatePawnNameBadge(pawn1, "Goody");
       } else {
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+        pawn2.visible = true;
+        p2PodiumGroup.visible = true;
         updatePawnNameBadge(pawn2, "Goody");
       }
 
       const humanId = goodyPlayerSlot === "goody-contestant-1" ? "goody-contestant-2" : "goody-contestant-1";
       const humanName = contestantNames[humanId];
 
-      countdownPill.innerHTML = `STATUS: <span style="color:#00f0ff;">GOODY VS ${humanName.toUpperCase()}!</span>`;
+      countdownPill.innerHTML = ` <span style="color:#00f0ff;">GOODY VS ${humanName.toUpperCase()}!</span>`;
 
       if (gameState === "MODE_PROMPT" || savedGameState === "INTRO_SPEECH" || savedGameState === "OPENING_DUEL" || savedGameState === "IDLE") {
         gameState = "OPENING_DUEL";
@@ -820,7 +539,6 @@
       isQuestionTimerActive = false;
       questionTimer = 0;
 
-      gameState = "IN_PLAY";
       renderStageQuestionBoard();
 
       broadcastMicState("goody-contestant-1", false);
@@ -845,7 +563,7 @@
       isDiceTimerActive = true;
       renderStageQuestionBoard();
 
-      diceCountdownInterval = setInterval(() => {
+      diceInterval = setInterval(() => {
         diceCountdown--;
         renderStageQuestionBoard();
         if (diceCountdown <= 0) {
@@ -856,9 +574,9 @@
     }
 
     function stopDiceCountdown() {
-      if (diceCountdownInterval) {
-        clearInterval(diceCountdownInterval);
-        diceCountdownInterval = null;
+      if (diceInterval) {
+        clearInterval(diceInterval);
+        diceInterval = null;
       }
       isDiceTimerActive = false;
     }
@@ -879,8 +597,6 @@
       }
 
       renderStageQuestionBoard();
-      renderBackstageScreens();
-
       connectedDataConns.forEach(c => {
         if (c.open) c.send({
           type: "ENABLE_TURN_ROLL",
@@ -905,11 +621,10 @@
       else isDiceRollingP1 = true;
 
       renderStageQuestionBoard();
-      renderBackstageScreens();
       const rollVal = Math.floor(Math.random() * 6) + 1;
       setTimeout(() => {
         handlePlayerRoll(goodyPlayerSlot, "Goody", rollVal);
-      }, 1500);
+      }, 1200);
     }
 
     function calculateGoodyAccuracy() {
@@ -1018,22 +733,46 @@
     scene.fog = new THREE.FogExp2(0x040208, 0.015);
 
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 150);
-    camera.position.set(0, 5.8, -5.0);
+    camera.position.set(0, 5.5, 9);
 
     const canvas = document.getElementById('canvas3d');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
 
     const canvasPlayer1 = document.createElement('canvas');
     canvasPlayer1.width = 640; canvasPlayer1.height = 360;
+    const rendererPlayer1 = new THREE.WebGLRenderer({ canvas: canvasPlayer1, antialias: true });
 
     const canvasPlayer2 = document.createElement('canvas');
     canvasPlayer2.width = 640; canvasPlayer2.height = 360;
+    const rendererPlayer2 = new THREE.WebGLRenderer({ canvas: canvasPlayer2, antialias: true });
+
+    const camPlayer1 = new THREE.PerspectiveCamera(65, 16 / 9, 0.1, 100);
+    const camPlayer2 = new THREE.PerspectiveCamera(65, 16 / 9, 0.1, 100);
 
     const streamPlayer1 = canvasPlayer1.captureStream(30);
     const streamPlayer2 = canvasPlayer2.captureStream(30);
+
+    const controls = new THREE.PointerLockControls(camera, document.body);
+
+    canvas.addEventListener('click', () => {
+      if (!isHostAuthorized) return;
+      initAudio();
+      controls.lock();
+    });
+
+    controls.addEventListener('lock', () => {
+      crosshairEl.style.display = 'block';
+      modeBanner.style.display = 'none';
+    });
+    controls.addEventListener('unlock', () => {
+      if (isHostAuthorized && gameState !== "MODE_PROMPT" && gameState !== "INTERMISSION" && gameState !== "CONTESTANT_CHOOSING") {
+        crosshairEl.style.display = 'none';
+        modeBanner.style.display = 'block';
+      }
+    });
 
     let studioPeer = null;
     let connectedDataConns = [];
@@ -1198,15 +937,6 @@
 
           conn.on('data', (data) => {
             if (data.type === "SPECTATOR_MOVE") {
-              let p = spectatorPlushies.get(data.peerId);
-              if (!p) {
-                p = createCutePlushie(0x00f0ff);
-                miniDiorama.add(p);
-                spectatorPlushies.set(data.peerId, p);
-              }
-              p.position.set(data.x, data.y, data.z);
-              if (data.yaw !== undefined) p.rotation.y = data.yaw;
-
               connectedDataConns.forEach(c => {
                 if (c.open && c.metadata && c.metadata.role === 'AUDIENCE' && c.peer !== conn.peer) {
                   c.send({
@@ -1282,12 +1012,6 @@
             connectedAudiencePeers.delete(conn.peer);
             connectedDataConns = connectedDataConns.filter(c => c.peer !== conn.peer);
             broadcastAudienceCount();
-
-            const sp = spectatorPlushies.get(conn.peer);
-            if (sp) {
-              miniDiorama.remove(sp);
-              spectatorPlushies.delete(conn.peer);
-            }
 
             const cId = conn.metadata ? conn.metadata.contestant : null;
             if (cId === "goody-contestant-1" && p1PeerId === conn.peer) {
@@ -1403,8 +1127,7 @@
           isDiceRollingP1 = false;
           isDiceRollingP2 = false;
           renderStageQuestionBoard();
-          renderBackstageScreens();
-          setTimeout(finalizeDiceDuel, 1200);
+          setTimeout(finalizeDiceDuel, 600);
         }
       });
     }
@@ -1420,14 +1143,14 @@
         }
         playTone(587, 'sine', 0.15, 0.08);
         renderStageQuestionBoard();
-        renderBackstageScreens();
 
         if ((isSoloMode && p1RollVal !== null) || (p1RollVal !== null && p2RollVal !== null)) {
           stopDiceCountdown();
-          setTimeout(finalizeDiceDuel, 1200);
+          setTimeout(finalizeDiceDuel, 600);
         }
       } else if (gameState === "IN_PLAY") {
-        if (contestant !== activePlayer || hasPlayerRolledThisTurn || isPawnMoving) {
+        const isAllowedPlayer = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
+        if (contestant !== activePlayer || hasPlayerRolledThisTurn || isPawnMoving || !isAllowedPlayer) {
           if (contestant === "goody-contestant-2") isDiceRollingP2 = false;
           else isDiceRollingP1 = false;
           return;
@@ -1443,17 +1166,14 @@
         }
         playTone(587, 'sine', 0.15, 0.08);
         renderStageQuestionBoard();
-        renderBackstageScreens();
 
-        setTimeout(() => {
-          const speech = contestant === goodyPlayerSlot
-            ? `I rolled a ${roll}! Moving forwards ${roll} spaces!`
-            : `${name} rolled a ${roll}! Moving ${roll} spaces.`;
+        const speech = contestant === goodyPlayerSlot
+          ? `I rolled a ${roll}! Moving forwards ${roll} spaces!`
+          : `${name} rolled a ${roll}! Moving ${roll} spaces.`;
 
-          speakGoody(speech, () => {
-            advanceTurnPlayer(contestant, roll);
-          });
-        }, 1200);
+        speakGoody(speech, () => {
+          advanceTurnPlayer(contestant, roll);
+        });
       }
     }
 
@@ -1492,7 +1212,7 @@
 
       if (!isSoloMode && p1RollVal === p2RollVal) {
         const tieVal = p1RollVal;
-        const speech = `Both contestants rolled a ${tieVal}! It's a dead heat tie! We must re-roll to decide who goes first! You have 10 seconds to roll your dice!`;
+        const speech = `Both contestants rolled a ${tieVal}! It's a dead heat tie! We must re-roll to decide who goes first! Click or press spacebar to roll again! You have 10 seconds!`;
         speakGoody(speech, () => {
           p1RollVal = null;
           p2RollVal = null;
@@ -1509,7 +1229,6 @@
       hasPlayerRolledThisTurn = false;
       isPawnMoving = true;
       renderStageQuestionBoard();
-      renderBackstageScreens();
       startTwentyMinuteMatchTimer();
       broadcastBoardState();
 
@@ -1623,7 +1342,6 @@
         stageSelectedOption = null;
         stageOptionStatus = null;
 
-        stopDiceCountdown();
         if (questionInterval) clearInterval(questionInterval);
         isQuestionTimerActive = false;
         questionTimer = 0;
@@ -1688,7 +1406,6 @@
     }
 
     function evaluateAnswer(contestant, chosen) {
-      stopDiceCountdown();
       if (questionInterval) clearInterval(questionInterval);
       isQuestionTimerActive = false;
       questionTimer = 0;
@@ -1714,23 +1431,25 @@
         });
       });
 
-      activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect };
-      activeQuestion = null;
-      renderStageQuestionBoard();
+      setTimeout(() => {
+        activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect };
+        activeQuestion = null;
+        renderStageQuestionBoard();
+      }, 1400);
 
       const isGoody = contestant === goodyPlayerSlot;
       if (isCorrect) {
         const speech = isGoody
-          ? `My circuits calculated correctly! That is correct! Here is what we learned: ${activeRecap.text}`
-          : `Well done, that's correct! Here is what we learned: ${activeRecap.text}`;
+          ? `My circuits calculated correctly! That is correct! Here is what we learned: ${activeQuestion.recap}`
+          : `Well done, that's correct! Here is what we learned: ${activeQuestion.recap}`;
 
         speakGoody(speech, () => {
           transitionToRulesAndNextTurn();
         });
       } else {
         const speech = isGoody
-          ? `Oh no! A system malfunction in my memory bank! I got it wrong! I must go back to the start! Here is what we learned: ${activeRecap.text}`
-          : `Unlucky, that's incorrect. You must go back to the start! Here is what we learned: ${activeRecap.text}`;
+          ? `Oh no! A system malfunction in my memory bank! I got it wrong! I must go back to the start! Here is what we learned: ${activeQuestion.recap}`
+          : `Unlucky, that's incorrect. You must go back to the start! Here is what we learned: ${activeQuestion.recap}`;
 
         speakGoody(speech, () => {
           resetPlayerToStart(contestant, () => {
@@ -1741,7 +1460,6 @@
     }
 
     function handleQuestionTimeout(contestant) {
-      stopDiceCountdown();
       if (questionInterval) clearInterval(questionInterval);
       isQuestionTimerActive = false;
       questionTimer = 0;
@@ -1765,11 +1483,13 @@
         });
       });
 
-      activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect: false };
-      activeQuestion = null;
-      renderStageQuestionBoard();
+      setTimeout(() => {
+        activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect: false };
+        activeQuestion = null;
+        renderStageQuestionBoard();
+      }, 1400);
 
-      speakGoody(`I'm sorry, you ran out of time! You must go back to the start! Here is what we learned: ${activeRecap.text}`, () => {
+      speakGoody(`I'm sorry, you ran out of time! You must go back to the start! Here is what we learned: ${activeQuestion.recap}`, () => {
         resetPlayerToStart(contestant, () => {
           transitionToRulesAndNextTurn();
         });
@@ -1777,7 +1497,6 @@
     }
 
     function transitionToRulesAndNextTurn() {
-      stopDiceCountdown();
       activeRecap = null;
       activeQuestion = null;
       isQuestionTimerActive = false;
@@ -1791,7 +1510,7 @@
 
       setTimeout(() => {
         nextTurn();
-      }, 1000);
+      }, 3000);
     }
 
     function resetPlayerToStart(contestant, onComplete) {
@@ -1832,12 +1551,9 @@
       isPawnMoving = false;
       isDiceRollingP1 = false;
       isDiceRollingP2 = false;
-
-      if (questionInterval) clearInterval(questionInterval);
       isQuestionTimerActive = false;
       questionTimer = 0;
       renderStageQuestionBoard();
-      renderBackstageScreens();
 
       if (activePlayer === goodyPlayerSlot) {
         speakGoody(`It is my turn! Goody is rolling the dice!`, () => {
@@ -1890,7 +1606,7 @@
       speakGoody(speech);
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
-   
+
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -2040,235 +1756,25 @@
       fixtureMagenta.lens.material.color.setHex(power ? fixtureMagenta.color : 0x050505);
     }
 
+    const bedroomGroup = new THREE.Group();
+    const bedroomFloor = new THREE.Mesh(new THREE.PlaneGeometry(36, 36), new THREE.MeshStandardMaterial({ color: 0x1f140e }));
+    bedroomFloor.rotation.x = -Math.PI / 2; bedroomGroup.add(bedroomFloor);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x180f26 });
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(36, 16), wallMat); backWall.position.set(0, 8, -18); bedroomGroup.add(backWall);
+    const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(36, 16), wallMat); leftWall.position.set(-18, 8, 0); leftWall.rotation.y = Math.PI / 2; bedroomGroup.add(leftWall);
+    const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(36, 16), wallMat); rightWall.position.set(18, 8, 0); rightWall.rotation.y = -Math.PI / 2; bedroomGroup.add(rightWall);
+
+    const deskTop = new THREE.Mesh(new THREE.BoxGeometry(22, 1.0, 16), new THREE.MeshStandardMaterial({ color: 0x331c0e }));
+    deskTop.position.set(0, 3.4, -9); bedroomGroup.add(deskTop);
+    scene.add(bedroomGroup);
+
     const miniDiorama = new THREE.Group(); miniDiorama.position.set(0, 3.95, -9);
     const feltCarpet = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 0.08, 48), new THREE.MeshStandardMaterial({ color: 0x271147 }));
     feltCarpet.position.y = 0.44;
     miniDiorama.add(feltCarpet);
 
-    const miniWall = new THREE.Mesh(
-      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2),
-      new THREE.MeshStandardMaterial({ color: 0x15092a, side: THREE.BackSide })
-    );
-    miniWall.position.y = 2.65;
-    miniDiorama.add(miniWall);
-
-    const enclosingWallsGroup = new THREE.Group();
-    enclosingWallsGroup.position.set(0, 0.44, 0.0);
-
-    const studioWallMat = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      side: THREE.DoubleSide,
-      transparent: false
-    });
-
-    const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.0, 14.0), studioWallMat);
-    westWall.position.set(-7.0, 2.5, 0.0);
-    enclosingWallsGroup.add(westWall);
-
-    const northWall = new THREE.Mesh(new THREE.BoxGeometry(17.0, 5.0, 0.6), studioWallMat);
-    northWall.position.set(1.5, 2.5, -7.0);
-    enclosingWallsGroup.add(northWall);
-
-    const southWall = new THREE.Mesh(new THREE.BoxGeometry(17.0, 5.0, 0.6), studioWallMat);
-    southWall.position.set(1.5, 2.5, 7.0);
-    enclosingWallsGroup.add(southWall);
-
-    miniDiorama.add(enclosingWallsGroup);
-
-    const partitionGroup = new THREE.Group();
-    partitionGroup.position.set(10.0, 0.44, 0.0);
-
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      transparent: false,
-      opacity: 1.0,
-      side: THREE.DoubleSide
-    });
-
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 4.5), wallMaterial);
-    leftWall.position.set(0, 2.25, -7.75);
-    partitionGroup.add(leftWall);
-
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 12.5), wallMaterial);
-    rightWall.position.set(0, 2.25, 3.75);
-    partitionGroup.add(rightWall);
-
-    const gateGroup = new THREE.Group();
-    gateGroup.position.set(0, 0, -4.0);
-
-    const gateMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 4.2, 3.0),
-      new THREE.MeshStandardMaterial({
-        color: 0x050505,
-        roughness: 0.1,
-        metalness: 0.85,
-        emissive: 0x111115,
-        emissiveIntensity: 0.2,
-        transparent: false,
-        opacity: 1.0,
-        side: THREE.DoubleSide
-      })
-    );
-    gateMesh.position.set(0, 2.1, 0);
-    gateGroup.add(gateMesh);
-    partitionGroup.add(gateGroup);
-
-    miniDiorama.add(partitionGroup);
-
-    const pitchSbCanvas = document.createElement('canvas');
-    pitchSbCanvas.width = 1024;
-    pitchSbCanvas.height = 512;
-    const pitchSbCtx = pitchSbCanvas.getContext('2d');
-    const pitchSbTexture = new THREE.CanvasTexture(pitchSbCanvas);
-    pitchSbTexture.minFilter = THREE.LinearFilter;
-
-    const pitchBoardGeo = new THREE.PlaneGeometry(12, 6);
-    const pitchBoardMat = new THREE.MeshBasicMaterial({
-      map: pitchSbTexture,
-      side: THREE.DoubleSide
-    });
-
-    const pitchScoreboardMesh = new THREE.Mesh(pitchBoardGeo, pitchBoardMat);
-    pitchScoreboardMesh.position.set(34.0, 3.5, 14.0);
-    pitchScoreboardMesh.rotation.y = Math.PI;
-    miniDiorama.add(pitchScoreboardMesh);
-
-    function renderPitchScoreboard(blue, red) {
-      pitchSbCtx.fillStyle = '#05020a';
-      pitchSbCtx.fillRect(0, 0, 1024, 512);
-
-      pitchSbCtx.strokeStyle = '#00f0ff';
-      pitchSbCtx.lineWidth = 10;
-      pitchSbCtx.strokeRect(10, 10, 1004, 492);
-
-      pitchSbCtx.fillStyle = '#ffda66';
-      pitchSbCtx.font = 'bold 44px monospace';
-      pitchSbCtx.textAlign = 'center';
-      pitchSbCtx.fillText('★ PLUSHIE RUGBY-FOOTIE ARENA ★', 512, 85);
-
-      pitchSbCtx.fillStyle = 'rgba(0, 240, 255, 0.15)';
-      pitchSbCtx.fillRect(80, 140, 400, 300);
-      pitchSbCtx.strokeStyle = '#00f0ff';
-      pitchSbCtx.lineWidth = 4;
-      pitchSbCtx.strokeRect(80, 140, 400, 300);
-
-      pitchSbCtx.fillStyle = '#00f0ff';
-      pitchSbCtx.font = 'bold 36px monospace';
-      pitchSbCtx.fillText('BLUE TEAM', 280, 195);
-
-      pitchSbCtx.fillStyle = '#ffffff';
-      pitchSbCtx.font = 'bold 96px monospace';
-      pitchSbCtx.fillText(blue, 280, 330);
-
-      pitchSbCtx.fillStyle = 'rgba(255, 56, 56, 0.15)';
-      pitchSbCtx.fillRect(544, 140, 400, 300);
-      pitchSbCtx.strokeStyle = '#ff3838';
-      pitchSbCtx.lineWidth = 4;
-      pitchSbCtx.strokeRect(544, 140, 400, 300);
-
-      pitchSbCtx.fillStyle = '#ff3838';
-      pitchSbCtx.font = 'bold 36px monospace';
-      pitchSbCtx.fillText('RED TEAM', 744, 195);
-
-      pitchSbCtx.fillStyle = '#ffffff';
-      pitchSbCtx.font = 'bold 96px monospace';
-      pitchSbCtx.fillText(red, 744, 330);
-
-      pitchSbTexture.needsUpdate = true;
-    }
-
-    renderPitchScoreboard(0, 0);
-
-    const foosballGroup = new THREE.Group();
-    foosballGroup.position.set(34.0, 0.44, 0.0);
-
-    const arenaLength = 36.0;
-    const arenaWidth = 24.0;
-
-    const turfMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(arenaLength, 0.06, arenaWidth),
-      new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.8 })
-    );
-    turfMesh.position.y = 0.03;
-    foosballGroup.add(turfMesh);
-
-    const pitchLinesMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const centerLine = new THREE.Mesh(new THREE.PlaneGeometry(0.08, arenaWidth - 0.2), pitchLinesMat);
-    centerLine.rotation.x = -Math.PI / 2;
-    centerLine.position.y = 0.065;
-    foosballGroup.add(centerLine);
-
-    const centerCircle = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.1, 32), pitchLinesMat);
-    centerCircle.rotation.x = -Math.PI / 2;
-    centerCircle.position.y = 0.066;
-    foosballGroup.add(centerCircle);
-
-    const arenaWallMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x004466, metalness: 0.8, roughness: 0.2 });
-    const halfLen = arenaLength / 2;
-    const halfWid = arenaWidth / 2;
-
-    const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(arenaLength + 0.4, 0.6, 0.3), arenaWallMat);
-    wallNorth.position.set(0, 0.3, halfWid + 0.15);
-    foosballGroup.add(wallNorth);
-
-    const wallSouth = new THREE.Mesh(new THREE.BoxGeometry(arenaLength + 0.4, 0.6, 0.3), arenaWallMat);
-    wallSouth.position.set(0, 0.3, -(halfWid + 0.15));
-    foosballGroup.add(wallSouth);
-
-    function createVibrantGoal(isLeft) {
-      const goalGroup = new THREE.Group();
-      const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
-     
-      const goalSpan = 5.0;
-      const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
-      post1.position.set(0, 1.5, goalSpan / 2);
-      goalGroup.add(post1);
-
-      const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
-      post2.position.set(0, 1.5, -goalSpan / 2);
-      goalGroup.add(post2);
-
-      const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, goalSpan, 16), postMat);
-      crossbar.rotation.z = Math.PI / 2;
-      crossbar.position.set(0, 3.0, 0);
-      goalGroup.add(crossbar);
-
-      const up1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.5, 16), postMat);
-      up1.position.set(0, 5.25, goalSpan / 2);
-      goalGroup.add(up1);
-
-      const up2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.5, 16), postMat);
-      up2.position.set(0, 5.25, -goalSpan / 2);
-      goalGroup.add(up2);
-
-      const netMat = new THREE.MeshBasicMaterial({ color: isLeft ? 0x00ffff : 0xff79b0, wireframe: true, transparent: true, opacity: 0.7 });
-      const netBox = new THREE.Mesh(new THREE.BoxGeometry(1.6, 3.0, goalSpan), netMat);
-      netBox.position.set(-0.8, 1.5, 0);
-      goalGroup.add(netBox);
-
-      goalGroup.position.set(isLeft ? -halfLen : halfLen, 0, 0);
-      if (!isLeft) goalGroup.rotation.y = Math.PI;
-      return goalGroup;
-    }
-
-    foosballGroup.add(createVibrantGoal(true));
-    foosballGroup.add(createVibrantGoal(false));
-    miniDiorama.add(foosballGroup);
-
-    const ballMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.38, 24, 24),
-      new THREE.MeshStandardMaterial({ color: 0xffda66, emissive: 0x443300, roughness: 0.3, metalness: 0.5 })
-    );
-    ballMesh.position.set(34.0, 0.82, 0.0);
-    miniDiorama.add(ballMesh);
-
-    let ballVelocity = new THREE.Vector3(0, 0, 0);
-    const remoteBallTarget = new THREE.Vector3(34.0, 0.82, 0.0);
-    let hasRemoteBallUpdate = false;
+    const miniWall = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, -Math.PI / 2, Math.PI), new THREE.MeshStandardMaterial({ color: 0x15092a, side: THREE.BackSide }));
+    miniWall.position.y = 2.65; miniDiorama.add(miniWall);
 
     const p1PodiumGroup = new THREE.Group();
     const p1PodiumBase = new THREE.Mesh(
@@ -2286,7 +1792,6 @@
     p1PodiumGroup.add(p1PodiumRim);
     p1PodiumGroup.position.set(-1.6, 0.44, -2.2);
     miniDiorama.add(p1PodiumGroup);
-    window.p1PodiumGroup = p1PodiumGroup;
 
     const p2PodiumGroup = new THREE.Group();
     const p2PodiumBase = new THREE.Mesh(
@@ -2304,7 +1809,6 @@
     p2PodiumGroup.add(p2PodiumRim);
     p2PodiumGroup.position.set(1.6, 0.44, -2.2);
     miniDiorama.add(p2PodiumGroup);
-    window.p2PodiumGroup = p2PodiumGroup;
 
     const wallClockCanvas = document.createElement('canvas');
     wallClockCanvas.width = 256; wallClockCanvas.height = 128;
@@ -2331,11 +1835,10 @@
     renderWallClockTexture("20:00");
 
     const wallClockMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.2, 1.1),
+      new THREE.PlaneGeometry(2.4, 1.2),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(4.2, 2.15, -4.4);
-    wallClockMesh.rotation.y = -0.75;
+    wallClockMesh.position.set(0, 6.2, -4.4);
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2544,85 +2047,16 @@
     let p2Index = 0;
     const pawn1 = createPlayerPawn(0x00d2d3, contestantNames["goody-contestant-1"] || "Player 1");
     pawn1.position.set(boardTileCoords[0].x - 0.08, 0.52, boardTileCoords[0].z);
-    pawn1.visible = false;
     miniDiorama.add(pawn1);
 
     const pawn2 = createPlayerPawn(0xff3838, contestantNames["goody-contestant-2"] || "Player 2");
     pawn2.position.set(boardTileCoords[0].x + 0.08, 0.52, boardTileCoords[0].z);
-    pawn2.visible = false;
     miniDiorama.add(pawn2);
 
     const qBoardCanvas = document.createElement('canvas');
     qBoardCanvas.width = 512; qBoardCanvas.height = 384;
     const qBoardCtx = qBoardCanvas.getContext('2d');
     const qBoardTex = new THREE.CanvasTexture(qBoardCanvas);
-
-    let isLocalOnPodium1 = false;
-    let isLocalOnPodium2 = false;
-
-    function drawStudioDie(ctx, cx, cy, size, value, glowColor = '#00f0ff', rotationAngle = 0) {
-      ctx.save();
-      ctx.translate(cx, cy);
-      if (rotationAngle !== 0) ctx.rotate(rotationAngle);
-
-      const half = size / 2;
-      const radius = size * 0.16;
-
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 18;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 5;
-
-      ctx.beginPath();
-      ctx.moveTo(-half + radius, -half);
-      ctx.lineTo(half - radius, -half);
-      ctx.quadraticCurveTo(half, -half, half, -half + radius);
-      ctx.lineTo(half, half - radius);
-      ctx.quadraticCurveTo(half, half, half - radius, half);
-      ctx.lineTo(-half + radius, half);
-      ctx.quadraticCurveTo(-half, half, -half, half - radius);
-      ctx.lineTo(-half, -half + radius);
-      ctx.quadraticCurveTo(-half, -half, -half + radius, -half);
-      ctx.closePath();
-
-      const grad = ctx.createLinearGradient(-half, -half, half, half);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.5, '#f5f6fa');
-      grad.addColorStop(1, '#dcdde1');
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.strokeStyle = glowColor;
-      ctx.lineWidth = 3.5;
-      ctx.stroke();
-
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(-half + 4, -half + 4, size - 8, size - 8);
-
-      ctx.fillStyle = '#e74c3c';
-      const r = size * 0.085;
-      const p = size * 0.26;
-
-      const pip = (px, py) => {
-        ctx.beginPath();
-        ctx.arc(px, py, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      };
-
-      if (value % 2 === 1) pip(0, 0);
-      if (value >= 2) { pip(-p, -p); pip(p, p); }
-      if (value >= 4) { pip(p, -p); pip(-p, p); }
-      if (value === 6) { pip(-p, 0); pip(p, 0); }
-
-      ctx.restore();
-    }
 
     function renderStageQuestionBoard() {
       qBoardCtx.fillStyle = '#120726';
@@ -2657,96 +2091,65 @@
         qBoardCtx.fillStyle = '#00f0ff';
         qBoardCtx.fillRect(36, 66, 440, 2);
 
-        if (!isLocalOnPodium1) {
-          qBoardCtx.fillStyle = '#ff7675';
-          qBoardCtx.font = 'bold 16px sans-serif';
-          qBoardCtx.fillText("STEP ON PODIUM 1 WITH YOUR PLUSHIE TO UNLOCK!", 256, 180);
-        } else {
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = '15px sans-serif';
-          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 105);
+        qBoardCtx.fillStyle = '#ffffff';
+        qBoardCtx.font = '15px sans-serif';
+        qBoardCtx.fillText("SELECT START MODE:", 256, 105);
 
-          qBoardCtx.fillStyle = '#3498db';
-          qBoardCtx.fillRect(40, 125, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 152);
+        qBoardCtx.fillStyle = '#3498db';
+        qBoardCtx.font = 'bold 15px monospace';
+        qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 155);
 
-          qBoardCtx.fillStyle = '#e74c3c';
-          qBoardCtx.fillRect(40, 178, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 205);
+        qBoardCtx.fillStyle = '#e74c3c';
+        qBoardCtx.font = 'bold 15px monospace';
+        qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 205);
 
-          qBoardCtx.fillStyle = '#9b59b6';
-          qBoardCtx.fillRect(40, 231, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 258);
+        qBoardCtx.fillStyle = '#9b59b6';
+        qBoardCtx.font = 'bold 15px monospace';
+        qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 255);
 
-          qBoardCtx.fillStyle = '#39ff14';
-          qBoardCtx.font = 'bold 13px monospace';
-          qBoardCtx.fillText("TAP ANY OPTION OR USE 1, 2, 3", 256, 315);
-        }
+        qBoardCtx.fillStyle = '#39ff14';
+        qBoardCtx.font = 'bold 13px monospace';
+        qBoardCtx.fillText("PRESS 1, 2, OR 3 ON KEYBOARD", 256, 315);
       } else if (gameState === "OPENING_DUEL") {
         qBoardCtx.fillStyle = '#ffda66';
         qBoardCtx.font = 'bold 22px sans-serif';
         qBoardCtx.textAlign = 'center';
-        qBoardCtx.fillText("OPENING DICE ROLL", 256, 40);
+        qBoardCtx.fillText("OPENING DICE ROLL", 256, 50);
 
         if (isDiceTimerActive) {
           qBoardCtx.fillStyle = '#ff7675';
           qBoardCtx.font = 'bold 18px monospace';
           qBoardCtx.textAlign = 'right';
-          qBoardCtx.fillText(`⏱️ ${diceCountdown}s`, 485, 40);
+          qBoardCtx.fillText(`⏱️ ${diceCountdown}s`, 485, 45);
         }
 
         qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 54, 440, 2);
+        qBoardCtx.fillRect(36, 68, 440, 2);
 
         qBoardCtx.fillStyle = '#ffffff';
-        qBoardCtx.font = '15px sans-serif';
-        qBoardCtx.textAlign = 'center';
-        qBoardCtx.fillText("TAP SCREEN TO FREEZE & LOCK IN YOUR DICE!", 256, 80);
+        qBoardCtx.font = '16px sans-serif';
+        qBoardCtx.fillText("CLICK SCREEN OR PRESS SPACEBAR TO ROLL!", 256, 105);
 
-        const nowMs = performance.now();
-        const randSeed1 = Math.floor((nowMs / 65) % 6) + 1;
-        const randSeed2 = Math.floor((nowMs / 85 + 2) % 6) + 1;
+        qBoardCtx.fillStyle = '#0984e3';
+        qBoardCtx.fillRect(106, 140, 300, 110);
+        qBoardCtx.strokeStyle = '#39ff14';
+        qBoardCtx.lineWidth = 4;
+        qBoardCtx.strokeRect(106, 140, 300, 110);
 
-        const valP1 = isDiceRollingP1 ? randSeed1 : (p1RollVal || 1);
-        const valP2 = isDiceRollingP2 ? randSeed2 : (p2RollVal || 1);
+        const animValP1 = isDiceRollingP1 ? Math.floor((performance.now() / 90) % 6) + 1 : (p1RollVal || 1);
+        const animValP2 = isDiceRollingP2 ? Math.floor((performance.now() / 90) % 6) + 1 : (p2RollVal || 1);
 
-        const rot1 = isDiceRollingP1 ? Math.sin(nowMs * 0.012) * 0.15 : 0;
-        const rot2 = isDiceRollingP2 ? Math.cos(nowMs * 0.014) * 0.15 : 0;
-
+        qBoardCtx.fillStyle = '#ffffff';
+        qBoardCtx.font = 'bold 18px monospace';
         if (isSoloMode) {
-          drawStudioDie(qBoardCtx, 256, 175, 96, valP1, isDiceRollingP1 ? '#39ff14' : '#00f0ff', rot1);
-
-          qBoardCtx.fillStyle = isDiceRollingP1 ? '#ffda66' : '#39ff14';
-          qBoardCtx.font = 'bold 18px monospace';
-          qBoardCtx.textAlign = 'center';
-          qBoardCtx.fillText(isDiceRollingP1 ? `${contestantNames["goody-contestant-1"].toUpperCase()} OPENING ROLL` : `LOCKED IN: ${p1RollVal}!`, 256, 260);
+          qBoardCtx.fillText(`PLAYER 1 ROLL: ${isDiceRollingP1 ? animValP1 : p1RollVal}`, 256, 185);
         } else {
-          drawStudioDie(qBoardCtx, 170, 165, 82, valP1, isDiceRollingP1 ? '#00d2d3' : '#39ff14', rot1);
-          drawStudioDie(qBoardCtx, 342, 165, 82, valP2, isDiceRollingP2 ? '#ff3838' : '#39ff14', rot2);
-
-          qBoardCtx.fillStyle = isDiceRollingP1 ? '#00d2d3' : '#39ff14';
-          qBoardCtx.font = 'bold 15px monospace';
-          qBoardCtx.textAlign = 'center';
-          qBoardCtx.fillText(isDiceRollingP1 ? contestantNames["goody-contestant-1"].toUpperCase() : `LOCKED: ${p1RollVal}`, 170, 245);
-
-          qBoardCtx.fillStyle = isDiceRollingP2 ? '#ff3838' : '#39ff14';
-          qBoardCtx.fillText(isDiceRollingP2 ? contestantNames["goody-contestant-2"].toUpperCase() : `LOCKED: ${p2RollVal}`, 342, 245);
-
-          qBoardCtx.fillStyle = '#ffda66';
-          qBoardCtx.font = 'bold 18px monospace';
-          qBoardCtx.fillText("VS", 256, 170);
+          qBoardCtx.fillText(`P1: ${isDiceRollingP1 ? animValP1 : p1RollVal}  |  P2: ${isDiceRollingP2 ? animValP2 : p2RollVal}`, 256, 185);
         }
 
         qBoardCtx.fillStyle = '#39ff14';
         qBoardCtx.font = 'bold 16px monospace';
-        qBoardCtx.textAlign = 'center';
-        qBoardCtx.fillText("[ TAP SCREEN TO STOP DICE ]", 256, 325);
+        qBoardCtx.fillText("[ CLICK HERE TO ROLL ]", 256, 225);
 
       } else if (activeRecap) {
         qBoardCtx.fillStyle = activeRecap.isCorrect ? '#00b894' : '#ff7675';
@@ -2859,88 +2262,62 @@
           qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
         } else {
           const isCurrentPlayerTurn = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
-         
-          if (gameState === "IN_PLAY" && (!hasPlayerRolledThisTurn || (hasPlayerRolledThisTurn && isPawnMoving && (p1RollVal !== null || p2RollVal !== null))) && isCurrentPlayerTurn) {
-            const pName = contestantNames[activePlayer];
-            const currentRolled = activePlayer === "goody-contestant-2" ? p2RollVal : p1RollVal;
 
-            qBoardCtx.fillStyle = '#ffda66';
-            qBoardCtx.font = 'bold 20px monospace';
-            qBoardCtx.textAlign = 'center';
-            qBoardCtx.fillText(`🎲 ${pName.toUpperCase()}'S TURN TO ROLL 🎲`, 230, 40);
+          if (gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && isCurrentPlayerTurn) {
+            qBoardCtx.fillStyle = '#0984e3';
+            qBoardCtx.fillRect(56, 50, 400, 75);
+            qBoardCtx.strokeStyle = '#39ff14';
+            qBoardCtx.lineWidth = 4;
+            qBoardCtx.strokeRect(56, 50, 400, 75);
 
             if (isDiceTimerActive) {
               qBoardCtx.fillStyle = '#ff7675';
-              qBoardCtx.font = 'bold 18px monospace';
+              qBoardCtx.font = 'bold 16px monospace';
               qBoardCtx.textAlign = 'right';
-              qBoardCtx.fillText(`⏱️ ${diceCountdown}s`, 485, 40);
+              qBoardCtx.fillText(`⏱️ ${diceCountdown}s`, 440, 75);
             }
 
-            qBoardCtx.fillStyle = '#00f0ff';
-            qBoardCtx.fillRect(36, 52, 440, 2);
-
-            const now = performance.now();
-
-            if (currentRolled !== null) {
-              drawStudioDie(qBoardCtx, 256, 155, 96, currentRolled, '#39ff14', 0);
-
-              qBoardCtx.fillStyle = '#39ff14';
-              qBoardCtx.font = 'bold 24px monospace';
-              qBoardCtx.textAlign = 'center';
-              qBoardCtx.fillText(`LOCKED IN: ${currentRolled}!`, 256, 255);
-
-              qBoardCtx.fillStyle = '#ffffff';
-              qBoardCtx.font = '15px sans-serif';
-              qBoardCtx.fillText("Advancing pawn on the game board...", 256, 290);
-            } else {
-              const livePipA = Math.floor((now / 60) % 6) + 1;
-              const livePipB = Math.floor(((now / 75) + 3) % 6) + 1;
-              const wobbleA = Math.sin(now * 0.015) * 0.12;
-              const wobbleB = -Math.cos(now * 0.013) * 0.14;
-
-              drawStudioDie(qBoardCtx, 195, 145, 88, livePipA, '#00f0ff', wobbleA);
-              drawStudioDie(qBoardCtx, 317, 145, 88, livePipB, '#ff79b0', wobbleB);
-
-              qBoardCtx.fillStyle = '#39ff14';
-              qBoardCtx.font = 'bold 17px monospace';
-              qBoardCtx.textAlign = 'center';
-              qBoardCtx.fillText("[ TAP SCREEN TO STOP DICE ]", 256, 245);
-
-              qBoardCtx.fillStyle = '#ffda66';
-              qBoardCtx.font = 'bold 14px monospace';
-              qBoardCtx.fillText(`You have ${diceCountdown} seconds to roll!`, 256, 285);
-            }
-          } else {
-            const headerTxt = isSoloMode ? " SOLO RACE ACTIVE " : (isVsGoodyMode ? " GOODY HEAD-TO-HEAD BATTLE " : " OFFICIAL GAME RULES ");
-            qBoardCtx.fillStyle = '#ffda66';
-            qBoardCtx.font = 'bold 22px sans-serif';
+            const pName = contestantNames[activePlayer];
+            qBoardCtx.fillStyle = '#ffffff';
+            qBoardCtx.font = 'bold 18px monospace';
             qBoardCtx.textAlign = 'center';
-            qBoardCtx.fillText(headerTxt, 256, 45);
-
-            qBoardCtx.fillStyle = '#00f0ff';
-            qBoardCtx.fillRect(36, 58, 440, 2);
-
-            const rules = [
-              " 1. Tap the studio screen to roll your dice.",
-              " 2. Land on tiles to trigger country trivia.",
-              " 3. You have 30 seconds to answer questions.",
-              " 4. Correct answer secures your position.",
-              " 5. Incorrect answer sends you back to START!",
-              " 6. Reach tile 32 before 20:00 to WIN!"
-            ];
-
-            qBoardCtx.font = '13px monospace';
-            qBoardCtx.textAlign = 'left';
-            rules.forEach((rule, idx) => {
-              qBoardCtx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#ebdcf9';
-              qBoardCtx.fillText(rule, 26, 85 + (idx * 24));
-            });
+            const animVal = Math.floor((performance.now() / 90) % 6) + 1;
+            qBoardCtx.fillText(`${pName}'s TURN - ROLLING: ${animVal}`, 256, 80);
 
             qBoardCtx.fillStyle = '#39ff14';
-            qBoardCtx.font = 'bold 14px monospace';
-            qBoardCtx.textAlign = 'center';
-            qBoardCtx.fillText(" LIVE BROADCAST IN PROGRESS", 256, 250);
+            qBoardCtx.font = 'bold 16px monospace';
+            qBoardCtx.fillText("[ CLICK HERE OR PRESS SPACEBAR TO ROLL ]", 256, 108);
           }
+
+          const headerTxt = isSoloMode ? " SOLO RACE ACTIVE " : (isVsGoodyMode ? " GOODY HEAD-TO-HEAD BATTLE " : " OFFICIAL GAME RULES ");
+          qBoardCtx.fillStyle = '#ffda66';
+          qBoardCtx.font = 'bold 22px sans-serif';
+          qBoardCtx.textAlign = 'center';
+          qBoardCtx.fillText(headerTxt, 256, 145);
+
+          qBoardCtx.fillStyle = '#00f0ff';
+          qBoardCtx.fillRect(36, 158, 440, 2);
+
+          const rules = [
+            " 1. Click screen or press SPACEBAR to roll dice.",
+            " 2. Land on tiles to trigger country trivia.",
+            " 3. You have 30 seconds to answer questions.",
+            " 4. Correct answer secures your position.",
+            " 5. Incorrect answer sends you back to START!",
+            " 6. Reach tile 32 before 20:00 to WIN!"
+          ];
+
+          qBoardCtx.font = '13px monospace';
+          qBoardCtx.textAlign = 'left';
+          rules.forEach((rule, idx) => {
+            qBoardCtx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#ebdcf9';
+            qBoardCtx.fillText(rule, 26, 185 + (idx * 24));
+          });
+
+          qBoardCtx.fillStyle = '#39ff14';
+          qBoardCtx.font = 'bold 14px monospace';
+          qBoardCtx.textAlign = 'center';
+          qBoardCtx.fillText(" LIVE BROADCAST IN PROGRESS", 256, 360);
         }
       }
       qBoardTex.needsUpdate = true;
@@ -2951,7 +2328,7 @@
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 2.15, -3.2);
+    qBoardMesh.position.set(-4.8, 3.4, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -2984,80 +2361,89 @@
       }
     }
 
-    function handleScreenTap(clientX, clientY) {
+    window.addEventListener('click', (e) => {
       if (!isHostAuthorized) return;
-      initAudio();
+      if (controls.isLocked) return;
 
-      mouse.x = (clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const interactiveTargets = [screenClickMesh, qBoardMesh, studioBackScreenMesh];
-      const intersects = raycaster.intersectObjects(interactiveTargets, false);
+      const intersects = raycaster.intersectObjects(miniDiorama.children, true);
 
-      if (intersects.length > 0) {
-        const hit = intersects[0];
-
-        if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+      for (let hit of intersects) {
+        if (hit.object === screenClickMesh || hit.object === qBoardMesh) {
           const uv = hit.uv;
-          if (uv) {
-            if (uv.y >= 0.15 && uv.y <= 0.38) chooseHostGameMode("TWOPLAYER");
-            else if (uv.y > 0.38 && uv.y <= 0.62) chooseHostGameMode("GOODY");
-            else if (uv.y > 0.62 && uv.y <= 0.90) chooseHostGameMode("SOLO");
-          } else {
-            chooseHostGameMode("SOLO");
-          }
-          return;
-        }
 
-        if (activeQuestion) {
-          const uv = hit.uv;
-          if (uv) {
-            // Precise corrected UV bounds mapped from top to bottom matching A, B, C, D
-            let chosenOpt = null;
-            if (uv.y >= 0.12 && uv.y < 0.30) {
-              chosenOpt = activeQuestion.options[3]; // Option D (Bottom)
-            } else if (uv.y >= 0.30 && uv.y < 0.46) {
-              chosenOpt = activeQuestion.options[2]; // Option C
-            } else if (uv.y >= 0.46 && uv.y < 0.62) {
-              chosenOpt = activeQuestion.options[1]; // Option B
-            } else if (uv.y >= 0.62 && uv.y <= 0.82) {
-              chosenOpt = activeQuestion.options[0]; // Option A (Top)
+          if (gameState === "MODE_PROMPT") {
+            if (uv) {
+              if (uv.y > 0.65) chooseHostGameMode("SOLO");
+              else if (uv.y > 0.35) chooseHostGameMode("GOODY");
+              else chooseHostGameMode("TWOPLAYER");
+            } else {
+              chooseHostGameMode("SOLO");
             }
+            return;
+          }
 
-            if (chosenOpt) {
-              stageSelectedOption = chosenOpt;
-              stageOptionStatus = 'selected';
-              renderStageQuestionBoard();
+          if (activeQuestion) {
+            if (uv) {
+              // Realigned strict vertical UV mapping for Option A, B, C, D
+              let chosenOpt = null;
+              if (uv.y >= 0.12 && uv.y < 0.30) {
+                chosenOpt = activeQuestion.options[3]; // Option D
+              } else if (uv.y >= 0.30 && uv.y < 0.46) {
+                chosenOpt = activeQuestion.options[2]; // Option C
+              } else if (uv.y >= 0.46 && uv.y < 0.62) {
+                chosenOpt = activeQuestion.options[1]; // Option B
+              } else if (uv.y >= 0.62 && uv.y <= 0.82) {
+                chosenOpt = activeQuestion.options[0]; // Option A
+              }
 
-              setTimeout(() => {
-                evaluateAnswer(activePlayer, chosenOpt);
-              }, 800);
-              return;
+              if (chosenOpt) {
+                stageSelectedOption = chosenOpt;
+                stageOptionStatus = 'selected';
+                renderStageQuestionBoard();
+
+                setTimeout(() => {
+                  evaluateAnswer(activePlayer, chosenOpt);
+                }, 800);
+                return;
+              }
             }
           }
-        }
 
-        triggerRollAction();
+          triggerRollAction();
+        }
       }
-    }
-
-    window.addEventListener('pointerup', (e) => {
-      handleScreenTap(e.clientX, e.clientY);
     });
 
-    const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
-    const plushiePosition = new THREE.Vector3(32.0, 0.44, 2.5);
-    const plushieRotation = { yaw: 0 };
-    const plushieVelocity = new THREE.Vector3(0, 0, 0);
+    document.addEventListener('keydown', (e) => {
+      if (!isHostAuthorized) return;
+      if (e.code === 'KeyW') move.forward = true; if (e.code === 'KeyS') move.backward = true;
+      if (e.code === 'KeyA') move.left = true; if (e.code === 'KeyD') move.right = true;
 
-    function createCutePlushie(color, initialName = "") {
+      if (gameState === "MODE_PROMPT") {
+        if (e.key === '1') chooseHostGameMode("SOLO");
+        if (e.key === '2') chooseHostGameMode("GOODY");
+        if (e.key === '3') chooseHostGameMode("TWOPLAYER");
+      }
+
+      if (e.code === 'Space') {
+        if (controls.isLocked) {
+          controls.unlock();
+        }
+        triggerRollAction();
+      }
+    });
+
+    function createCutePlushie3D(color) {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
       const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
       const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear1.position.set(-0.14, 0.74, 0);
-      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
+      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), earMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
       const blushMat = new THREE.MeshBasicMaterial({ color: 0xff69b4 });
       const blush1 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush1.position.set(-0.11, 0.54, 0.17);
       const blush2 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush2.position.set(0.11, 0.54, 0.17); pGroup.add(blush1, blush2);
@@ -3071,143 +2457,10 @@
       snout.scale.set(1.2, 0.8, 1); snout.position.set(0, 0.56, 0.21); pGroup.add(snout);
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
-
-      let badgeMesh = null;
-      let bCanvas = null;
-      let bTex = null;
-
-      if (initialName) {
-        bCanvas = document.createElement('canvas');
-        bCanvas.width = 256; bCanvas.height = 96;
-        bTex = new THREE.CanvasTexture(bCanvas);
-        const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, 
-          transparent: true, 
-          opacity: 0.3,
-          side: THREE.DoubleSide, 
-          depthWrite: false
-        });
-        badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
-        badgeMesh.position.set(0, 0.95, 0);
-        badgeMesh.matrixAutoUpdate = true;
-        miniDiorama.add(badgeMesh);
-        updatePlushieNameBadge(pGroup, initialName);
-      }
-     
-      pGroup.userData = {
-        badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
-      };
       return pGroup;
     }
 
-    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
-    }
-
-    function setPlushieVisualMode(group, mode) {
-      if (!group) return;
-      if (mode === 'invisible') {
-        group.visible = false;
-        return;
-      }
-      group.visible = true;
-      const isOpaque = (mode === 'opaque');
-      group.traverse(child => {
-        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(m => {
-            if (isOpaque) {
-              m.transparent = false;
-              m.opacity = 1.0;
-              m.depthWrite = true;
-            } else {
-              m.transparent = true;
-              m.opacity = 0.45;
-              m.depthWrite = false;
-            }
-            m.needsUpdate = true;
-          });
-        }
-      });
-    }
-
-    let assignedTeam = 'BLUE';
-    let teamColorHex = '#00f0ff';
-    let plushieColorHex = 0x00f0ff;
-    let localPlushie = null;
-
-    if (socket) {
-      socket.on('assign_team', (data) => {
-        assignedTeam = data.team;
-        teamColorHex = data.teamColor;
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-
-        if (localPlushie) {
-          localPlushie.userData.team = assignedTeam;
-          localPlushie.traverse(child => {
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-              child.material.color.setHex(plushieColorHex);
-            }
-          });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-        }
-      });
-    }
-
-    localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
-    localPlushie.userData.team = assignedTeam;
-    updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-   
-    localPlushie.position.copy(plushiePosition);
-    miniDiorama.add(localPlushie);
-    setPlushieVisualMode(localPlushie, 'opaque');
-
-    document.addEventListener('keydown', (e) => {
-      if (!isHostAuthorized) return;
-      if (e.code === 'KeyW') moveState.forward = true;
-      if (e.code === 'KeyS') moveState.backward = true;
-      if (e.code === 'KeyA') moveState.turnLeft = true;
-      if (e.code === 'KeyD') moveState.turnRight = true;
-
-      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-        if (e.key === '1') chooseHostGameMode("SOLO");
-        if (e.key === '2') chooseHostGameMode("GOODY");
-        if (e.key === '3') chooseHostGameMode("TWOPLAYER");
-      }
-    });
-
-    document.addEventListener('keyup', (e) => {
-      if (!isHostAuthorized) return;
-      if (e.code === 'KeyW') moveState.forward = false;
-      if (e.code === 'KeyS') moveState.backward = false;
-      if (e.code === 'KeyA') moveState.turnLeft = false;
-      if (e.code === 'KeyD') moveState.turnRight = false;
-    });
-
+    const earMat = new THREE.MeshStandardMaterial({ color: 0xff7675, roughness: 0.95 });
     const miniAudience = new THREE.Group();
     const plushColors = [0xff7675, 0x74b9ff, 0xa29bfe, 0xffbe76, 0x55efc4, 0xfd79a8, 0xf6e58d, 0x48dbfb, 0xff9ff3];
     let playerPlushie1 = null;
@@ -3218,7 +2471,7 @@
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, "");
+        const pGroup = createCutePlushie3D(col);
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3228,8 +2481,7 @@
           initialY: pGroup.position.y,
           phase: Math.random() * Math.PI * 2,
           theta: theta,
-          radius: radius,
-          isAudienceSeat: true
+          radius: radius
         };
         miniDiorama.add(pGroup);
 
@@ -3268,13 +2520,22 @@
         targetPlushie.position.z += rightZ * step;
       }
 
-      targetPlushie.position.x = Math.max(-6.8, Math.min(54.0, targetPlushie.position.x));
-      targetPlushie.position.z = Math.max(-14.0, Math.min(14.0, targetPlushie.position.z));
+      targetPlushie.position.x = Math.max(-6.8, Math.min(6.8, targetPlushie.position.x));
+      targetPlushie.position.z = Math.max(-6.8, Math.min(6.8, targetPlushie.position.z));
       targetPlushie.position.y = 0.46;
     }
 
     function drawDiceFace(ctx, x, y, size, value) {
-      drawStudioDie(ctx, x + size / 2, y + size / 2, size, value, '#ff79b0');
+      ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#222222'; ctx.lineWidth = 3;
+      ctx.fillRect(x, y, size, size); ctx.strokeRect(x, y, size, size);
+      ctx.fillStyle = '#e74c3c';
+      const dot = (dx, dy) => {
+        ctx.beginPath(); ctx.arc(x + dx * size, y + dy * size, size * 0.08, 0, Math.PI * 2); ctx.fill();
+      };
+      if (value % 2 === 1) dot(0.5, 0.5);
+      if (value > 1) { dot(0.25, 0.25); dot(0.75, 0.75); }
+      if (value > 3) { dot(0.75, 0.25); dot(0.25, 0.75); }
+      if (value === 6) { dot(0.25, 0.5); dot(0.75, 0.5); }
     }
 
     const studioScreenCanvas = document.createElement('canvas'); studioScreenCanvas.width = 512; studioScreenCanvas.height = 256;
@@ -3360,49 +2621,28 @@
         const isP1Goody = isVsGoodyMode && goodyPlayerSlot === "goody-contestant-1";
         const isP2Goody = isVsGoodyMode && goodyPlayerSlot === "goody-contestant-2";
 
-        if (isSoloMode) {
-          sScreenCtx.fillStyle = '#030108';
-          sScreenCtx.fillRect(15, 20, 225, 215);
-          sScreenCtx.strokeStyle = '#441111';
-          sScreenCtx.lineWidth = 3;
-          sScreenCtx.strokeRect(15, 20, 225, 215);
-
-          sScreenCtx.fillStyle = '#ff7675';
-          sScreenCtx.font = 'bold 16px sans-serif';
-          sScreenCtx.textAlign = 'center';
-          sScreenCtx.fillText("GOODY MODE", 127, 105);
-
-          sScreenCtx.fillStyle = '#ffda66';
-          sScreenCtx.font = 'bold 12px monospace';
-          sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
-        } else {
+        if (isP1Goody || (showPlayer1 && (!isSoloMode || soloPlayerId === "goody-contestant-1"))) {
           drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], contestantCities["goody-contestant-1"], hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
+        } else {
+          sScreenCtx.strokeStyle = '#ffb300'; sScreenCtx.lineWidth = 3; sScreenCtx.strokeRect(15, 20, 225, 215);
+          sScreenCtx.fillStyle = '#ffda66'; sScreenCtx.font = 'bold 22px sans-serif'; sScreenCtx.textAlign = 'center';
+          sScreenCtx.fillText(isSoloMode && soloPlayerId !== "goody-contestant-1" ? "WITHDRAWN" : `PLAYER 1`, 127, 120);
+          sScreenCtx.fillStyle = '#39ff14'; sScreenCtx.font = '14px monospace'; sScreenCtx.fillText(gameState === "INTERMISSION" ? "DISCONNECTED" : (isSoloMode ? "OFF-AIR" : "STANDBY..."), 127, 150);
         }
 
-        if (isSoloMode) {
-          sScreenCtx.fillStyle = '#030108';
-          sScreenCtx.fillRect(272, 20, 225, 215);
-          sScreenCtx.strokeStyle = '#441111';
-          sScreenCtx.lineWidth = 3;
-          sScreenCtx.strokeRect(272, 20, 225, 215);
-
-          sScreenCtx.fillStyle = '#ff7675';
-          sScreenCtx.font = 'bold 18px sans-serif';
-          sScreenCtx.textAlign = 'center';
-          sScreenCtx.fillText("POWER OFF", 384, 105);
-
-          sScreenCtx.fillStyle = '#ffda66';
-          sScreenCtx.font = 'bold 13px monospace';
-          sScreenCtx.fillText("1 PLAYER SOLO MODE", 384, 135);
-        } else {
+        if (isP2Goody || (showPlayer2 && (!isSoloMode || soloPlayerId === "goody-contestant-2"))) {
           drawScreenFeed(sScreenCtx, 272, 20, 225, 215, contestantNames["goody-contestant-2"], contestantCities["goody-contestant-2"], hasLivePlayer2Stream, videoPlayer2, false, p2RollVal, isDiceRollingP2, isP2Goody);
+        } else {
+          sScreenCtx.strokeStyle = '#ffb300'; sScreenCtx.lineWidth = 3; sScreenCtx.strokeRect(272, 20, 225, 215);
+          sScreenCtx.fillStyle = '#ffda66'; sScreenCtx.font = 'bold 22px sans-serif'; sScreenCtx.textAlign = 'center';
+          sScreenCtx.fillText(isSoloMode && soloPlayerId !== "goody-contestant-2" ? "WITHDRAWN" : `PLAYER 2`, 384, 120);
+          sScreenCtx.fillStyle = '#39ff14'; sScreenCtx.font = '14px monospace'; sScreenCtx.fillText(gameState === "INTERMISSION" ? "DISCONNECTED" : (isSoloMode ? "OFF-AIR" : "STANDBY..."), 384, 150);
         }
       }
       studioScreenTex.needsUpdate = true;
     }
-
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 2.15, -4.5); miniDiorama.add(studioBackScreenMesh);
+    studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
     const silverMetalMat = new THREE.MeshStandardMaterial({
@@ -3507,14 +2747,67 @@
     }
     scene.add(miniDiorama);
 
+    const move = { forward: false, backward: false, left: false, right: false };
+    const velocity = new THREE.Vector3();
+    document.addEventListener('keydown', (e) => {
+      if (!isHostAuthorized) return;
+      if (e.code === 'KeyW') move.forward = true; if (e.code === 'KeyS') move.backward = true;
+      if (e.code === 'KeyA') move.left = true; if (e.code === 'KeyD') move.right = true;
+    });
+    document.addEventListener('keyup', (e) => {
+      if (!isHostAuthorized) return;
+      if (e.code === 'KeyW') move.forward = false; if (e.code === 'KeyS') move.backward = false;
+      if (e.code === 'KeyA') move.left = false; if (e.code === 'KeyD') move.right = false;
+    });
+
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    let prevTime = performance.now();
-    let lastBallSyncTime = 0;
+    function syncContestantCameras() {
+      const dist = 1.8; const height = 1.2;
 
+      if (playerPlushie1) {
+        const rot = contestantRotations["goody-contestant-1"];
+        playerPlushie1.rotation.y = rot.yaw;
+        const worldX = playerPlushie1.position.x;
+        const worldY = playerPlushie1.position.y + 3.95;
+        const worldZ = playerPlushie1.position.z - 9.0;
+
+        camPlayer1.position.set(
+          worldX + Math.sin(rot.yaw) * dist,
+          worldY + height,
+          worldZ + Math.cos(rot.yaw) * dist
+        );
+        camPlayer1.lookAt(new THREE.Vector3(
+          worldX - Math.sin(rot.yaw) * 4.0,
+          worldY + 0.5 + rot.pitch * 3.0,
+          worldZ - Math.cos(rot.yaw) * 4.0
+        ));
+      }
+
+      if (playerPlushie2) {
+        const rot = contestantRotations["goody-contestant-2"];
+        playerPlushie2.rotation.y = rot.yaw;
+        const worldX = playerPlushie2.position.x;
+        const worldY = playerPlushie2.position.y + 3.95;
+        const worldZ = playerPlushie2.position.z - 9.0;
+
+        camPlayer2.position.set(
+          worldX + Math.sin(rot.yaw) * dist,
+          worldY + height,
+          worldZ + Math.cos(rot.yaw) * dist
+        );
+        camPlayer2.lookAt(new THREE.Vector3(
+          worldX - Math.sin(rot.yaw) * 4.0,
+          worldY + 0.5 + rot.pitch * 3.0,
+          worldZ - Math.cos(rot.yaw) * 4.0
+        ));
+      }
+    }
+
+    let prevTime = performance.now();
     function animate() {
       requestAnimationFrame(animate);
       const time = performance.now();
@@ -3528,238 +2821,12 @@
         renderStageQuestionBoard();
       }
 
-      if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
-      if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
-
-      const moveSpeed = 4.2 * delta;
-      if (moveState.forward) {
-        plushieVelocity.x += -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
-        plushieVelocity.z += -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
-      }
-      if (moveState.backward) {
-        plushieVelocity.x -= -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
-        plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
-      }
-
-      plushieVelocity.multiplyScalar(0.90);
-      plushiePosition.addScaledVector(plushieVelocity, delta);
-
-      plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
-      plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
-     
-      if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
-        if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
-          if (plushiePosition.x < 10.0) {
-            plushiePosition.x = 9.6;
-          } else {
-            plushiePosition.x = 10.4;
-          }
-        }
-      }
-
-      const inPitchArena = plushiePosition.x > 10.0;
-      if (inPitchArena) {
-        const ballPos = ballMesh.position;
-        const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
-        const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
-        const distToBall = plushXZ.distanceTo(ballXZ);
-
-        if (isBallPhysicsHost) {
-          if (distToBall < 0.78) {
-            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-            ballVelocity.addScaledVector(pushDir, 13.0);
-            playTone(600, 'triangle', 0.08, 0.1);
-          }
-
-          remotePlayers.forEach((pMesh) => {
-            if (pMesh) {
-              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
-              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
-                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                ballVelocity.addScaledVector(pushDir, 13.0);
-                playTone(600, 'triangle', 0.08, 0.1);
-              }
-            }
-          });
-
-          ballPos.addScaledVector(ballVelocity, delta);
-          ballVelocity.multiplyScalar(0.96);
-
-          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-
-          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-            redScore++;
-            renderPitchScoreboard(blueScore, redScore);
-            playTone(200, 'sawtooth', 0.3, 0.15);
-            ballMesh.position.set(34.0, 0.82, 0.0);
-            ballVelocity.set(0, 0, 0);
-            if (socket && socket.connected) {
-              socket.emit('score_update', { blue: blueScore, red: redScore });
-            }
-          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-            blueScore++;
-            renderPitchScoreboard(blueScore, redScore);
-            playTone(800, 'sine', 0.3, 0.15);
-            ballMesh.position.set(34.0, 0.82, 0.0);
-            ballVelocity.set(0, 0, 0);
-            if (socket && socket.connected) {
-              socket.emit('score_update', { blue: blueScore, red: redScore });
-            }
-          }
-
-          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
-
-          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
-            lastBallSyncTime = time;
-            socket.emit('ball_move', {
-              x: ballPos.x,
-              y: ballPos.y,
-              z: ballPos.z,
-              vx: ballVelocity.x,
-              vy: ballVelocity.y,
-              vz: ballVelocity.vz
-            });
-          }
-        } else {
-          if (hasRemoteBallUpdate) {
-            ballMesh.position.lerp(remoteBallTarget, 0.35);
-          }
-        }
-      } else {
-        ballMesh.position.set(34.0, 0.82, 0.0);
-        ballVelocity.set(0, 0, 0);
-        hasRemoteBallUpdate = false;
-      }
-
-      if (socket && socket.connected) {
-        socket.emit('player_move', {
-          name: localMyGuestName,
-          x: plushiePosition.x,
-          y: plushiePosition.y,
-          z: plushiePosition.z,
-          yaw: plushieRotation.yaw,
-          team: assignedTeam,
-          teamColor: teamColorHex
-        });
-      }
-
-      const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
-      const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
-
-      const p1Pos = new THREE.Vector3(-1.6, 0.44, -2.2);
-      const p2Pos = new THREE.Vector3(1.6, 0.44, -2.2);
-
-      const distP1 = plushiePosition.distanceTo(p1Pos);
-      const distP2 = plushiePosition.distanceTo(p2Pos);
-
-      if (distP1 < 0.65 || distP2 < 0.65) {
-        plushiePosition.y = 0.58;
-      } else {
-        plushiePosition.y = 0.44;
-      }
-
-      localPlushie.position.copy(plushiePosition);
-      localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
-
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
-      const camTargetY = plushieWorldPos.y + 1.0;
-
-      const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
-
-      camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-      camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-      camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
-
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
-
-      const prevPodium1 = isLocalOnPodium1;
-      const prevPodium2 = isLocalOnPodium2;
-
-      isLocalOnPodium1 = distP1 < 0.65;
-      isLocalOnPodium2 = distP2 < 0.65;
-
-      if ((isLocalOnPodium1 !== prevPodium1) || (isLocalOnPodium2 !== prevPodium2)) {
-        if (!studioPower && gameState === "MODE_PROMPT") {
-          renderStageQuestionBoard();
-        }
-        if (gameState === "IDLE" && isLocalOnPodium1 && isLocalOnPodium2 && !studioPower) {
-          chooseHostGameMode("TWOPLAYER");
-        }
-      }
-
-      function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
-        if (!plushieMesh) return;
-        const pos = plushieMesh.position;
-        const dP1 = pos.distanceTo(p1Pos);
-        const dP2 = pos.distanceTo(p2Pos);
-        const onPodium1 = dP1 < 0.65;
-        const onPodium2 = dP2 < 0.65;
-
-        const inPitchArena = pos.x > 10.0;
-        if (inPitchArena) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-          return;
-        }
-
-        const podium1Occupied = isP1Connected || isLocalOnPodium1;
-        const shouldBeSolid = onPodium1 || (onPodium2 && podium1Occupied);
-
-        if (shouldBeSolid) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-        } else {
-          setPlushieVisualMode(plushieMesh, 'transparent');
-        }
-      }
-
-      const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
-
-      updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
-
-      if (playerPlushie1) {
-        const isP1InGame = studioPower && isP1Connected;
-        updatePlushieVisibility(playerPlushie1, isP1InGame, false);
-      }
-      if (playerPlushie2) {
-        const isP2InGame = studioPower && isP2Connected && !isVsGoodyMode;
-        updatePlushieVisibility(playerPlushie2, false, isP2InGame);
-      }
-
-      spectatorPlushies.forEach(sp => {
-        updatePlushieVisibility(sp, false, false);
-      });
-
-      const camRot = camera.quaternion;
-     
-      if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        const badge = localPlushie.userData.badgeMesh;
-        badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
-        badge.quaternion.copy(camRot);
-      }
-
-      remotePlayers.forEach((pMesh, id) => {
-        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          const badge = pMesh.userData.badgeMesh;
-          badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
-          badge.quaternion.copy(camera.quaternion);
-        }
-      });
-
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(camRot);
+        pawn1.userData.badgeMesh.quaternion.copy(camera.quaternion);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(camRot);
+        pawn2.userData.badgeMesh.quaternion.copy(camera.quaternion);
       }
-
-      spectatorPlushies.forEach(sp => {
-        if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.copy(camRot);
-        }
-      });
 
       if (studioPower) {
         updateCameraAlignment();
@@ -3767,114 +2834,39 @@
         fixtureMagenta.target.position.x = 1.2 + Math.cos(time * 0.003) * 1.5;
 
         miniAudience.children.forEach((p) => {
-          p.position.y = p.userData.initialY + Math.sin(time * 0.006 + p.userData.phase) * 0.04;
+          if (p !== playerPlushie1 && p !== playerPlushie2) {
+            p.position.y = p.userData.initialY + Math.sin(time * 0.006 + p.userData.phase) * 0.04;
+          }
         });
       }
 
+      if (controls.isLocked) {
+        velocity.x -= velocity.x * 10.0 * delta; velocity.z -= velocity.z * 10.0 * delta;
+        const speed = 45.0;
+        if (move.forward || move.backward) velocity.z -= (Number(move.forward) - Number(move.backward)) * speed * delta;
+        if (move.left || move.right) velocity.x -= (Number(move.right) - Number(move.left)) * speed * delta;
+        controls.moveRight(-velocity.x * delta); controls.moveForward(-velocity.z * delta);
+      }
+
       prevTime = time;
+      syncContestantCameras();
 
+      if (playerPlushie1) playerPlushie1.visible = false;
+      if (playerPlushie2) playerPlushie2.visible = false;
       renderer.render(scene, camera);
-    }
 
-    const btnUp = document.getElementById('btn-up');
-    const btnDown = document.getElementById('btn-down');
-    const btnLeft = document.getElementById('btn-left');
-    const btnRight = document.getElementById('btn-right');
-
-    function bindTouchButton(elem, stateKey, btnElement) {
-      if (!elem) return;
-      const activate = (e) => {
-        e.preventDefault();
-        moveState[stateKey] = true;
-        btnElement.classList.add('active');
-      };
-      const deactivate = (e) => {
-        e.preventDefault();
-        moveState[stateKey] = false;
-        btnElement.classList.remove('active');
-      };
-
-      elem.addEventListener('touchstart', activate, { passive: false });
-      elem.addEventListener('touchend', deactivate, { passive: false });
-      elem.addEventListener('touchcancel', deactivate, { passive: false });
-      elem.addEventListener('mousedown', activate);
-      elem.addEventListener('mouseup', deactivate);
-      elem.addEventListener('mouseleave', deactivate);
-    }
-
-    bindTouchButton(btnUp, 'forward', btnUp);
-    bindTouchButton(btnDown, 'backward', btnDown);
-    bindTouchButton(btnLeft, 'turnLeft', btnLeft);
-    bindTouchButton(btnRight, 'turnRight', btnRight);
-
-    let touchStartX = null;
-    let touchStartY = null;
-    let isSwipingScreen = false;
-
-    window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      if (e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        isSwipingScreen = true;
+      if (showPlayer1) {
+        if (playerPlushie1) playerPlushie1.visible = true;
+        rendererPlayer1.render(scene, camPlayer1);
+        if (playerPlushie1) playerPlushie1.visible = false;
       }
-    }, { passive: true });
 
-    window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-
-        const deltaX = currentX - touchStartX;
-        const deltaY = currentY - touchStartY;
-
-        const turnSensitivity = 0.008;
-        plushieRotation.yaw -= deltaX * turnSensitivity;
-
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
-
-        const moveThreshold = 4;
-
-        if (deltaY < -moveThreshold) {
-          moveState.forward = true;
-          moveState.backward = false;
-          btnUp.classList.add('active');
-          btnDown.classList.remove('active');
-        } else if (deltaY > moveThreshold) {
-          moveState.backward = true;
-          moveState.forward = false;
-          btnDown.classList.add('active');
-          btnUp.classList.remove('active');
-        }
-
-        touchStartX = currentX;
-        touchStartY = currentY;
+      if (showPlayer2) {
+        if (playerPlushie2) playerPlushie2.visible = true;
+        rendererPlayer2.render(scene, camPlayer2);
+        if (playerPlushie2) playerPlushie2.visible = false;
       }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-      isSwipingScreen = false;
-      touchStartX = null;
-      touchStartY = null;
-
-      moveState.forward = false;
-      moveState.backward = false;
-      moveState.turnLeft = false;
-      moveState.turnRight = false;
-
-      btnLeft.classList.remove('active');
-      btnRight.classList.remove('active');
-      btnUp.classList.remove('active');
-      btnDown.classList.remove('active');
-    });
-
+    }
     animate();
   </script>
 </body>
