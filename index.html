@@ -3506,9 +3506,13 @@ const pGroup = createCutePlushie(col, "");
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+// Keep the camera locked directly behind the plushie's facing angle at a fixed distance (e.g., 2.0 units back, 0.8 units high)
+      const targetDist = 2.0; // Change this value to make it closer or further away
+      const targetHeight = 0.8; // Keeps the camera angle consistent and level
+
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * targetDist;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * targetDist;
+      const camTargetY = plushieWorldPos.y + targetHeight;
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
@@ -3516,7 +3520,7 @@ const pGroup = createCutePlushie(col, "");
       camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
       camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.5, plushieWorldPos.z);
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
