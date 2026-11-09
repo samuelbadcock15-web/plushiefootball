@@ -1767,7 +1767,6 @@
       });
 
       activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect: false };
-      activeQuestion = null;
       renderStageQuestionBoard();
 
       speakGoody(`I'm sorry, you ran out of time! You must go back to the start! Here is what we learned: ${activeRecap.text}`, () => {
@@ -3219,7 +3218,7 @@
       }
     }
 
-   function handleScreenTap(clientX, clientY) {
+    function handleScreenTap(clientX, clientY) {
       if (!isHostAuthorized) return;
       initAudio();
 
@@ -3248,7 +3247,7 @@
               chooseHostGameMode("SOLO");
             }
           } else {
-            chooseHostGameMode("GOODY"); // Fallback default if UV fails
+            chooseHostGameMode("GOODY");
           }
           return;
         }
