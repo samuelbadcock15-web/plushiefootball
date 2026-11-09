@@ -190,7 +190,7 @@
       unlockHostEnvironment();
     });
 
-    // --- Look Pad Logic (Rotation Only, No Movement) ---
+    // --- Look Pad Logic (Full 3D Rotation: Yaw & Pitch) ---
     const lookPad = document.getElementById('look-pad');
     const lookPadThumb = document.getElementById('look-pad-thumb');
 
@@ -198,6 +198,9 @@
     let lookTouchId = null;
     let lookStartX = 0;
     let lookStartY = 0;
+
+    // Combined rotation tracking object for yaw (left/right) and pitch (up/down)
+    const plushieRotation = { yaw: 0, pitch: 0.3 };
 
     function handleLookStart(clientX, clientY, identifier = null) {
       isLooking = true;
@@ -213,10 +216,12 @@
       const deltaY = clientY - lookStartY;
       const lookSensitivity = 0.005;
 
-      // Only adjust view/yaw rotation
-      if (typeof plushieRotation !== 'undefined') {
-        plushieRotation.yaw -= deltaX * lookSensitivity;
-      }
+      // Adjust both yaw and pitch based on drag vectors
+      plushieRotation.yaw -= deltaX * lookSensitivity;
+      plushieRotation.pitch -= deltaY * lookSensitivity;
+
+      // Clamp pitch so camera doesn't flip completely upside down
+      plushieRotation.pitch = Math.max(-0.2, Math.min(1.2, plushieRotation.pitch));
 
       const maxThumbOffset = 40;
       const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
@@ -3662,9 +3667,13 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+      // --- PITCH-ADJUSTED CAMERA TARGETS ---
+      const camDistance = 3.2;
+      const camHeight = 1.6 + (plushieRotation.pitch * 1.5); // Adjusts height based on pitch
+
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * camDistance;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * camDistance;
+      const camTargetY = plushieWorldPos.y + camHeight;
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
@@ -3672,7 +3681,13 @@
       camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
       camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+      // Look at the plushie, offset slightly upward/downward by pitch
+      camera.lookAt(
+        plushieWorldPos.x, 
+        plushieWorldPos.y + 0.6 + (plushieRotation.pitch * 0.5), 
+        plushieWorldPos.z
+      );
+      // -------------------------------------
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
