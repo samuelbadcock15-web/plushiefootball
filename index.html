@@ -74,45 +74,46 @@
       box-shadow: 0 0 22px #39ff14;
     }
 
-    #look-pad {
+    /* Plushie View Toggle Button (Bottom Right) */
+    #plushie-view-btn {
       position: absolute;
       bottom: 30px;
       right: 30px;
-      width: 140px;
-      height: 140px;
-      background: rgba(22, 9, 44, 0.65);
-      border: 2px solid rgba(0, 240, 255, 0.6);
+      width: 130px;
+      height: 130px;
+      background: rgba(22, 9, 44, 0.85);
+      border: 3px solid #00f0ff;
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
-      touch-action: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
-      user-select: none;
-      cursor: grab;
-    }
-
-    #look-pad:active {
-      cursor: grabbing;
-    }
-
-    #look-pad-thumb {
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.3);
-      border: 2px solid #39ff14;
-      border-radius: 50%;
-      color: #39ff14;
-      font-family: monospace;
-      font-size: 10px;
+      touch-action: manipulation;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
-      pointer-events: none;
-      transition: transform 0.05s linear;
+      color: #00f0ff;
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 0.9rem;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+
+    #plushie-view-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+    }
+
+    #plushie-view-btn.active {
+      background: rgba(57, 255, 20, 0.35);
+      border-color: #39ff14;
+      color: #39ff14;
+      box-shadow: 0 0 25px #39ff14;
+    }
+
+    #plushie-view-btn:active {
+      transform: scale(0.95);
     }
 
     /* Crosshair - Mobile Only */
@@ -146,7 +147,7 @@
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Click <span style="color:#00f0ff;">PLUSHIE VIEW</span> to orbit & look around!
   </div>
 
   <canvas id="canvas3d"></canvas>
@@ -159,10 +160,8 @@
     <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
   </div>
 
-  <!-- Virtual Look Pad (Bottom Right) -->
-  <div id="look-pad">
-    <div id="look-pad-thumb">LOOK / AIM</div>
-  </div>
+  <!-- Plushie View Toggle Button (Bottom Right) -->
+  <div id="plushie-view-btn">PLUSHIE<br>VIEW</div>
 
   <!-- Mobile-Only Crosshair -->
   <div id="mobile-crosshair"></div>
@@ -178,6 +177,115 @@
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
 
+    // Plushie View State
+    let isPlushieViewActive = false;
+    let plushieViewYaw = 0;
+    let plushieViewPitch = 0.2;
+    let isOrbitDragging = false;
+    let orbitTouchId = null;
+    let orbitStartX = 0;
+    let orbitStartY = 0;
+
+    const plushieViewBtn = document.getElementById('plushie-view-btn');
+
+    function togglePlushieView() {
+      isPlushieViewActive = !isPlushieViewActive;
+      if (isPlushieViewActive) {
+        plushieViewBtn.classList.add('active');
+        plushieViewBtn.innerHTML = 'EXIT<br>VIEW';
+        // Initialize orbit angles relative to current plushie orientation
+        plushieViewYaw = plushieRotation.yaw;
+        plushieViewPitch = 0.2;
+      } else {
+        plushieViewBtn.classList.remove('active');
+        plushieViewBtn.innerHTML = 'PLUSHIE<br>VIEW';
+      }
+    }
+
+    plushieViewBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      togglePlushieView();
+    });
+
+    plushieViewBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      togglePlushieView();
+    }, { passive: false });
+
+    // Orbit Dragging Logic for Plushie View
+    function handleOrbitStart(clientX, clientY, identifier = null) {
+      if (!isPlushieViewActive) return;
+      isOrbitDragging = true;
+      orbitTouchId = identifier;
+      orbitStartX = clientX;
+      orbitStartY = clientY;
+    }
+
+    function handleOrbitMove(clientX, clientY) {
+      if (!isPlushieViewActive || !isOrbitDragging) return;
+
+      const deltaX = clientX - orbitStartX;
+      const deltaY = clientY - orbitStartY;
+      const sensitivity = 0.005;
+
+      plushieViewYaw -= deltaX * sensitivity;
+      plushieViewPitch = Math.max(-0.2, Math.min(1.2, plushieViewPitch + deltaY * sensitivity));
+
+      orbitStartX = clientX;
+      orbitStartY = clientY;
+    }
+
+    function handleOrbitEnd() {
+      isOrbitDragging = false;
+      orbitTouchId = null;
+    }
+
+    window.addEventListener('touchstart', (e) => {
+      if (!isPlushieViewActive) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#plushie-view-btn')) return;
+      const touch = e.changedTouches[0];
+      handleOrbitStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isPlushieViewActive || !isOrbitDragging) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === orbitTouchId) {
+          handleOrbitMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isOrbitDragging) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === orbitTouchId) {
+          handleOrbitEnd();
+          break;
+        }
+      }
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      if (!isPlushieViewActive) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#plushie-view-btn')) return;
+      handleOrbitStart(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isPlushieViewActive && isOrbitDragging && orbitTouchId === null) {
+        handleOrbitMove(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isPlushieViewActive && isOrbitDragging && orbitTouchId === null) {
+        handleOrbitEnd();
+      }
+    });
+
     function unlockHostEnvironment() {
       isHostAuthorized = true;
       initAudio();
@@ -188,95 +296,6 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
-    });
-
-    // --- Look Pad Logic (Rotation Only, No Movement) ---
-    const lookPad = document.getElementById('look-pad');
-    const lookPadThumb = document.getElementById('look-pad-thumb');
-
-    let isLooking = false;
-    let lookTouchId = null;
-    let lookStartX = 0;
-    let lookStartY = 0;
-
-    function handleLookStart(clientX, clientY, identifier = null) {
-      isLooking = true;
-      lookTouchId = identifier;
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
-
-    function handleLookMove(clientX, clientY) {
-      if (!isLooking) return;
-
-      const deltaX = clientX - lookStartX;
-      const deltaY = clientY - lookStartY;
-      const lookSensitivity = 0.005;
-
-      // Only adjust view/yaw rotation
-      if (typeof plushieRotation !== 'undefined') {
-        plushieRotation.yaw -= deltaX * lookSensitivity;
-      }
-
-      const maxThumbOffset = 40;
-      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
-      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
-      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
-
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
-
-    function handleLookEnd() {
-      isLooking = false;
-      lookTouchId = null;
-      lookPadThumb.style.transform = `translate(0px, 0px)`;
-    }
-
-    // Mobile Touch Events for Look Pad
-    lookPad.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      const touch = e.changedTouches[0];
-      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
-    }, { passive: false });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isLooking) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === lookTouchId) {
-          handleLookMove(touch.clientX, touch.clientY);
-          break;
-        }
-      }
-    }, { passive: false });
-
-    window.addEventListener('touchend', (e) => {
-      if (!isLooking) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === lookTouchId) {
-          handleLookEnd();
-          break;
-        }
-      }
-    });
-
-    // PC Mouse Events for Look Pad
-    lookPad.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      handleLookStart(e.clientX, e.clientY);
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (isLooking && lookTouchId === null) {
-        handleLookMove(e.clientX, e.clientY);
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (isLooking && lookTouchId === null) {
-        handleLookEnd();
-      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -388,7 +407,6 @@
 
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
-          console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
         socket.on('assign_team', (data) => {
@@ -507,7 +525,7 @@
         isDiceRollingP2 = false;
        
         p2.visible = false;
-        pawn1.visible = true;
+        p1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
@@ -520,8 +538,8 @@
         isVsGoodyMode = true;
         goodyPlayerSlot = "goody-contestant-2";
         contestantNames["goody-contestant-2"] = "Goody";
-        pawn1.visible = true;
-        pawn2.visible = true;
+        p1.visible = true;
+        p2.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
         updatePawnNameBadge(pawn2, "Goody");
 
@@ -533,8 +551,8 @@
       } else if (modeType === "TWOPLAYER") {
         isSoloMode = false;
         isVsGoodyMode = false;
-        pawn1.visible = true;
-        pawn2.visible = true;
+        p1.visible = true;
+        p2.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
@@ -660,8 +678,8 @@
 
       p2RollVal = null;
       isDiceRollingP2 = false;
-      pawn2.visible = false;
-      pawn1.visible = true;
+      p2.visible = false;
+      p1.visible = true;
       if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
       countdownPill.innerHTML = `STATUS: <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
@@ -711,8 +729,8 @@
       goodyPlayerSlot = droppedOutContestant || "goody-contestant-2";
       contestantNames[goodyPlayerSlot] = "Goody";
 
-      pawn1.visible = true;
-      pawn2.visible = true;
+      p1.visible = true;
+      p2.visible = true;
       if (goodyPlayerSlot === "goody-contestant-1") {
         if (window.p1PodiumGroup) window.p1PodiumGroup.visible = true;
         updatePawnNameBadge(pawn1, "Goody");
@@ -3188,10 +3206,12 @@
 
     document.addEventListener('keydown', (e) => {
       if (!isHostAuthorized) return;
-      if (e.code === 'KeyW') moveState.forward = true;
-      if (e.code === 'KeyS') moveState.backward = true;
-      if (e.code === 'KeyA') moveState.turnLeft = true;
-      if (e.code === 'KeyD') moveState.turnRight = true;
+      if (!isPlushieViewActive) {
+        if (e.code === 'KeyW') moveState.forward = true;
+        if (e.code === 'KeyS') moveState.backward = true;
+        if (e.code === 'KeyA') moveState.turnLeft = true;
+        if (e.code === 'KeyD') moveState.turnRight = true;
+      }
 
       if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
         if (e.key === '1') chooseHostGameMode("SOLO");
@@ -3528,21 +3548,23 @@
         renderStageQuestionBoard();
       }
 
-      if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
-      if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
+      if (!isPlushieViewActive) {
+        if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
+        if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
 
-      const moveSpeed = 4.2 * delta;
-      if (moveState.forward) {
-        plushieVelocity.x += -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
-        plushieVelocity.z += -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
-      }
-      if (moveState.backward) {
-        plushieVelocity.x -= -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
-        plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
-      }
+        const moveSpeed = 4.2 * delta;
+        if (moveState.forward) {
+          plushieVelocity.x += -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
+          plushieVelocity.z += -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
+        }
+        if (moveState.backward) {
+          plushieVelocity.x -= -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
+          plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
+        }
 
-      plushieVelocity.multiplyScalar(0.90);
-      plushiePosition.addScaledVector(plushieVelocity, delta);
+        plushieVelocity.multiplyScalar(0.90);
+        plushiePosition.addScaledVector(plushieVelocity, delta);
+      }
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
@@ -3662,17 +3684,33 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
-
+      let camTargetX, camTargetY, camTargetZ;
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
-      camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-      camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-      camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+      if (isPlushieViewActive) {
+        // Third-person orbit view around the plushie
+        const orbitDist = 3.5;
+        camTargetX = plushieWorldPos.x + Math.sin(plushieViewYaw) * Math.cos(plushieViewPitch) * orbitDist;
+        camTargetY = plushieWorldPos.y + 0.6 + Math.sin(plushieViewPitch) * orbitDist;
+        camTargetZ = plushieWorldPos.z + Math.cos(plushieViewYaw) * Math.cos(plushieViewPitch) * orbitDist;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+        camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
+        camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
+        camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+
+        camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.4, plushieWorldPos.z);
+      } else {
+        // Standard first-person/chase view
+        camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+        camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
+        camTargetY = plushieWorldPos.y + 1.6;
+
+        camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
+        camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
+        camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+
+        camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+      }
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
@@ -3714,8 +3752,8 @@
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                              (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                              (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3785,8 +3823,10 @@
       if (!elem) return;
       const activate = (e) => {
         e.preventDefault();
-        moveState[stateKey] = true;
-        btnElement.classList.add('active');
+        if (!isPlushieViewActive) {
+          moveState[stateKey] = true;
+          btnElement.classList.add('active');
+        }
       };
       const deactivate = (e) => {
         e.preventDefault();
@@ -3812,7 +3852,8 @@
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (isPlushieViewActive) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#plushie-view-btn')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -3821,7 +3862,7 @@
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
+      if (isPlushieViewActive || !isSwipingScreen || touchStartX === null || touchStartY === null) return;
       if (e.touches.length > 0) {
         const currentX = e.touches[0].clientX;
         const currentY = e.touches[0].clientY;
