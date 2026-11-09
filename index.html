@@ -3003,20 +3003,19 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
   const uv = hit.uv;
   if (uv) {
-    // Corrected strict vertical boundaries from top to bottom on the texture
-    if (uv.y >= 0.20 && uv.y <= 0.40) {
-      chooseHostGameMode("TWOPLAYER"); // Option 3
-    } else if (uv.y > 0.40 && uv.y <= 0.65) {
-      chooseHostGameMode("GOODY");     // Option 2
-    } else if (uv.y > 0.65 && uv.y <= 0.90) {
-      chooseHostGameMode("SOLO");      // Option 1
+    // Corrected vertical slices from top to bottom of the menu texture:
+    if (uv.y >= 0.15 && uv.y <= 0.38) {
+      chooseHostGameMode("TWOPLAYER"); // Option 3 (Bottom)
+    } else if (uv.y > 0.38 && uv.y <= 0.62) {
+      chooseHostGameMode("GOODY");     // Option 2 (Middle)
+    } else if (uv.y > 0.62 && uv.y <= 0.90) {
+      chooseHostGameMode("SOLO");      // Option 1 (Top)
     }
   } else {
     chooseHostGameMode("SOLO");
   }
   return;
 }
-
         if (activeQuestion) {
           const uv = hit.uv;
           if (uv && uv.y < 0.65) {
