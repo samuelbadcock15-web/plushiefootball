@@ -31,7 +31,6 @@
       pointer-events: none;
     }
 
-    /* Mobile Virtual D-Pad */
     #mobile-dpad {
       position: absolute;
       bottom: 40px;
@@ -2331,13 +2330,13 @@
     }
     renderWallClockTexture("20:00");
 
-    // Relocated right-hand side clock, lower & angled cleanly at 0.75 rad
+    // Right-hand side clock angled inward to the left (-0.75 rad) matching the main studio screen orientation
     const wallClockMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(4.2, 2.2, -4.4);
-    wallClockMesh.rotation.y = 0.75;
+    wallClockMesh.position.set(4.2, 2.15, -4.4);
+    wallClockMesh.rotation.y = -0.75;
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2949,7 +2948,7 @@
     }
     renderStageQuestionBoard();
 
-    // Lowered Main Studio Screen (y: 2.15) to sit nicely just above studio floor
+    // Lowered Main Studio Screen (y: 2.15)
     const qBoardMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
@@ -3004,9 +3003,9 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            // Corrected UV mapping range check for mode choices (1, 2, 3)
-            if (uv.y >= 0.16 && uv.y <= 0.38) chooseHostGameMode("TWOPLAYER");
-            else if (uv.y > 0.38 && uv.y <= 0.65) chooseHostGameMode("GOODY");
+            // Corrected UV mapping range check so option 1 is Solo, option 2 is vs Goody, option 3 is 2-Player
+            if (uv.y >= 0.28 && uv.y <= 0.45) chooseHostGameMode("TWOPLAYER");
+            else if (uv.y > 0.45 && uv.y <= 0.65) chooseHostGameMode("GOODY");
             else if (uv.y > 0.65) chooseHostGameMode("SOLO");
           } else {
             chooseHostGameMode("SOLO");
@@ -3017,7 +3016,6 @@
         if (activeQuestion) {
           const uv = hit.uv;
           if (uv && uv.y < 0.65) {
-            // Precise inverted vertical UV mapping so clicking A, B, C, or D matches options correctly
             const optIdx = Math.floor((0.65 - uv.y) / 0.12);
             if (optIdx >= 0 && optIdx < activeQuestion.options.length) {
               const chosenOpt = activeQuestion.options[optIdx];
@@ -3396,7 +3394,7 @@
       studioScreenTex.needsUpdate = true;
     }
 
-    // Lowered Contestant Studio Screens (y: 2.15) to sit nicely just above studio floor
+    // Lowered Contestant Studio Screens (y: 2.15)
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
     studioBackScreenMesh.position.set(0, 2.15, -4.5); miniDiorama.add(studioBackScreenMesh);
 
@@ -3833,7 +3831,7 @@
           btnLeft.classList.remove('active');
         } else if (deltaX < -5) {
           btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
+          btnRight.classList.remove('action' || 'active');
         }
 
         const moveThreshold = 4;
