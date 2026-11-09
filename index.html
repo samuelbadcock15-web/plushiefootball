@@ -30,49 +30,6 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
-    /* Mobile Virtual D-Pad (Hidden on PC desktop) */
-    #mobile-dpad {
-      position: absolute;
-      bottom: 30px;
-      left: 30px;
-      display: none;
-      grid-template-areas: 
-        ". up ."
-        "left down right";
-      gap: 12px;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-    }
-
-    /* Automatically show on touch/mobile devices */
-    @media (pointer: coarse), (max-width: 900px) {
-      #mobile-dpad { display: grid; }
-    }
-
-    .dpad-btn {
-      width: 60px;
-      height: 60px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 2px solid #00f0ff;
-      border-radius: 14px;
-      color: #00f0ff;
-      font-size: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
-      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
-    }
-
-    /* Glowing highlight state when pressed or swiped */
-    .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
-      border-color: #39ff14;
-      color: #39ff14;
-      box-shadow: 0 0 22px #39ff14;
-    }
   </style>
 </head>
 <body>
@@ -89,14 +46,7 @@
     Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
   </div>
 
-<canvas id="canvas3d"></canvas>
-
-  <div id="mobile-dpad">
-    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
-    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
-    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
-    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
-  </div>
+  <canvas id="canvas3d"></canvas>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -234,95 +184,40 @@
           console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
-        // Listen for server-assigned team
-        socket.on('assign_team', (data) => {
-          assignedTeam = data.team;
-          teamColorHex = data.teamColor;
-          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-
-          if (localPlushie) {
-            localPlushie.userData.team = assignedTeam;
-            localPlushie.traverse(child => {
-              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-                child.material.color.setHex(plushieColorHex);
+        socket.on('current_players', (playersList) => {
+          playersList.forEach(data => {
+            if (data.id === socket.id) {
+              localMyGuestName = data.name;
+              updatePlushieNameBadge(localPlushie, localMyGuestName);
+            } else {
+              let pMesh = remotePlayers.get(data.id);
+              if (!pMesh) {
+                pMesh = createCutePlushie(0x00f0ff, data.name || "Guest");
+                miniDiorama.add(pMesh);
+                remotePlayers.set(data.id, pMesh);
               }
-            });
-            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-          }
+            }
+          });
         });
 
-socket.on('update_player', (data) => {
+        socket.on('update_player', (data) => {
           let pMesh = remotePlayers.get(data.id);
-          const remoteTeam = data.team || 'BLUE';
-          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
-          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          const playerName = data.name || "Guest";
-
           if (!pMesh) {
-            // Pass playerName here so the plushie gets the correct name right away!
-            pMesh = createCutePlushie(remotePlushieHex, playerName);
-            pMesh.userData.team = remoteTeam;
-            updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+            pMesh = createCutePlushie(0x00f0ff, data.name || "Guest");
             miniDiorama.add(pMesh);
             remotePlayers.set(data.id, pMesh);
-          } else {
-            pMesh.userData.team = remoteTeam;
-            pMesh.traverse(child => {
-              if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
-                child.material.color.setHex(remotePlushieHex);
-              }
-            });
           }
-          
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-          
           if (data.name) {
-            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
+            updatePlushieNameBadge(pMesh, data.name);
           }
-          
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
-        
-socket.on('update_player', (data) => {
-          let pMesh = remotePlayers.get(data.id);
-          const remoteTeam = data.team || 'BLUE';
-          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
-          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-          if (!pMesh) {
-            pMesh = createCutePlushie(remotePlushieHex, data.name || "Guest");
-            pMesh.userData.team = remoteTeam;
-            updatePlushieNameBadge(pMesh, data.name || "Guest", remoteTeamColor);
-            miniDiorama.add(pMesh);
-            remotePlayers.set(data.id, pMesh);
-          } else {
-            // Update color if team changed
-            pMesh.userData.team = remoteTeam;
-            pMesh.traverse(child => {
-              if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
-                child.material.color.setHex(remotePlushieHex);
-              }
-            });
-          }
-          
-          pMesh.position.set(data.x, data.y, data.z);
-          pMesh.rotation.y = data.yaw + Math.PI;
-          
-          if (data.name) {
-            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
-          }
-          
-          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
-        });
-        
-socket.on('remove_player', (id) => {
+        socket.on('remove_player', (id) => {
           const pMesh = remotePlayers.get(id);
           if (pMesh) {
-            // Remove the name badge mesh from the diorama if it exists
-            if (pMesh.userData && pMesh.userData.badgeMesh) {
-              miniDiorama.remove(pMesh.userData.badgeMesh);
-            }
             miniDiorama.remove(pMesh);
             remotePlayers.delete(id);
           }
@@ -2927,7 +2822,7 @@ socket.on('remove_player', (id) => {
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-function createCutePlushie(color, initialName = "") {
+    function createCutePlushie(color, initialName = "Guest 1") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2948,32 +2843,25 @@ function createCutePlushie(color, initialName = "") {
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Only create a badge mesh if a name was actually passed
-      let badgeMesh = null;
-      let bCanvas = null;
-      let bTex = null;
-
-      if (initialName) {
-        bCanvas = document.createElement('canvas');
-        bCanvas.width = 256; bCanvas.height = 96;
-        bTex = new THREE.CanvasTexture(bCanvas);
-        const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
-        });
-        badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
-        badgeMesh.position.set(0, 0.95, 0);
-        badgeMesh.matrixAutoUpdate = true;
-        miniDiorama.add(badgeMesh);
-        updatePlushieNameBadge(pGroup, initialName);
-      }
-      
+      // Billboarded Name Badge
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = 256; bCanvas.height = 96;
+      const bTex = new THREE.CanvasTexture(bCanvas);
+      const badgeMat = new THREE.MeshBasicMaterial({
+        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
+      });
+      const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
+      badgeMesh.position.set(0, 0.95, 0);
+      badgeMesh.matrixAutoUpdate = true;
+miniDiorama.add(badgeMesh);
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
+      updatePlushieNameBadge(pGroup, initialName);
       return pGroup;
     }
 
-   function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
+    function updatePlushieNameBadge(pGroup, displayName) {
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
       const canvas = pGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
@@ -2981,7 +2869,7 @@ function createCutePlushie(color, initialName = "") {
       ctx.clearRect(0, 0, w, h);
 
       ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 8;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -2991,9 +2879,7 @@ function createCutePlushie(color, initialName = "") {
       }
       ctx.fill(); ctx.stroke();
 
-      // Draw team colored accent text glow or matching text color
-      ctx.fillStyle = teamColor; 
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
       ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
@@ -3001,6 +2887,7 @@ function createCutePlushie(color, initialName = "") {
         pGroup.userData.badgeTexture.needsUpdate = true;
       }
     }
+
     function setPlushieVisualMode(group, mode) {
       if (!group) return;
       if (mode === 'invisible') {
@@ -3028,34 +2915,7 @@ function createCutePlushie(color, initialName = "") {
       });
     }
 
-let assignedTeam = 'BLUE';
-    let teamColorHex = '#00f0ff';
-    let plushieColorHex = 0x00f0ff;
-    let localPlushie = null;
-
-    // Listen for the server telling us what team we are on
-    if (socket) {
-      socket.on('assign_team', (data) => {
-        assignedTeam = data.team;
-        teamColorHex = data.teamColor;
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-
-        if (localPlushie) {
-          localPlushie.userData.team = assignedTeam;
-          localPlushie.traverse(child => {
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-              child.material.color.setHex(plushieColorHex);
-            }
-          });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-        }
-      });
-    }
-
-    localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
-    localPlushie.userData.team = assignedTeam;
-    updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-    
+    const localPlushie = createCutePlushie(0x00f0ff, "Guest 1");
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -3092,7 +2952,7 @@ let assignedTeam = 'BLUE';
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-const pGroup = createCutePlushie(col, "");
+        const pGroup = createCutePlushie(col, `Spectator ${i + 1}`);
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3516,9 +3376,7 @@ const pGroup = createCutePlushie(col, "");
           x: plushiePosition.x,
           y: plushiePosition.y,
           z: plushiePosition.z,
-          yaw: plushieRotation.yaw,
-          team: assignedTeam,
-          teamColor: teamColorHex
+          yaw: plushieRotation.yaw
         });
       }
 
@@ -3611,10 +3469,8 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
         updatePlushieVisibility(sp, false, false);
       });
 
-const cameraRotation = camera.quaternion;
-
       const camRot = camera.quaternion;
-      
+     
       // Update local plushie badge world position & camera lock
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
@@ -3622,7 +3478,7 @@ const cameraRotation = camera.quaternion;
         badge.quaternion.copy(camRot);
       }
 
-      // Update remote player name tags so they track position and face the camera
+// Update remote player name tags so they track position and face the camera
       remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
@@ -3660,77 +3516,6 @@ const cameraRotation = camera.quaternion;
 
       renderer.render(scene, camera);
     }
-    // --- MOBILE VIRTUAL DPAD & SWIPE CONTROLS ---
-    const btnUp = document.getElementById('btn-up');
-    const btnDown = document.getElementById('btn-down');
-    const btnLeft = document.getElementById('btn-left');
-    const btnRight = document.getElementById('btn-right');
-
-    function bindTouchButton(elem, stateKey, btnElement) {
-      if (!elem) return;
-      const activate = (e) => {
-        e.preventDefault();
-        moveState[stateKey] = true;
-        btnElement.classList.add('active');
-      };
-      const deactivate = (e) => {
-        e.preventDefault();
-        moveState[stateKey] = false;
-        btnElement.classList.remove('active');
-      };
-
-      elem.addEventListener('touchstart', activate, { passive: false });
-      elem.addEventListener('touchend', deactivate, { passive: false });
-      elem.addEventListener('touchcancel', deactivate, { passive: false });
-      elem.addEventListener('mousedown', activate);
-      elem.addEventListener('mouseup', deactivate);
-      elem.addEventListener('mouseleave', deactivate);
-    }
-
-    bindTouchButton(btnUp, 'forward', btnUp);
-    bindTouchButton(btnDown, 'backward', btnDown);
-    bindTouchButton(btnLeft, 'turnLeft', btnLeft);
-    bindTouchButton(btnRight, 'turnRight', btnRight);
-
-    // Screen Touch Swipe to Turn + Light up Left/Right buttons
-    let touchStartX = null;
-    let isSwipingScreen = false;
-
-    window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      if (e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        isSwipingScreen = true;
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null) return;
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const deltaX = currentX - touchStartX;
-        
-        const turnSensitivity = 0.008;
-        plushieRotation.yaw -= deltaX * turnSensitivity;
-
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
-
-        touchStartX = currentX;
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-      isSwipingScreen = false;
-      touchStartX = null;
-      btnLeft.classList.remove('active');
-      btnRight.classList.remove('active');
-    });
     animate();
   </script>
 </body>
