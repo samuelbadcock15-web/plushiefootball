@@ -30,6 +30,106 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
+
+    #mobile-dpad {
+      position: absolute;
+      bottom: 40px;
+      left: 40px;
+      display: none;
+      grid-template-areas:
+        ". up ."
+        "left down right";
+      gap: 16px;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-dpad { display: grid; }
+    }
+
+    .dpad-btn {
+      width: 80px;
+      height: 80px;
+      background: rgba(22, 9, 44, 0.85);
+      border: 3px solid #00f0ff;
+      border-radius: 18px;
+      color: #00f0ff;
+      font-size: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+    }
+
+    .dpad-btn.active, .dpad-btn:active {
+      background: rgba(0, 240, 255, 0.45);
+      border-color: #39ff14;
+      color: #39ff14;
+      box-shadow: 0 0 22px #39ff14;
+    }
+
+    #look-pad {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      width: 140px;
+      height: 140px;
+      background: rgba(22, 9, 44, 0.65);
+      border: 2px solid rgba(0, 240, 255, 0.6);
+      border-radius: 50%;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      user-select: none;
+      cursor: grab;
+    }
+
+    #look-pad:active {
+      cursor: grabbing;
+    }
+
+    #look-pad-thumb {
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 240, 255, 0.3);
+      border: 2px solid #39ff14;
+      border-radius: 50%;
+      color: #39ff14;
+      font-family: monospace;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      pointer-events: none;
+      transition: transform 0.05s linear;
+    }
+
+    #mobile-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border: 2px solid rgba(0, 240, 255, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+      display: none;
+      z-index: 15;
+    }
+
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-crosshair { display: block; }
+    }
   </style>
 </head>
 <body>
@@ -48,6 +148,19 @@
 
   <canvas id="canvas3d"></canvas>
 
+  <div id="mobile-dpad">
+    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
+    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
+    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
+    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+  </div>
+
+  <div id="look-pad">
+    <div id="look-pad-thumb">LOOK / AIM</div>
+  </div>
+
+  <div id="mobile-crosshair"></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
@@ -57,7 +170,7 @@
     let socket = null;
     const remotePlayers = new Map();
     let localMyGuestName = "Guest 1";
-    let isBallPhysicsHost = false; // Single-authority physics flag
+    let isBallPhysicsHost = false;
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -69,6 +182,91 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
+    });
+
+    const lookPad = document.getElementById('look-pad');
+    const lookPadThumb = document.getElementById('look-pad-thumb');
+
+    let isLooking = false;
+    let lookTouchId = null;
+    let lookStartX = 0;
+    let lookStartY = 0;
+
+    function handleLookStart(clientX, clientY, identifier = null) {
+      isLooking = true;
+      lookTouchId = identifier;
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookMove(clientX, clientY) {
+      if (!isLooking) return;
+
+      const deltaX = clientX - lookStartX;
+      const deltaY = clientY - lookStartY;
+      const lookSensitivity = 0.005;
+
+      if (typeof plushieRotation !== 'undefined') {
+        plushieRotation.yaw -= deltaX * lookSensitivity;
+      }
+
+      const maxThumbOffset = 40;
+      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookEnd() {
+      isLooking = false;
+      lookTouchId = null;
+      lookPadThumb.style.transform = `translate(0px, 0px)`;
+    }
+
+    lookPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === lookTouchId) {
+          handleLookMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+          handleLookEnd();
+          break;
+        }
+      }
+    });
+
+    lookPad.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handleLookStart(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isLooking && lookTouchId === null) {
+        handleLookMove(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isLooking && lookTouchId === null) {
+        handleLookEnd();
+      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -178,46 +376,67 @@
       try {
         socket = io();
 
-        // Listen for server designation of ball physics authority
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
-          console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
-        socket.on('current_players', (playersList) => {
-          playersList.forEach(data => {
-            if (data.id === socket.id) {
-              localMyGuestName = data.name;
-              updatePlushieNameBadge(localPlushie, localMyGuestName);
-            } else {
-              let pMesh = remotePlayers.get(data.id);
-              if (!pMesh) {
-                pMesh = createCutePlushie(0x00f0ff, data.name || "Guest");
-                miniDiorama.add(pMesh);
-                remotePlayers.set(data.id, pMesh);
+        socket.on('assign_team', (data) => {
+          assignedTeam = data.team;
+          teamColorHex = data.teamColor;
+          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          if (data.name) {
+            localMyGuestName = data.name;
+          }
+
+          if (localPlushie) {
+            localPlushie.userData.team = assignedTeam;
+            localPlushie.traverse(child => {
+              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+                child.material.color.setHex(plushieColorHex);
               }
-            }
-          });
+            });
+            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+          }
         });
 
         socket.on('update_player', (data) => {
           let pMesh = remotePlayers.get(data.id);
+          const remoteTeam = data.team || 'BLUE';
+          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          const playerName = data.name || "Guest";
+
           if (!pMesh) {
-            pMesh = createCutePlushie(0x00f0ff, data.name || "Guest");
+            pMesh = createCutePlushie(remotePlushieHex, playerName);
+            pMesh.userData.team = remoteTeam;
+            updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
             miniDiorama.add(pMesh);
             remotePlayers.set(data.id, pMesh);
+          } else {
+            pMesh.userData.team = remoteTeam;
+            pMesh.traverse(child => {
+              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+                child.material.color.setHex(remotePlushieHex);
+              }
+            });
           }
+         
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
+         
           if (data.name) {
-            updatePlushieNameBadge(pMesh, data.name);
+            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
+         
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
         socket.on('remove_player', (id) => {
           const pMesh = remotePlayers.get(id);
           if (pMesh) {
+            if (pMesh.userData && pMesh.userData.badgeMesh) {
+              miniDiorama.remove(pMesh.userData.badgeMesh);
+            }
             miniDiorama.remove(pMesh);
             remotePlayers.delete(id);
           }
@@ -266,40 +485,53 @@
     }
 
     function chooseHostGameMode(modeType) {
-      if (studioPower) return;
-      if (modeType === "SOLO") {
-        isSoloMode = true;
-        isVsGoodyMode = false;
-        soloPlayerId = "goody-contestant-1";
-        const soloName = contestantNames[soloPlayerId];
-        activePlayer = soloPlayerId;
-        p2RollVal = null;
-        isDiceRollingP2 = false;
-       
-        pawn2.visible = false;
-        pawn1.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
+  if (studioPower) return;
+  if (modeType === "SOLO") {
+    isSoloMode = true;
+    isVsGoodyMode = false;
+    soloPlayerId = "goody-contestant-1";
+    const soloName = contestantNames[soloPlayerId];
+    activePlayer = soloPlayerId;
+    p2RollVal = null;
+    isDiceRollingP2 = false;
+   
+    pawn2.visible = false;
+    pawn1.visible = true;
+    if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
-        bootStudio();
-        const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
-        speakGoody(speech, () => {
-          startTurnCleanly(soloPlayerId);
-        });
-      } else if (modeType === "GOODY") {
-        isSoloMode = false;
-        isVsGoodyMode = true;
-        goodyPlayerSlot = "goody-contestant-2";
-        contestantNames["goody-contestant-2"] = "Goody";
-        pawn1.visible = true;
-        pawn2.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-        updatePawnNameBadge(pawn2, "Goody");
+    bootStudio();
+    const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
+    speakGoody(speech, () => {
+      startTurnCleanly(soloPlayerId);
+    });
+  } else if (modeType === "GOODY") {
+    isSoloMode = false;
+    isVsGoodyMode = true;
+    goodyPlayerSlot = "goody-contestant-2";
+    contestantNames["goody-contestant-2"] = "Goody";
+    pawn1.visible = true;
+    pawn2.visible = true;
+    if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+    updatePawnNameBadge(pawn2, "Goody");
 
-        bootStudio();
-        const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player versus Goody mode! I am taking control of Podium 2. Let's roll our dice and start the show!`;
-        speakGoody(speech, () => {
-          beginTenSecondDiceDuel();
-        });
+    bootStudio();
+    const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player versus Goody mode! I am taking control of Podium 2. Let's roll our dice and start the show!`;
+    speakGoody(speech, () => {
+      beginTenSecondDiceDuel();
+    });
+  } else if (modeType === "TWOPLAYER") {
+    isSoloMode = false;
+    isVsGoodyMode = false;
+    pawn1.visible = true;
+    pawn2.visible = true;
+    if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+    bootStudio();
+    const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
+    speakGoody(speech, () => {
+      beginTenSecondDiceDuel();
+    });
+  }
+}
       } else if (modeType === "TWOPLAYER") {
         isSoloMode = false;
         isVsGoodyMode = false;
@@ -1672,7 +1904,6 @@
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
    
-
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -1828,10 +2059,10 @@
     miniDiorama.add(feltCarpet);
 
     const miniWall = new THREE.Mesh(
-      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2), 
+      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2),
       new THREE.MeshStandardMaterial({ color: 0x15092a, side: THREE.BackSide })
     );
-    miniWall.position.y = 2.65; 
+    miniWall.position.y = 2.65;
     miniDiorama.add(miniWall);
 
     const enclosingWallsGroup = new THREE.Group();
@@ -1880,7 +2111,7 @@
     partitionGroup.add(rightWall);
 
     const gateGroup = new THREE.Group();
-    gateGroup.position.set(0, 0, -4.0); 
+    gateGroup.position.set(0, 0, -4.0);
 
     const gateMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4.2, 3.0),
@@ -1909,14 +2140,14 @@
     pitchSbTexture.minFilter = THREE.LinearFilter;
 
     const pitchBoardGeo = new THREE.PlaneGeometry(12, 6);
-    const pitchBoardMat = new THREE.MeshBasicMaterial({ 
-      map: pitchSbTexture, 
-      side: THREE.DoubleSide 
+    const pitchBoardMat = new THREE.MeshBasicMaterial({
+      map: pitchSbTexture,
+      side: THREE.DoubleSide
     });
 
     const pitchScoreboardMesh = new THREE.Mesh(pitchBoardGeo, pitchBoardMat);
     pitchScoreboardMesh.position.set(34.0, 3.5, 14.0);
-    pitchScoreboardMesh.rotation.y = Math.PI; 
+    pitchScoreboardMesh.rotation.y = Math.PI;
     miniDiorama.add(pitchScoreboardMesh);
 
     function renderPitchScoreboard(blue, red) {
@@ -2005,7 +2236,7 @@
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
      
-      const goalSpan = 5.0; 
+      const goalSpan = 5.0;
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
       goalGroup.add(post1);
@@ -2112,11 +2343,13 @@
     }
     renderWallClockTexture("20:00");
 
+    // Right-hand side clock angled inward to the left (-0.75 rad) matching the main studio screen orientation
     const wallClockMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.4, 1.2),
+      new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(0, 6.2, -4.4);
+    wallClockMesh.position.set(4.2, 2.15, -4.4);
+    wallClockMesh.rotation.y = -0.75;
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2728,11 +2961,12 @@
     }
     renderStageQuestionBoard();
 
+    // Lowered Main Studio Screen (y: 2.15)
     const qBoardMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 3.4, -3.2);
+    qBoardMesh.position.set(-4.8, 2.15, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -2779,22 +3013,27 @@
       if (intersects.length > 0) {
         const hit = intersects[0];
 
-        if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-          const uv = hit.uv;
-          if (uv) {
-            if (uv.y > 0.60) chooseHostGameMode("SOLO");
-            else if (uv.y > 0.40) chooseHostGameMode("GOODY");
-            else chooseHostGameMode("TWOPLAYER");
-          } else {
-            chooseHostGameMode("SOLO");
-          }
-          return;
-        }
+       if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+  const uv = hit.uv;
+  if (uv) {
+    // Corrected strict vertical boundaries from top to bottom on the texture
+    if (uv.y >= 0.20 && uv.y <= 0.40) {
+      chooseHostGameMode("TWOPLAYER"); // Option 3
+    } else if (uv.y > 0.40 && uv.y <= 0.65) {
+      chooseHostGameMode("GOODY");     // Option 2
+    } else if (uv.y > 0.65 && uv.y <= 0.90) {
+      chooseHostGameMode("SOLO");      // Option 1
+    }
+  } else {
+    chooseHostGameMode("SOLO");
+  }
+  return;
+}
 
         if (activeQuestion) {
           const uv = hit.uv;
-          if (uv && uv.y < 0.5) {
-            const optIdx = Math.floor((0.5 - uv.y) / 0.12);
+          if (uv && uv.y < 0.65) {
+            const optIdx = Math.floor((0.65 - uv.y) / 0.12);
             if (optIdx >= 0 && optIdx < activeQuestion.options.length) {
               const chosenOpt = activeQuestion.options[optIdx];
               stageSelectedOption = chosenOpt;
@@ -2822,7 +3061,7 @@
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-    function createCutePlushie(color, initialName = "Guest 1") {
+    function createCutePlushie(color, initialName = "") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2843,25 +3082,35 @@
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Billboarded Name Badge
-      const bCanvas = document.createElement('canvas');
-      bCanvas.width = 256; bCanvas.height = 96;
-      const bTex = new THREE.CanvasTexture(bCanvas);
-      const badgeMat = new THREE.MeshBasicMaterial({
-        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
-      });
-      const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
-      badgeMesh.position.set(0, 0.95, 0);
-      badgeMesh.matrixAutoUpdate = true;
-miniDiorama.add(badgeMesh);
+      let badgeMesh = null;
+      let bCanvas = null;
+      let bTex = null;
+
+      if (initialName) {
+        bCanvas = document.createElement('canvas');
+        bCanvas.width = 256; bCanvas.height = 96;
+        bTex = new THREE.CanvasTexture(bCanvas);
+        const badgeMat = new THREE.MeshBasicMaterial({
+          map: bTex, 
+          transparent: true, 
+          opacity: 0.3,
+          side: THREE.DoubleSide, 
+          depthWrite: false
+        });
+        badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
+        badgeMesh.position.set(0, 0.95, 0);
+        badgeMesh.matrixAutoUpdate = true;
+        miniDiorama.add(badgeMesh);
+        updatePlushieNameBadge(pGroup, initialName);
+      }
+     
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
-      updatePlushieNameBadge(pGroup, initialName);
       return pGroup;
     }
 
-    function updatePlushieNameBadge(pGroup, displayName) {
+    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
       const canvas = pGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
@@ -2869,7 +3118,7 @@ miniDiorama.add(badgeMesh);
       ctx.clearRect(0, 0, w, h);
 
       ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = '#00f0ff';
+      ctx.strokeStyle = teamColor;
       ctx.lineWidth = 8;
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -2879,7 +3128,8 @@ miniDiorama.add(badgeMesh);
       }
       ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = teamColor;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
       ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
@@ -2915,7 +3165,33 @@ miniDiorama.add(badgeMesh);
       });
     }
 
-    const localPlushie = createCutePlushie(0x00f0ff, "Guest 1");
+    let assignedTeam = 'BLUE';
+    let teamColorHex = '#00f0ff';
+    let plushieColorHex = 0x00f0ff;
+    let localPlushie = null;
+
+    if (socket) {
+      socket.on('assign_team', (data) => {
+        assignedTeam = data.team;
+        teamColorHex = data.teamColor;
+        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+        if (localPlushie) {
+          localPlushie.userData.team = assignedTeam;
+          localPlushie.traverse(child => {
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              child.material.color.setHex(plushieColorHex);
+            }
+          });
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+        }
+      });
+    }
+
+    localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
+    localPlushie.userData.team = assignedTeam;
+    updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+   
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -2927,12 +3203,22 @@ miniDiorama.add(badgeMesh);
       if (e.code === 'KeyA') moveState.turnLeft = true;
       if (e.code === 'KeyD') moveState.turnRight = true;
 
-      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-        if (e.key === '1') chooseHostGameMode("SOLO");
-        if (e.key === '2') chooseHostGameMode("GOODY");
-        if (e.key === '3') chooseHostGameMode("TWOPLAYER");
-      }
-    });
+if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+  const uv = hit.uv;
+  if (uv) {
+    // Corrected vertical slices from top to bottom of the menu texture:
+    if (uv.y >= 0.15 && uv.y <= 0.38) {
+      chooseHostGameMode("TWOPLAYER"); // Option 3 (Bottom)
+    } else if (uv.y > 0.38 && uv.y <= 0.62) {
+      chooseHostGameMode("GOODY");     // Option 2 (Middle)
+    } else if (uv.y > 0.62 && uv.y <= 0.90) {
+      chooseHostGameMode("SOLO");      // Option 1 (Top)
+    }
+  } else {
+    chooseHostGameMode("SOLO");
+  }
+  return;
+}
 
     document.addEventListener('keyup', (e) => {
       if (!isHostAuthorized) return;
@@ -2952,7 +3238,7 @@ miniDiorama.add(badgeMesh);
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, `Spectator ${i + 1}`);
+        const pGroup = createCutePlushie(col, "");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3135,8 +3421,9 @@ miniDiorama.add(badgeMesh);
       studioScreenTex.needsUpdate = true;
     }
 
+    // Lowered Contestant Studio Screens (y: 2.15)
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
+    studioBackScreenMesh.position.set(0, 2.15, -4.5); miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
     const silverMetalMat = new THREE.MeshStandardMaterial({
@@ -3284,9 +3571,9 @@ miniDiorama.add(badgeMesh);
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
-            plushiePosition.x = 9.6; 
+            plushiePosition.x = 9.6;
           } else {
-            plushiePosition.x = 10.4; 
+            plushiePosition.x = 10.4;
           }
         }
       }
@@ -3298,16 +3585,13 @@ miniDiorama.add(badgeMesh);
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        // Single-authority physics check with multi-player collision support
         if (isBallPhysicsHost) {
-          // 1. Check local player collision
           if (distToBall < 0.78) {
             const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
             ballVelocity.addScaledVector(pushDir, 13.0);
             playTone(600, 'triangle', 0.08, 0.1);
           }
 
-          // 2. Check all remote players for ball collisions
           remotePlayers.forEach((pMesh) => {
             if (pMesh) {
               const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
@@ -3359,7 +3643,6 @@ miniDiorama.add(badgeMesh);
             });
           }
         } else {
-          // Non-host player cleanly interpolates ball position from the master host
           if (hasRemoteBallUpdate) {
             ballMesh.position.lerp(remoteBallTarget, 0.35);
           }
@@ -3376,7 +3659,9 @@ miniDiorama.add(badgeMesh);
           x: plushiePosition.x,
           y: plushiePosition.y,
           z: plushiePosition.z,
-          yaw: plushieRotation.yaw
+          yaw: plushieRotation.yaw,
+          team: assignedTeam,
+          teamColor: teamColorHex
         });
       }
 
@@ -3398,11 +3683,10 @@ miniDiorama.add(badgeMesh);
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
+      const camTargetY = plushieWorldPos.y + 1.0;
 
-      // Framerate-independent smooth damping factor
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
       camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
@@ -3451,8 +3735,8 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3471,14 +3755,12 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
 
       const camRot = camera.quaternion;
      
-      // Update local plushie badge world position & camera lock
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
         badge.quaternion.copy(camRot);
       }
 
-// Update remote player name tags so they track position and face the camera
       remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
@@ -3487,7 +3769,6 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
         }
       });
 
-      // Update game board pawns
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
         pawn1.userData.badgeMesh.quaternion.copy(camRot);
       }
@@ -3495,7 +3776,6 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
         pawn2.userData.badgeMesh.quaternion.copy(camRot);
       }
 
-      // Update spectator plushies
       spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
           sp.userData.badgeMesh.quaternion.copy(camRot);
@@ -3516,6 +3796,106 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
 
       renderer.render(scene, camera);
     }
+
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    function bindTouchButton(elem, stateKey, btnElement) {
+      if (!elem) return;
+      const activate = (e) => {
+        e.preventDefault();
+        moveState[stateKey] = true;
+        btnElement.classList.add('active');
+      };
+      const deactivate = (e) => {
+        e.preventDefault();
+        moveState[stateKey] = false;
+        btnElement.classList.remove('active');
+      };
+
+      elem.addEventListener('touchstart', activate, { passive: false });
+      elem.addEventListener('touchend', deactivate, { passive: false });
+      elem.addEventListener('touchcancel', deactivate, { passive: false });
+      elem.addEventListener('mousedown', activate);
+      elem.addEventListener('mouseup', deactivate);
+      elem.addEventListener('mouseleave', deactivate);
+    }
+
+    bindTouchButton(btnUp, 'forward', btnUp);
+    bindTouchButton(btnDown, 'backward', btnDown);
+    bindTouchButton(btnLeft, 'turnLeft', btnLeft);
+    bindTouchButton(btnRight, 'turnRight', btnRight);
+
+    let touchStartX = null;
+    let touchStartY = null;
+    let isSwipingScreen = false;
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isSwipingScreen = true;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
+      if (e.touches.length > 0) {
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+
+        const deltaX = currentX - touchStartX;
+        const deltaY = currentY - touchStartY;
+
+        const turnSensitivity = 0.008;
+        plushieRotation.yaw -= deltaX * turnSensitivity;
+
+        if (deltaX > 5) {
+          btnRight.classList.add('active');
+          btnLeft.classList.remove('active');
+        } else if (deltaX < -5) {
+          btnLeft.classList.add('active');
+          btnRight.classList.remove('active');
+        }
+
+        const moveThreshold = 4;
+
+        if (deltaY < -moveThreshold) {
+          moveState.forward = true;
+          moveState.backward = false;
+          btnUp.classList.add('active');
+          btnDown.classList.remove('active');
+        } else if (deltaY > moveThreshold) {
+          moveState.backward = true;
+          moveState.forward = false;
+          btnDown.classList.add('active');
+          btnUp.classList.remove('active');
+        }
+
+        touchStartX = currentX;
+        touchStartY = currentY;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      isSwipingScreen = false;
+      touchStartX = null;
+      touchStartY = null;
+
+      moveState.forward = false;
+      moveState.backward = false;
+      moveState.turnLeft = false;
+      moveState.turnRight = false;
+
+      btnLeft.classList.remove('active');
+      btnRight.classList.remove('active');
+      btnUp.classList.remove('active');
+      btnDown.classList.remove('active');
+    });
+
     animate();
   </script>
 </body>
