@@ -2955,6 +2955,32 @@
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
+    // DEDICATED SEPARATE 3D CLICK COLLIDER PLANES FOR THE 3 MENU OPTIONS:
+    // This avoids all UV mapping inaccuracies by using physical 3D scene intersection boxes!
+    const modeColliderGroup = new THREE.Group();
+    modeColliderGroup.position.copy(qBoardMesh.position);
+    modeColliderGroup.rotation.copy(qBoardMesh.rotation);
+
+    // Option 1 (Top / Solo) collider
+    const opt1Mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.45), new THREE.MeshBasicMaterial({ visible: false }));
+    opt1Mesh.position.set(0, 0.55, 0.01);
+    opt1Mesh.userData = { modeChoice: "SOLO" };
+    modeColliderGroup.add(opt1Mesh);
+
+    // Option 2 (Middle / Goody) collider - wider and perfectly aligned
+    const opt2Mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.45), new THREE.MeshBasicMaterial({ visible: false }));
+    opt2Mesh.position.set(0, 0.05, 0.01);
+    opt2Mesh.userData = { modeChoice: "GOODY" };
+    modeColliderGroup.add(opt2Mesh);
+
+    // Option 3 (Bottom / 2-Player) collider
+    const opt3Mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.45), new THREE.MeshBasicMaterial({ visible: false }));
+    opt3Mesh.position.set(0, -0.45, 0.01);
+    opt3Mesh.userData = { modeChoice: "TWOPLAYER" };
+    modeColliderGroup.add(opt3Mesh);
+
+    miniDiorama.add(modeColliderGroup);
+
     const screenClickMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
@@ -3226,31 +3252,23 @@
       mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
+      
+      // If we are in MODE_PROMPT, raycast against our dedicated physics colliders for bulletproof selection!
+      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+        const modeColliders = modeColliderGroup.children;
+        const modeIntersects = raycaster.intersectObjects(modeColliders, false);
+        if (modeIntersects.length > 0) {
+          const chosenMode = modeIntersects[0].object.userData.modeChoice;
+          chooseHostGameMode(chosenMode);
+          return;
+        }
+      }
+
       const interactiveTargets = [screenClickMesh, qBoardMesh, studioBackScreenMesh];
       const intersects = raycaster.intersectObjects(interactiveTargets, false);
 
       if (intersects.length > 0) {
         const hit = intersects[0];
-
-if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-          const uv = hit.uv;
-          if (uv) {
-            // Safe overlapping boundaries to eliminate dead zones and floating-point traps:
-            // Option 3 (Bottom): uv.y < 0.40
-            // Option 2 (Middle): uv.y >= 0.35 && uv.y <= 0.58
-            // Option 1 (Top):    uv.y > 0.53
-            if (uv.y < 0.38) {
-              chooseHostGameMode("TWOPLAYER"); // Option 3
-            } else if (uv.y >= 0.35 && uv.y <= 0.58) {
-              chooseHostGameMode("GOODY");     // Option 2 (Expanded & Overlapping)
-            } else {
-              chooseHostGameMode("SOLO");      // Option 1
-            }
-          } else {
-            chooseHostGameMode("GOODY"); // Fallback default
-          }
-          return;
-        }
 
         if (activeQuestion) {
           const uv = hit.uv;
@@ -3634,190 +3652,4 @@ if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
       function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
         if (!plushieMesh) return;
         const pos = plushieMesh.position;
-        const dP1 = pos.distanceTo(p1Pos);
-        const dP2 = pos.distanceTo(p2Pos);
-        const onPodium1 = dP1 < 0.65;
-        const onPodium2 = dP2 < 0.65;
-
-        const inPitchArena = pos.x > 10.0;
-        if (inPitchArena) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-          return;
-        }
-
-        const podium1Occupied = isP1Connected || isLocalOnPodium1;
-        const shouldBeSolid = onPodium1 || (onPodium2 && podium1Occupied);
-
-        if (shouldBeSolid) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-        } else {
-          setPlushieVisualMode(plushieMesh, 'transparent');
-        }
-      }
-
-      const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
-
-      updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
-
-      if (playerPlushie1) {
-        const isP1InGame = studioPower && isP1Connected;
-        updatePlushieVisibility(playerPlushie1, isP1InGame, false);
-      }
-      if (playerPlushie2) {
-        const isP2InGame = studioPower && isP2Connected && !isVsGoodyMode;
-        updatePlushieVisibility(playerPlushie2, false, isP2InGame);
-      }
-
-      spectatorPlushies.forEach(sp => {
-        updatePlushieVisibility(sp, false, false);
-      });
-
-      const camRot = camera.quaternion;
-     
-      if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        const badge = localPlushie.userData.badgeMesh;
-        badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
-        badge.quaternion.copy(camRot);
-      }
-
-      remotePlayers.forEach((pMesh, id) => {
-        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          const badge = pMesh.userData.badgeMesh;
-          badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
-          badge.quaternion.copy(camera.quaternion);
-        }
-      });
-
-      if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(camRot);
-      }
-      if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(camRot);
-      }
-
-      spectatorPlushies.forEach(sp => {
-        if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.copy(camRot);
-        }
-      });
-
-      if (studioPower) {
-        updateCameraAlignment();
-        fixtureCyan.target.position.x = -1.2 + Math.sin(time * 0.003) * 1.5;
-        fixtureMagenta.target.position.x = 1.2 + Math.cos(time * 0.003) * 1.5;
-
-        miniAudience.children.forEach((p) => {
-          p.position.y = p.userData.initialY + Math.sin(time * 0.006 + p.userData.phase) * 0.04;
-        });
-      }
-
-      prevTime = time;
-
-      renderer.render(scene, camera);
-    }
-
-    const btnUp = document.getElementById('btn-up');
-    const btnDown = document.getElementById('btn-down');
-    const btnLeft = document.getElementById('btn-left');
-    const btnRight = document.getElementById('btn-right');
-
-    function bindTouchButton(elem, stateKey, btnElement) {
-      if (!elem) return;
-      const activate = (e) => {
-        e.preventDefault();
-        moveState[stateKey] = true;
-        btnElement.classList.add('active');
-      };
-      const deactivate = (e) => {
-        e.preventDefault();
-        moveState[stateKey] = false;
-        btnElement.classList.remove('active');
-      };
-
-      elem.addEventListener('touchstart', activate, { passive: false });
-      elem.addEventListener('touchend', deactivate, { passive: false });
-      elem.addEventListener('touchcancel', deactivate, { passive: false });
-      elem.addEventListener('mousedown', activate);
-      elem.addEventListener('mouseup', deactivate);
-      elem.addEventListener('mouseleave', deactivate);
-    }
-
-    bindTouchButton(btnUp, 'forward', btnUp);
-    bindTouchButton(btnDown, 'backward', btnDown);
-    bindTouchButton(btnLeft, 'turnLeft', btnLeft);
-    bindTouchButton(btnRight, 'turnRight', btnRight);
-
-    let touchStartX = null;
-    let touchStartY = null;
-    let isSwipingScreen = false;
-
-    window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      if (e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        isSwipingScreen = true;
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-
-        const deltaX = currentX - touchStartX;
-        const deltaY = currentY - touchStartY;
-
-        const turnSensitivity = 0.008;
-        plushieRotation.yaw -= deltaX * turnSensitivity;
-
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
-
-        const moveThreshold = 4;
-
-        if (deltaY < -moveThreshold) {
-          moveState.forward = true;
-          moveState.backward = false;
-          btnUp.classList.add('active');
-          btnDown.classList.remove('active');
-        } else if (deltaY > moveThreshold) {
-          moveState.backward = true;
-          moveState.forward = false;
-          btnDown.classList.add('active');
-          btnUp.classList.remove('active');
-        }
-
-        touchStartX = currentX;
-        touchStartY = currentY;
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-      isSwipingScreen = false;
-      touchStartX = null;
-      touchStartY = null;
-
-      moveState.forward = false;
-      moveState.backward = false;
-      moveState.turnLeft = false;
-      moveState.turnRight = false;
-
-      btnLeft.classList.remove('active');
-      btnRight.classList.remove('active');
-      btnUp.classList.remove('active');
-      btnDown.classList.remove('active');
-    });
-
-    animate();
-  </script>
-</body>
-</html>
+        const dP1 = pos.distanceTo(p1
