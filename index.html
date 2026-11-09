@@ -3651,44 +3651,82 @@ const pGroup = createCutePlushie(col, "");
     bindTouchButton(btnLeft, 'turnLeft', btnLeft);
     bindTouchButton(btnRight, 'turnRight', btnRight);
 
-    let touchStartX = null;
-    let isSwipingScreen = false;
+let touchStartX = null;
+let touchStartY = null;
+let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      if (e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        isSwipingScreen = true;
-      }
-    }, { passive: true });
+  if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+  if (e.touches.length > 0) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY; // Track starting Y position
+    isSwipingScreen = true;
+  }
+}, { passive: true });
 
-    window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null) return;
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const deltaX = currentX - touchStartX;
-       
-        const turnSensitivity = 0.008;
-        plushieRotation.yaw -= deltaX * turnSensitivity;
+window.addEventListener('touchmove', (e) => {
+  if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
+  if (e.touches.length > 0) {
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
 
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
+    const deltaX = currentX - touchStartX;
+    const deltaY = currentY - touchStartY; // Calculate vertical movement
 
-        touchStartX = currentX;
-      }
-    }, { passive: true });
+    // 1. Handle Turning (Horizontal Swipe)
+    const turnSensitivity = 0.008;
+    plushieRotation.yaw -= deltaX * turnSensitivity;
 
-    window.addEventListener('touchend', () => {
-      isSwipingScreen = false;
-      touchStartX = null;
+    if (deltaX > 5) {
+      btnRight.classList.add('active');
       btnLeft.classList.remove('active');
+    } else if (deltaX < -5) {
+      btnLeft.classList.add('active');
       btnRight.classList.remove('active');
-    });
+    }
+
+    // 2. Handle Moving Forward / Reverse (Vertical Swipe)
+    // Note: Screen Y coordinates start at 0 at the top and increase downward.
+    // Dragging from bottom to top results in a negative deltaY (moving forward).
+    // Dragging from top to bottom results in a positive deltaY (moving backward).
+    const moveThreshold = 4; // Minimum distance to trigger movement
+
+    if (deltaY < -moveThreshold) {
+      // Swipe Up (Bottom to Top) -> Move Forward
+      moveState.forward = true;
+      moveState.backward = false;
+      btnUp.classList.add('active');
+      btnDown.classList.remove('active');
+    } else if (deltaY > moveThreshold) {
+      // Swipe Down (Top to Bottom) -> Move Reverse
+      moveState.backward = true;
+      moveState.forward = false;
+      btnDown.classList.add('active');
+      btnUp.classList.remove('active');
+    }
+
+    // Update reference points for continuous dragging
+    touchStartX = currentX;
+    touchStartY = currentY;
+  }
+}, { passive: true });
+
+window.addEventListener('touchend', () => {
+  isSwipingScreen = false;
+  touchStartX = null;
+  touchStartY = null;
+
+  // Clear movement and turning states when finger lifts
+  moveState.forward = false;
+  moveState.backward = false;
+  moveState.turnLeft = false;
+  moveState.turnRight = false;
+
+  btnLeft.classList.remove('active');
+  btnRight.classList.remove('active');
+  btnUp.classList.remove('active');
+  btnDown.classList.remove('active');
+});
     animate();
   </script>
 </body>
