@@ -3502,17 +3502,21 @@ const pGroup = createCutePlushie(col, "");
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+// Reduced distance multiplier from 3.2 to 1.6 for a close-up GTA style
+  const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.6;
+  const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.6;
+  
+  // Lowered camera height from 1.6 to 0.9
+  const camTargetY = plushieWorldPos.y + 0.9;
 
-      const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
+  const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
-      camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-      camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-      camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+  camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
+  camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
+  camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+  // Adjusted lookAt height offset from 0.6 to 0.3 to center the plushie
+  camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.3, plushieWorldPos.z);
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
