@@ -73,49 +73,54 @@
       box-shadow: 0 0 22px #39ff14;
     }
 
-    /* Plushie View Button (Bottom Right) */
-    #plushie-view-btn {
+    #look-pad {
       position: absolute;
       bottom: 30px;
       right: 30px;
-      width: 120px;
-      height: 120px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 3px solid #00f0ff;
+      width: 140px;
+      height: 140px;
+      background: rgba(22, 9, 44, 0.65);
+      border: 2px solid rgba(0, 240, 255, 0.6);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
       user-select: none;
-      cursor: pointer;
-      color: #00f0ff;
-      font-family: monospace;
-      font-weight: bold;
-      font-size: 0.8rem;
-      text-align: center;
-      transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+      cursor: grab;
     }
 
-    #plushie-view-btn.active {
-      background: rgba(0, 240, 255, 0.35);
-      border-color: #39ff14;
+    #look-pad:active {
+      cursor: grabbing;
+    }
+
+    #look-pad-thumb {
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 240, 255, 0.3);
+      border: 2px solid #39ff14;
+      border-radius: 50%;
       color: #39ff14;
-      box-shadow: 0 0 25px #39ff14;
+      font-family: monospace;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      pointer-events: none;
+      transition: transform 0.05s linear;
     }
 
-    /* Crosshair - Mobile/First-Person */
     #mobile-crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       border: 2px solid rgba(0, 240, 255, 0.8);
       border-radius: 50%;
       pointer-events: none;
@@ -139,12 +144,11 @@
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Click <span style="color:#00f0ff;">PLUSHIE VIEW</span> to look up at the studio timer!
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
   </div>
 
   <canvas id="canvas3d"></canvas>
 
-  <!-- Mobile Virtual D-Pad (Bottom Left) -->
   <div id="mobile-dpad">
     <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
     <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
@@ -152,12 +156,10 @@
     <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
   </div>
 
-  <!-- Plushie View Button (Bottom Right) -->
-  <div id="plushie-view-btn">
-    👁️<br>PLUSHIE<br>VIEW
+  <div id="look-pad">
+    <div id="look-pad-thumb">LOOK / AIM</div>
   </div>
 
-  <!-- Crosshair -->
   <div id="mobile-crosshair"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -171,10 +173,6 @@
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
 
-    // Plushie View Mode State
-    let isPlushieViewActive = false;
-    let plushiePitch = 0; // vertical camera angle
-
     function unlockHostEnvironment() {
       isHostAuthorized = true;
       initAudio();
@@ -187,56 +185,89 @@
       unlockHostEnvironment();
     });
 
-    // --- Plushie View Toggle & Drag-Look Logic (PC & Mobile) ---
-    const plushieViewBtn = document.getElementById('plushie-view-btn');
-    const mobileCrosshair = document.getElementById('mobile-crosshair');
-    let isDraggingView = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
+    const lookPad = document.getElementById('look-pad');
+    const lookPadThumb = document.getElementById('look-pad-thumb');
 
-    plushieViewBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      togglePlushieView();
-    });
+    let isLooking = false;
+    let lookTouchId = null;
+    let lookStartX = 0;
+    let lookStartY = 0;
 
-    function togglePlushieView() {
-      isPlushieViewActive = !isPlushieViewActive;
-      if (isPlushieViewActive) {
-        plushieViewBtn.classList.add('active');
-        plushieViewBtn.innerHTML = "🔓<br>EXIT<br>VIEW";
-        mobileCrosshair.style.display = 'block';
-      } else {
-        plushieViewBtn.classList.remove('active');
-        plushieViewBtn.innerHTML = "👁️<br>PLUSHIE<br>VIEW";
-        mobileCrosshair.style.display = 'none';
-        plushiePitch = 0; // reset vertical look
-      }
+    function handleLookStart(clientX, clientY, identifier = null) {
+      isLooking = true;
+      lookTouchId = identifier;
+      lookStartX = clientX;
+      lookStartY = clientY;
     }
 
-    // Screen drag for looking around in Plushie View
-    window.addEventListener('pointerdown', (e) => {
-      if (!isPlushieViewActive) return;
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#plushie-view-btn') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      isDraggingView = true;
-      dragStartX = e.clientX;
-      dragStartY = e.clientY;
+    function handleLookMove(clientX, clientY) {
+      if (!isLooking) return;
+
+      const deltaX = clientX - lookStartX;
+      const deltaY = clientY - lookStartY;
+      const lookSensitivity = 0.005;
+
+      if (typeof plushieRotation !== 'undefined') {
+        plushieRotation.yaw -= deltaX * lookSensitivity;
+      }
+
+      const maxThumbOffset = 40;
+      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookEnd() {
+      isLooking = false;
+      lookTouchId = null;
+      lookPadThumb.style.transform = `translate(0px, 0px)`;
+    }
+
+    lookPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === lookTouchId) {
+          handleLookMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+          handleLookEnd();
+          break;
+        }
+      }
     });
 
-    window.addEventListener('pointermove', (e) => {
-      if (!isPlushieViewActive || !isDraggingView) return;
-      const deltaX = e.clientX - dragStartX;
-      const deltaY = e.clientY - dragStartY;
-      const sensitivity = 0.005;
-
-      plushieRotation.yaw -= deltaX * sensitivity;
-      plushiePitch = Math.max(-1.3, Math.min(1.3, plushiePitch - deltaY * sensitivity)); // allow full up/down looking
-
-      dragStartX = e.clientX;
-      dragStartY = e.clientY;
+    lookPad.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handleLookStart(e.clientX, e.clientY);
     });
 
-    window.addEventListener('pointerup', () => {
-      isDraggingView = false;
+    window.addEventListener('mousemove', (e) => {
+      if (isLooking && lookTouchId === null) {
+        handleLookMove(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isLooking && lookTouchId === null) {
+        handleLookEnd();
+      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -466,7 +497,7 @@
         isDiceRollingP2 = false;
 
         p2.visible = false;
-        p1.visible = true;
+        pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
@@ -479,8 +510,8 @@
         isVsGoodyMode = true;
         goodyPlayerSlot = "goody-contestant-2";
         contestantNames["goody-contestant-2"] = "Goody";
-        p1.visible = true;
-        p2.visible = true;
+        pawn1.visible = true;
+        pawn2.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
         updatePawnNameBadge(pawn2, "Goody");
 
@@ -492,8 +523,8 @@
       } else if (modeType === "TWOPLAYER") {
         isSoloMode = false;
         isVsGoodyMode = false;
-        p1.visible = true;
-        p2.visible = true;
+        pawn1.visible = true;
+        pawn2.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
@@ -619,8 +650,8 @@
 
       p2RollVal = null;
       isDiceRollingP2 = false;
-      p2.visible = false;
-      p1.visible = true;
+      pawn2.visible = false;
+      pawn1.visible = true;
       if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
       countdownPill.innerHTML = `STATUS: <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
@@ -670,8 +701,8 @@
       goodyPlayerSlot = droppedOutContestant || "goody-contestant-2";
       contestantNames[goodyPlayerSlot] = "Goody";
 
-      p1.visible = true;
-      p2.visible = true;
+      pawn1.visible = true;
+      pawn2.visible = true;
       if (goodyPlayerSlot === "goody-contestant-1") {
         if (window.p1PodiumGroup) window.p1PodiumGroup.visible = true;
         updatePawnNameBadge(pawn1, "Goody");
@@ -2276,6 +2307,7 @@
     miniDiorama.add(p2PodiumGroup);
     window.p2PodiumGroup = p2PodiumGroup;
 
+    // --- REPOSITIONED WALL CLOCK & SCREENS ---
     const wallClockCanvas = document.createElement('canvas');
     wallClockCanvas.width = 256; wallClockCanvas.height = 128;
     const wallClockCtx = wallClockCanvas.getContext('2d');
@@ -2304,7 +2336,8 @@
       new THREE.PlaneGeometry(2.4, 1.2),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(0, 6.2, -4.4);
+    // Moved to the right-hand side (x = 3.6), lowered height (y = 2.9)
+    wallClockMesh.position.set(3.6, 2.9, -4.4);
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2916,11 +2949,13 @@
     }
     renderStageQuestionBoard();
 
+    // --- REPOSITIONED MAIN QUESTION BOARD ---
     const qBoardMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 3.4, -3.2);
+    // Lowered height to y = 2.8 so it sits nicely in view from the podiums
+    qBoardMesh.position.set(-4.8, 2.8, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -3002,10 +3037,7 @@
     }
 
     window.addEventListener('pointerup', (e) => {
-      // Only trigger screen tap if we weren't actively dragging around in Plushie View
-      if (!isDraggingView) {
-        handleScreenTap(e.clientX, e.clientY);
-      }
+      handleScreenTap(e.clientX, e.clientY);
     });
 
     const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
@@ -3363,8 +3395,11 @@
       studioScreenTex.needsUpdate = true;
     }
 
+    // --- REPOSITIONED CONTESTANT BACKSTAGE SCREENS ---
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
+    // Lowered height to y = 2.8 so they match the question board and sit comfortably in view
+    studioBackScreenMesh.position.set(0, 2.8, -4.5); 
+    miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
     const silverMetalMat = new THREE.MeshStandardMaterial({
@@ -3490,24 +3525,21 @@
         renderStageQuestionBoard();
       }
 
-      // Only allow movement if not in Plushie View
-      if (!isPlushieViewActive) {
-        if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
-        if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
+      if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
+      if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
 
-        const moveSpeed = 4.2 * delta;
-        if (moveState.forward) {
-          plushieVelocity.x += -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
-          plushieVelocity.z += -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
-        }
-        if (moveState.backward) {
-          plushieVelocity.x -= -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
-          plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
-        }
-
-        plushieVelocity.multiplyScalar(0.90);
-        plushiePosition.addScaledVector(plushieVelocity, delta);
+      const moveSpeed = 4.2 * delta;
+      if (moveState.forward) {
+        plushieVelocity.x += -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
+        plushieVelocity.z += -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
       }
+      if (moveState.backward) {
+        plushieVelocity.x -= -Math.sin(plushieRotation.yaw) * moveSpeed * 5.0;
+        plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
+      }
+
+      plushieVelocity.multiplyScalar(0.90);
+      plushiePosition.addScaledVector(plushieVelocity, delta);
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
@@ -3627,37 +3659,17 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
+      const camTargetY = plushieWorldPos.y + 1.6;
+
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
-      if (isPlushieViewActive) {
-        // --- FIRST-PERSON PLUSHIE VIEW (Through the eyes) ---
-        // Hide local plushie so it doesn't obstruct view
-        setPlushieVisualMode(localPlushie, 'invisible');
+      camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
+      camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
+      camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-        const eyePos = plushieWorldPos.clone().add(new THREE.Vector3(0, 0.68, 0)); // eye level of the plushie
-        camera.position.lerp(eyePos, smoothFactor);
-
-        const lookDir = new THREE.Vector3(
-          -Math.sin(plushieRotation.yaw),
-          plushPitch,
-          -Math.cos(plushieRotation.yaw)
-        ).normalize();
-        const lookTarget = eyePos.clone().add(lookDir.multiplyScalar(10));
-        camera.lookAt(lookTarget);
-      } else {
-        // --- THIRD-PERSON FOLLOW VIEW ---
-        setPlushieVisualMode(localPlushie, 'opaque');
-
-        const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-        const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-        const camTargetY = plushieWorldPos.y + 1.6;
-
-        camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-        camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-        camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
-
-        camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
-      }
+      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
@@ -3676,10 +3688,6 @@
 
       function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
         if (!plushieMesh) return;
-        if (plushieMesh === localPlushie && isPlushieViewActive) {
-          setPlushieVisualMode(plushieMesh, 'invisible');
-          return;
-        }
         const pos = plushieMesh.position;
         const dP1 = pos.distanceTo(p1Pos);
         const dP2 = pos.distanceTo(p2Pos);
@@ -3801,8 +3809,7 @@
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#plushie-view-btn') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      if (isPlushieViewActive) return; // handled by drag look
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -3811,7 +3818,7 @@
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (isPlushieViewActive || !isSwipingScreen || touchStartX === null || touchStartY === null) return;
+      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
       if (e.touches.length > 0) {
         const currentX = e.touches[0].clientX;
         const currentY = e.touches[0].clientY;
