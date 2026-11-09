@@ -484,54 +484,54 @@
       renderStageQuestionBoard();
     }
 
-function chooseHostGameMode(modeType) {
-  if (studioPower) return;
-  if (modeType === "SOLO") {
-    isSoloMode = true;
-    isVsGoodyMode = false;
-    soloPlayerId = "goody-contestant-1";
-    const soloName = contestantNames[soloPlayerId];
-    activePlayer = soloPlayerId;
-    p2RollVal = null;
-    isDiceRollingP2 = false;
-   
-    pawn2.visible = false;
-    pawn1.visible = true;
-    if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
+    function chooseHostGameMode(modeType) {
+      if (studioPower) return;
+      if (modeType === "SOLO") {
+        isSoloMode = true;
+        isVsGoodyMode = false;
+        soloPlayerId = "goody-contestant-1";
+        const soloName = contestantNames[soloPlayerId];
+        activePlayer = soloPlayerId;
+        p2RollVal = null;
+        isDiceRollingP2 = false;
+       
+        pawn2.visible = false;
+        pawn1.visible = true;
+        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
-    bootStudio();
-    const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
-    speakGoody(speech, () => {
-      startTurnCleanly(soloPlayerId);
-    });
-  } else if (modeType === "GOODY") {
-    isSoloMode = false;
-    isVsGoodyMode = true;
-    goodyPlayerSlot = "goody-contestant-2";
-    contestantNames["goody-contestant-2"] = "Goody";
-    pawn1.visible = true;
-    pawn2.visible = true;
-    if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-    updatePawnNameBadge(pawn2, "Goody");
+        bootStudio();
+        const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
+        speakGoody(speech, () => {
+          startTurnCleanly(soloPlayerId);
+        });
+      } else if (modeType === "GOODY") {
+        isSoloMode = false;
+        isVsGoodyMode = true;
+        goodyPlayerSlot = "goody-contestant-2";
+        contestantNames["goody-contestant-2"] = "Goody";
+        pawn1.visible = true;
+        pawn2.visible = true;
+        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+        updatePawnNameBadge(pawn2, "Goody");
 
-    bootStudio();
-    const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player versus Goody mode! I am taking control of Podium 2. Let's roll our dice and start the show!`;
-    speakGoody(speech, () => {
-      beginTenSecondDiceDuel();
-    });
-  } else if (modeType === "TWOPLAYER") {
-    isSoloMode = false;
-    isVsGoodyMode = false;
-    pawn1.visible = true;
-    pawn2.visible = true;
-    if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-    bootStudio();
-    const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
-    speakGoody(speech, () => {
-      beginTenSecondDiceDuel();
-    });
-  }
-}
+        bootStudio();
+        const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player versus Goody mode! I am taking control of Podium 2. Let's roll our dice and start the show!`;
+        speakGoody(speech, () => {
+          beginTenSecondDiceDuel();
+        });
+      } else if (modeType === "TWOPLAYER") {
+        isSoloMode = false;
+        isVsGoodyMode = false;
+        pawn1.visible = true;
+        pawn2.visible = true;
+        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+        bootStudio();
+        const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
+        speakGoody(speech, () => {
+          beginTenSecondDiceDuel();
+        });
+      }
+    }
 
     function broadcastBoardState() {
       connectedDataConns.forEach(c => {
@@ -2330,7 +2330,6 @@ function chooseHostGameMode(modeType) {
     }
     renderWallClockTexture("20:00");
 
-    // Right-hand side clock angled inward to the left (-0.75 rad) matching the main studio screen orientation
     const wallClockMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
@@ -2948,7 +2947,6 @@ function chooseHostGameMode(modeType) {
     }
     renderStageQuestionBoard();
 
-    // Lowered Main Studio Screen (y: 2.15)
     const qBoardMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
@@ -3000,27 +2998,38 @@ function chooseHostGameMode(modeType) {
       if (intersects.length > 0) {
         const hit = intersects[0];
 
-if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-  const uv = hit.uv;
-  if (uv) {
-    // Corrected vertical slices from top to bottom of the menu texture:
-    if (uv.y >= 0.15 && uv.y <= 0.38) {
-      chooseHostGameMode("TWOPLAYER"); // Option 3 (Bottom)
-    } else if (uv.y > 0.38 && uv.y <= 0.62) {
-      chooseHostGameMode("GOODY");     // Option 2 (Middle)
-    } else if (uv.y > 0.62 && uv.y <= 0.90) {
-      chooseHostGameMode("SOLO");      // Option 1 (Top)
-    }
-  } else {
-    chooseHostGameMode("SOLO");
-  }
-  return;
-}
+        if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+          const uv = hit.uv;
+          if (uv) {
+            if (uv.y >= 0.15 && uv.y <= 0.38) {
+              chooseHostGameMode("TWOPLAYER");
+            } else if (uv.y > 0.38 && uv.y <= 0.62) {
+              chooseHostGameMode("GOODY");
+            } else if (uv.y > 0.62 && uv.y <= 0.90) {
+              chooseHostGameMode("SOLO");
+            }
+          } else {
+            chooseHostGameMode("SOLO");
+          }
+          return;
+        }
 
         if (activeQuestion) {
           const uv = hit.uv;
-          if (uv && uv.y < 0.65) {
-            const optIdx = Math.floor((0.65 - uv.y) / 0.12);
+          if (uv) {
+            // FIX: Canvas height is 384px. The four options are drawn vertically with top-to-bottom bounding boxes 
+            // matching the canvas Y coordinates:
+            // Option 0 (A): canvas Y 186 to 218 -> UV y ~ 0.43 to 0.51
+            // Option 1 (B): canvas Y 226 to 258 -> UV y ~ 0.33 to 0.41
+            // Option 2 (C): canvas Y 266 to 298 -> UV y ~ 0.22 to 0.30
+            // Option 3 (D): canvas Y 306 to 338 -> UV y ~ 0.11 to 0.19
+            // Standardizing exact UV ranges from top to bottom (uv.y goes 0 at bottom to 1 at top):
+            let optIdx = -1;
+            if (uv.y >= 0.40 && uv.y <= 0.54) optIdx = 0;       // A
+            else if (uv.y >= 0.28 && uv.y < 0.40) optIdx = 1;  // B
+            else if (uv.y >= 0.16 && uv.y < 0.28) optIdx = 2;  // C
+            else if (uv.y >= 0.05 && uv.y < 0.16) optIdx = 3;  // D
+
             if (optIdx >= 0 && optIdx < activeQuestion.options.length) {
               const chosenOpt = activeQuestion.options[optIdx];
               stageSelectedOption = chosenOpt;
@@ -3095,61 +3104,6 @@ if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
       return pGroup;
-    }
-
-    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
-    }
-
-    function setPlushieVisualMode(group, mode) {
-      if (!group) return;
-      if (mode === 'invisible') {
-        group.visible = false;
-        return;
-      }
-      group.visible = true;
-      const isOpaque = (mode === 'opaque');
-      group.traverse(child => {
-        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(m => {
-            if (isOpaque) {
-              m.transparent = false;
-              m.opacity = 1.0;
-              m.depthWrite = true;
-            } else {
-              m.transparent = true;
-              m.opacity = 0.45;
-              m.depthWrite = false;
-            }
-            m.needsUpdate = true;
-          });
-        }
-      });
     }
 
     let assignedTeam = 'BLUE';
@@ -3398,7 +3352,6 @@ if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
       studioScreenTex.needsUpdate = true;
     }
 
-    // Lowered Contestant Studio Screens (y: 2.15)
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
     studioBackScreenMesh.position.set(0, 2.15, -4.5); miniDiorama.add(studioBackScreenMesh);
 
