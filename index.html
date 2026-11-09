@@ -190,7 +190,7 @@
       unlockHostEnvironment();
     });
 
-    // --- Look Pad Logic (Rotation Only, No Movement) ---
+    // --- Look Pad Logic (Yaw & Pitch Rotation) ---
     const lookPad = document.getElementById('look-pad');
     const lookPadThumb = document.getElementById('look-pad-thumb');
 
@@ -213,9 +213,13 @@
       const deltaY = clientY - lookStartY;
       const lookSensitivity = 0.005;
 
-      // Only adjust view/yaw rotation
+      // Adjust yaw (left/right) and pitch (up/down)
       if (typeof plushieRotation !== 'undefined') {
         plushieRotation.yaw -= deltaX * lookSensitivity;
+        plushieRotation.pitch -= deltaY * lookSensitivity;
+
+        // Clamp pitch to prevent flipping upside down or clipping through the floor
+        plushieRotation.pitch = Math.max(-0.8, Math.min(1.2, plushieRotation.pitch));
       }
 
       const maxThumbOffset = 40;
@@ -3048,7 +3052,7 @@
 
     const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
     const plushiePosition = new THREE.Vector3(32.0, 0.44, 2.5);
-    const plushieRotation = { yaw: 0 };
+    const plushieRotation = { yaw: 0, pitch: 0.0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
     function createCutePlushie(color, initialName = "") {
@@ -3662,9 +3666,14 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+      // Dynamic Camera calculations using pitch and yaw
+      const baseDistance = 3.2;
+      const camDistance = baseDistance - (plushieRotation.pitch * 1.0);
+      const camHeight = plushieWorldPos.y + 1.6 + (plushieRotation.pitch * 2.2);
+
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * camDistance;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * camDistance;
+      const camTargetY = Math.max(0.3, camHeight);
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
@@ -3672,7 +3681,11 @@
       camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
       camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+      camera.lookAt(
+        plushieWorldPos.x, 
+        plushieWorldPos.y + 0.5 + (plushieRotation.pitch * 1.2), 
+        plushieWorldPos.z
+      );
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
@@ -3714,8 +3727,8 @@
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                              (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                              (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
