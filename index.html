@@ -3099,6 +3099,109 @@
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
     studioBackScreenMesh.position.set(0, 2.15, -4.5); miniDiorama.add(studioBackScreenMesh);
 
+    const miniGoody = new THREE.Group();
+    const silverMetalMat = new THREE.MeshStandardMaterial({
+      color: 0xcccccc, metalness: 0.95, roughness: 0.15
+    });
+
+    const gPodium = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.6, 20), new THREE.MeshStandardMaterial({ color: 0x2b154a }));
+    gPodium.position.y = 0.74; miniGoody.add(gPodium);
+
+    const podiumTrim = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.05, 20), silverMetalMat);
+    podiumTrim.position.y = 1.02; miniGoody.add(podiumTrim);
+
+    const gBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.4), silverMetalMat);
+    gBody.position.y = 1.34; miniGoody.add(gBody);
+    const gHead = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.35, 0.35), silverMetalMat);
+    gHead.position.y = 1.82; miniGoody.add(gHead);
+    const gAntennaStem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 8), silverMetalMat);
+    gAntennaStem.position.y = 2.08; miniGoody.add(gAntennaStem);
+    const gAntOrb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+    gAntOrb.position.y = 2.20; miniGoody.add(gAntOrb);
+
+    const faceCanvas = document.createElement('canvas'); faceCanvas.width = 128; faceCanvas.height = 128;
+    const fctx = faceCanvas.getContext('2d'); fctx.fillStyle = '#00'; fctx.fillRect(0, 0, 128, 128);
+    const faceTex = new THREE.CanvasTexture(faceCanvas);
+    const gFace = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.25), new THREE.MeshBasicMaterial({ map: faceTex }));
+    gFace.position.set(0, 1.82, 0.19); miniGoody.add(gFace);
+
+    miniGoody.position.set(0, 0, -2.6);
+    miniDiorama.add(miniGoody);
+
+    function renderGoodyFace(time) {
+      fctx.fillStyle = '#030108';
+      fctx.fillRect(0, 0, 128, 128);
+
+      if (!studioPower) {
+        gAntOrb.material.color.setHex(0x111111);
+        faceTex.needsUpdate = true;
+        return;
+      }
+
+      gAntOrb.material.color.setHex(isGoodySpeaking ? 0x00f0ff : 0x39ff14);
+
+      fctx.fillStyle = '#39ff14'; fctx.strokeStyle = '#39ff14'; fctx.lineWidth = 4;
+      fctx.lineCap = 'round'; fctx.lineJoin = 'round';
+
+      fctx.beginPath();
+      fctx.moveTo(28, 56); fctx.lineTo(44, 38); fctx.lineTo(60, 56); fctx.stroke();
+      fctx.beginPath();
+      fctx.moveTo(68, 56); fctx.lineTo(84, 38); fctx.lineTo(100, 56); fctx.stroke();
+
+      if (isGoodySpeaking) {
+        const mouthOpen = (Math.sin(time * 0.022) + 1.0) * 0.5;
+        const mouthHeight = 6 + (mouthOpen * 20);
+        const mouthWidth = 40 + (mouthOpen * 6);
+
+        fctx.fillStyle = '#220033'; fctx.strokeStyle = '#39ff14'; fctx.lineWidth = 3.5;
+        fctx.beginPath();
+        fctx.ellipse(64, 88, mouthWidth / 2, mouthHeight / 2, 0, 0, Math.PI * 2);
+        fctx.fill(); fctx.stroke();
+
+        fctx.fillStyle = '#ffffff';
+        fctx.fillRect(54, 88 - (mouthHeight / 2) + 2, 20, Math.min(5, mouthHeight / 2));
+      } else {
+        fctx.strokeStyle = '#39ff14'; fctx.lineWidth = 5;
+        fctx.beginPath();
+        fctx.arc(64, 78, 16, 0.2, Math.PI - 0.2, false);
+        fctx.stroke();
+      }
+
+      faceTex.needsUpdate = true;
+    }
+
+    function createStudioRoboticCamera(x, z) {
+      const camRig = new THREE.Group(); camRig.position.set(x, 0.44, z);
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1f1f26 });
+      const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.08, 16), darkMat); basePlate.position.y = 0.04; camRig.add(basePlate);
+      const outerCol = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.55, 16), darkMat); outerCol.position.y = 0.35; camRig.add(outerCol);
+      const headPivot = new THREE.Group(); headPivot.position.y = 1.0;
+      const cameraBox = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.42), darkMat); headPivot.add(cameraBox);
+      const lensBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.26, 16), new THREE.MeshStandardMaterial({ color: 0x0a0a0a }));
+      lensBarrel.rotation.x = Math.PI / 2; lensBarrel.position.set(0, 0, -0.24); headPivot.add(lensBarrel);
+      const frontGlass = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
+      frontGlass.position.set(0, 0, -0.431); headPivot.add(frontGlass);
+      const tallyLamp = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+      tallyLamp.position.set(0, 0.15, -0.28); headPivot.add(tallyLamp);
+      camRig.add(headPivot); miniDiorama.add(camRig);
+      return { headPivot, tallyLamp, frontGlass };
+    }
+    const autoCam1 = createStudioRoboticCamera(-2.4, 0.3);
+    const autoCam2 = createStudioRoboticCamera(2.4, 0.3);
+
+    function updateCameraAlignment() {
+      const hostHeadPos = new THREE.Vector3(0, 5.77, -11.6);
+      if (studioPower) {
+        autoCam1.headPivot.lookAt(hostHeadPos); autoCam2.headPivot.lookAt(hostHeadPos);
+        autoCam1.headPivot.rotation.y += Math.PI; autoCam2.headPivot.rotation.y += Math.PI;
+        autoCam1.tallyLamp.material.color.setHex(0xff0000); autoCam2.tallyLamp.material.color.setHex(0xff0000);
+      } else {
+        autoCam1.headPivot.rotation.set(0.6, 0.2, 0); autoCam2.headPivot.rotation.set(0.6, -0.2, 0);
+        autoCam1.tallyLamp.material.color.setHex(0x111111); autoCam2.tallyLamp.material.color.setHex(0x111111);
+      }
+    }
+    scene.add(miniDiorama);
+
     function triggerRollAction() {
       if (gameState === "OPENING_DUEL") {
         if (isSoloMode) {
