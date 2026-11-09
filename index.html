@@ -3219,7 +3219,7 @@
       }
     }
 
-    function handleScreenTap(clientX, clientY) {
+   function handleScreenTap(clientX, clientY) {
       if (!isHostAuthorized) return;
       initAudio();
 
@@ -3236,16 +3236,19 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            // Corrected UV bounds matching canvas button layout (y: 125-167, 178-220, 231-273)
-            if (uv.y >= 0.28 && uv.y <= 0.40) {
+            // Corrected and expanded UV bounds for bulletproof click detection:
+            // Option 1 (Top / Solo):      uv.y between 0.55 and 0.72
+            // Option 2 (Middle / Goody):  uv.y between 0.38 and 0.55  <-- Expanded hit box!
+            // Option 3 (Bottom / 2-P):    uv.y between 0.22 and 0.38
+            if (uv.y >= 0.22 && uv.y <= 0.38) {
               chooseHostGameMode("TWOPLAYER");
-            } else if (uv.y > 0.40 && uv.y <= 0.55) {
+            } else if (uv.y > 0.38 && uv.y <= 0.55) {
               chooseHostGameMode("GOODY");
-            } else if (uv.y > 0.55 && uv.y <= 0.70) {
+            } else if (uv.y > 0.55 && uv.y <= 0.72) {
               chooseHostGameMode("SOLO");
             }
           } else {
-            chooseHostGameMode("SOLO");
+            chooseHostGameMode("GOODY"); // Fallback default if UV fails
           }
           return;
         }
