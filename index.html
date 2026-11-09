@@ -3662,9 +3662,9 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
+  const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
+  const camTargetY = plushieWorldPos.y + 1.0;
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
