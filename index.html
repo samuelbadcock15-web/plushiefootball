@@ -2341,11 +2341,13 @@
     }
     renderWallClockTexture("20:00");
 
+    // Relocated to the right-hand side, slightly lower, angled nicely at 0.75 rad
     const wallClockMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.4, 1.2),
+      new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(0, 6.2, -4.4);
+    wallClockMesh.position.set(4.2, 2.7, -4.4);
+    wallClockMesh.rotation.y = 0.75;
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2957,11 +2959,12 @@
     }
     renderStageQuestionBoard();
 
+    // Lowered Main Studio Screen (y: 2.8 instead of 3.4) to sit just above studio floor
     const qBoardMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 3.4, -3.2);
+    qBoardMesh.position.set(-4.8, 2.8, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -3011,8 +3014,9 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            if (uv.y > 0.60) chooseHostGameMode("SOLO");
-            else if (uv.y > 0.40) chooseHostGameMode("GOODY");
+            // Corrected UV mapping range check for option 1 (SOLO)
+            if (uv.y >= 0.35 && uv.y <= 0.60) chooseHostGameMode("SOLO");
+            else if (uv.y > 0.60) chooseHostGameMode("GOODY");
             else chooseHostGameMode("TWOPLAYER");
           } else {
             chooseHostGameMode("SOLO");
@@ -3401,8 +3405,9 @@
       studioScreenTex.needsUpdate = true;
     }
 
+    // Lowered Contestant Studio Screens (y: 2.8 instead of 3.4) to sit just above studio floor
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
+    studioBackScreenMesh.position.set(0, 2.8, -4.5); miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
     const silverMetalMat = new THREE.MeshStandardMaterial({
@@ -3662,9 +3667,9 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
-  const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
-  const camTargetY = plushieWorldPos.y + 1.0;
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
+      const camTargetY = plushieWorldPos.y + 1.0;
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
@@ -3714,8 +3719,8 @@ const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                              (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                              (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
