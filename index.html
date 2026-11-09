@@ -91,12 +91,18 @@
 
 <canvas id="canvas3d"></canvas>
 
-  <div id="mobile-dpad">
-    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
-    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
-    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
-    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
-  </div>
+<!-- Mobile Virtual D-Pad (Bottom Left) -->
+<div id="mobile-dpad">
+  <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
+  <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
+  <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
+  <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+</div>
+
+<!-- Virtual Look Pad (Bottom Right) -->
+<div id="look-pad">
+  <div id="look-pad-thumb">LOOK / AIM</div>
+</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
