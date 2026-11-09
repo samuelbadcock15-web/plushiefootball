@@ -191,23 +191,46 @@
     });
 
     // --- Look Pad Logic (Full 3D Rotation: Yaw & Pitch) ---
-    const lookPad = document.getElementById('look-pad');
-    const lookPadThumb = document.getElementById('look-pad-thumb');
+const lookPad = document.getElementById('look-pad');
+const lookPadThumb = document.getElementById('look-pad-thumb');
 
-    let isLooking = false;
-    let lookTouchId = null;
-    let lookStartX = 0;
-    let lookStartY = 0;
+let isLooking = false;
+let lookTouchId = null;
+let lookStartX = 0;
+let lookStartY = 0;
 
-    // Combined rotation tracking object for yaw (left/right) and pitch (up/down)
-    const plushieRotation = { yaw: 0, pitch: 0.3 };
+// Combined rotation tracking object for yaw (left/right) and pitch (up/down)
+const plushieRotation = { yaw: 0, pitch: 0.3 };
 
-    function handleLookStart(clientX, clientY, identifier = null) {
-      isLooking = true;
-      lookTouchId = identifier;
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
+function handleLookStart(clientX, clientY, identifier = null) {
+  isLooking = true;
+  lookTouchId = identifier;
+  lookStartX = clientX;
+  lookStartY = clientY;
+}
+
+function handleLookMove(clientX, clientY) {
+  if (!isLooking) return;
+
+  const deltaX = clientX - lookStartX;
+  const deltaY = clientY - lookStartY;
+  const lookSensitivity = 0.005;
+
+  // Adjust yaw and invert pitch so pulling DOWN looks UP from the ground
+  plushieRotation.yaw -= deltaX * lookSensitivity;
+  plushieRotation.pitch += deltaY * lookSensitivity; // Changed from -= to +=
+
+  // EXPANDED PITCH CLAMP: Allows looking way down low (-1.0) up to high overhead (1.5)
+  plushieRotation.pitch = Math.max(-1.0, Math.min(1.5, plushieRotation.pitch));
+
+  const maxThumbOffset = 40;
+  const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+  const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+  lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+  lookStartX = clientX;
+  lookStartY = clientY;
+}
 
     function handleLookMove(clientX, clientY) {
       if (!isLooking) return;
