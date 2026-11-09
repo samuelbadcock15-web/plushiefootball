@@ -540,8 +540,9 @@
     function chooseHostGameMode(modeType) {
       if (studioPower) return;
 
-      // Hide the HTML menu overlay upon selection
-      document.getElementById('html-mode-menu').style.display = 'none';
+      // Hide the HTML menu overlay immediately
+      const menu = document.getElementById('html-mode-menu');
+      if (menu) menu.style.display = 'none';
 
       if (modeType === "SOLO") {
         isSoloMode = true;
@@ -570,7 +571,11 @@
         pawn1.visible = true;
         pawn2.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-        updatePawnNameBadge(pawn2, "Goody");
+        
+        // SAFE UPDATE: Prevent silent crashes if canvas is uninitialized
+        if (pawn2 && pawn2.userData && pawn2.userData.badgeCanvas) {
+          updatePawnNameBadge(pawn2, "Goody");
+        }
 
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player versus Goody mode! I am taking control of Podium 2. Let's roll our dice and start the show!`;
