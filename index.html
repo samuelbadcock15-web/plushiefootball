@@ -2341,7 +2341,7 @@
       ctx.clearRect(0, 0, w, h);
 
       const r = 24;
-      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
+      ctx.fillStyle = 'rgba(10, 3, 20, 0.4)'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
       ctx.beginPath();
       ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, r);
       ctx.lineTo(w - 4, h - r); ctx.quadraticCurveTo(w - 4, h - 4, w - r, h - 4);
@@ -2377,9 +2377,13 @@
       bCanvas.width = 256; bCanvas.height = 96;
       const bTex = new THREE.CanvasTexture(bCanvas);
 
-      const badgeMat = new THREE.MeshBasicMaterial({
-        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
-      });
+const badgeMat = new THREE.MeshBasicMaterial({
+  map: bTex, 
+  transparent: true, 
+  opacity: 0.5, // <-- Add this line (ranges from 0.0 to 1.0)
+  side: THREE.DoubleSide, 
+  depthWrite: false
+});
       const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.13), badgeMat);
       badgeMesh.position.set(0, 0.35, 0);
       pawn.add(badgeMesh);
@@ -2946,7 +2950,7 @@ function createCutePlushie(color, initialName = "") {
       const w = canvas.width; const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
+      ctx.fillStyle = 'rgba(22, 9, 44, 0.3)';
       ctx.strokeStyle = teamColor;
       ctx.lineWidth = 8;
       ctx.beginPath();
