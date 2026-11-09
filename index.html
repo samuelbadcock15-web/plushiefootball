@@ -3017,22 +3017,32 @@
   return;
 }
         if (activeQuestion) {
-          const uv = hit.uv;
-          if (uv && uv.y < 0.65) {
-            const optIdx = Math.floor((0.65 - uv.y) / 0.12);
-            if (optIdx >= 0 && optIdx < activeQuestion.options.length) {
-              const chosenOpt = activeQuestion.options[optIdx];
-              stageSelectedOption = chosenOpt;
-              stageOptionStatus = 'selected';
-              renderStageQuestionBoard();
-
-              setTimeout(() => {
-                evaluateAnswer(activePlayer, chosenOpt);
-              }, 800);
-              return;
-            }
-          }
-        }
+  const uv = hit.uv;
+  if (uv) {
+    // Corrected vertical bounds matching the 4 option boxes from top to bottom:
+    if (uv.y >= 0.15 && uv.y < 0.30) {
+      // Option D (Bottom)
+      const chosenOpt = activeQuestion.options[3];
+      selectAnswerAndEvaluate(chosenOpt);
+      return;
+    } else if (uv.y >= 0.30 && uv.y < 0.45) {
+      // Option C
+      const chosenOpt = activeQuestion.options[2];
+      selectAnswerAndEvaluate(chosenOpt);
+      return;
+    } else if (uv.y >= 0.45 && uv.y < 0.60) {
+      // Option B
+      const chosenOpt = activeQuestion.options[1];
+      selectAnswerAndEvaluate(chosenOpt);
+      return;
+    } else if (uv.y >= 0.60 && uv.y <= 0.80) {
+      // Option A (Top)
+      const chosenOpt = activeQuestion.options[0];
+      selectAnswerAndEvaluate(chosenOpt);
+      return;
+    }
+  }
+}
 
         triggerRollAction();
       }
