@@ -230,7 +230,6 @@
 
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
-          console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
         socket.on('assign_team', (data) => {
@@ -2184,10 +2183,10 @@
     renderWallClockTexture("20:00");
 
     const wallClockMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.4, 1.2),
+      new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(0, 6.2, -4.4);
+    wallClockMesh.position.set(3.7, 2.7, -4.5);
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2803,7 +2802,7 @@
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 3.4, -3.2);
+    qBoardMesh.position.set(-4.8, 3.1, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -2914,7 +2913,6 @@ function createCutePlushie(color, initialName = "") {
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Only create a badge mesh if a name was actually passed
       let badgeMesh = null;
       let bCanvas = null;
       let bTex = null;
@@ -2957,7 +2955,6 @@ function createCutePlushie(color, initialName = "") {
       }
       ctx.fill(); ctx.stroke();
 
-      // Draw team colored accent text glow or matching text color
       ctx.fillStyle = teamColor;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
@@ -2994,12 +2991,11 @@ function createCutePlushie(color, initialName = "") {
       });
     }
 
-let assignedTeam = 'BLUE';
+    let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
 
-    // Listen for the server telling us what team we are on
     if (socket) {
       socket.on('assign_team', (data) => {
         assignedTeam = data.team;
@@ -3058,7 +3054,7 @@ let assignedTeam = 'BLUE';
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-const pGroup = createCutePlushie(col, "");
+        const pGroup = createCutePlushie(col, "");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3242,7 +3238,7 @@ const pGroup = createCutePlushie(col, "");
     }
 
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
+    studioBackScreenMesh.position.set(0, 3.1, -4.5); miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
     const silverMetalMat = new THREE.MeshStandardMaterial({
@@ -3354,11 +3350,13 @@ const pGroup = createCutePlushie(col, "");
 
     let prevTime = performance.now();
     let lastBallSyncTime = 0;
+    let frameCounter = 0; // Throttling counter for badge updates
 
     function animate() {
       requestAnimationFrame(animate);
       const time = performance.now();
       const delta = Math.min((time - prevTime) / 1000, 0.1);
+      frameCounter++;
 
       renderBackstageScreens();
       renderGoodyFace(time);
@@ -3572,34 +3570,37 @@ const pGroup = createCutePlushie(col, "");
         updatePlushieVisibility(sp, false, false);
       });
 
-      const camRot = camera.quaternion;
-     
-      if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        const badge = localPlushie.userData.badgeMesh;
-        badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
-        badge.quaternion.copy(camRot);
-      }
-
-      remotePlayers.forEach((pMesh, id) => {
-        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          const badge = pMesh.userData.badgeMesh;
-          badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
-          badge.quaternion.copy(camera.quaternion);
+      // Throttled billboard updates (every 3 frames) to optimize performance
+      if (frameCounter % 3 === 0) {
+        const camRot = camera.quaternion;
+       
+        if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
+          const badge = localPlushie.userData.badgeMesh;
+          badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
+          badge.quaternion.copy(camRot);
         }
-      });
 
-      if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(camRot);
-      }
-      if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(camRot);
-      }
+        remotePlayers.forEach((pMesh, id) => {
+          if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
+            const badge = pMesh.userData.badgeMesh;
+            badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
+            badge.quaternion.copy(camera.quaternion);
+          }
+        });
 
-      spectatorPlushies.forEach(sp => {
-        if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.copy(camRot);
+        if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
+          pawn1.userData.badgeMesh.quaternion.copy(camRot);
         }
-      });
+        if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
+          pawn2.userData.badgeMesh.quaternion.copy(camRot);
+        }
+
+        spectatorPlushies.forEach(sp => {
+          if (sp && sp.userData && sp.userData.badgeMesh) {
+            sp.userData.badgeMesh.quaternion.copy(camRot);
+          }
+        });
+      }
 
       if (studioPower) {
         updateCameraAlignment();
