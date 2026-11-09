@@ -3667,9 +3667,9 @@
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
       // Dynamic Camera calculations using pitch and yaw
-      const baseDistance = 3.2;
-      const camDistance = baseDistance - (plushieRotation.pitch * 1.0);
-      const camHeight = plushieWorldPos.y + 1.6 + (plushieRotation.pitch * 2.2);
+      const baseDistance = 2.0
+const camDistance = baseDistance - (plushieRotation.pitch * 1.0);
+const camHeight = plushieWorldPos.y + 1.6 + (plushieRotation.pitch * 2.2);
 
       const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * camDistance;
       const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * camDistance;
