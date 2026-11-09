@@ -146,14 +146,13 @@
     let goodyPlayerSlot = null;
     let soloPlayerId = null;
 
-    // Podium Launch, Anti-Spam & One-Time Extension variables
     let priorityTimer = null;
     let prioritySecondsLeft = 10;
     let antiSpamLockout = false;
     let antiSpamTimer = null;
     let podiumOffCount = 0;
     let lastPodiumOffTime = 0;
-    let hasTriggeredExtendedWindow = false; // Prevents infinite cycling
+    let hasTriggeredExtendedWindow = false; // One-time extension guard
 
     let diceCountdown = 10;
     let diceCountdownInterval = null;
@@ -322,7 +321,6 @@
       }
     }
 
-    // --- PODIUM 1 PRIORITY LAUNCH SEQUENCE ---
     function triggerPodium1PriorityLaunch() {
       if (studioPower || gameState === "PODIUM_1_WAIT") return;
 
@@ -405,7 +403,6 @@
       }, 15000);
     }
 
-    // Extended 10-second window when option 3 is clicked and Podium 2 is empty
     function triggerExtendedPodium2Window(onSuccess) {
       if (hasTriggeredExtendedWindow) {
         speakGoody(`You have already used your one-time extension! Please step onto Podium 2 or select Solo or vs Goody.`);
@@ -3705,7 +3702,6 @@
 
       if (isLocalOnPodium2 !== prevPodium2) {
         if (isLocalOnPodium2) {
-          // If stepping on podium 2 during priority wait or extended wait, immediately start 2-player mode!
           if (!studioPower && (gameState === "PODIUM_1_WAIT")) {
             chooseHostGameMode("TWOPLAYER");
           }
