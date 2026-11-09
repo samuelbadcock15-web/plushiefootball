@@ -134,6 +134,7 @@
       #mobile-crosshair { display: block; }
     }
   </style>
+</head>
 <body>
   <div id="hud">
     <div class="hud-title" id="mode-title" style="color: #ffda66;">STUDIO FLOOR & WIDE PLUSHIE RUGBY-FOOTIE ARENA</div>
@@ -276,24 +277,6 @@
       if (isLooking && lookTouchId === null) {
         handleLookEnd();
       }
-    });
-  </script>
-    let isHostAuthorized = true;
-    let socket = null;
-    const remotePlayers = new Map();
-    let localMyGuestName = "Guest 1";
-    let isBallPhysicsHost = false;
-
-    function unlockHostEnvironment() {
-      isHostAuthorized = true;
-      initAudio();
-      initStudioWebRTC();
-      initSocketConnection();
-      triggerImmediateModePrompt();
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      unlockHostEnvironment();
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -523,7 +506,7 @@
         p2RollVal = null;
         isDiceRollingP2 = false;
        
-        pawn2.visible = false;
+        p2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
@@ -3068,7 +3051,7 @@
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-function createCutePlushie(color, initialName = "") {
+    function createCutePlushie(color, initialName = "") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -3089,7 +3072,6 @@ function createCutePlushie(color, initialName = "") {
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Only create a badge mesh if a name was actually passed
       let badgeMesh = null;
       let bCanvas = null;
       let bTex = null;
@@ -3101,7 +3083,7 @@ function createCutePlushie(color, initialName = "") {
         const badgeMat = new THREE.MeshBasicMaterial({
           map: bTex, 
           transparent: true, 
-          opacity: 0.3, // <-- Added opacity here (adjust from 0.0 to 1.0)
+          opacity: 0.3,
           side: THREE.DoubleSide, 
           depthWrite: false
         });
@@ -3118,7 +3100,7 @@ function createCutePlushie(color, initialName = "") {
       return pGroup;
     }
 
-   function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
+    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
       const canvas = pGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
@@ -3136,7 +3118,6 @@ function createCutePlushie(color, initialName = "") {
       }
       ctx.fill(); ctx.stroke();
 
-      // Draw team colored accent text glow or matching text color
       ctx.fillStyle = teamColor;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
@@ -3146,6 +3127,7 @@ function createCutePlushie(color, initialName = "") {
         pGroup.userData.badgeTexture.needsUpdate = true;
       }
     }
+
     function setPlushieVisualMode(group, mode) {
       if (!group) return;
       if (mode === 'invisible') {
@@ -3173,12 +3155,11 @@ function createCutePlushie(color, initialName = "") {
       });
     }
 
-let assignedTeam = 'BLUE';
+    let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
 
-    // Listen for the server telling us what team we are on
     if (socket) {
       socket.on('assign_team', (data) => {
         assignedTeam = data.team;
@@ -3237,7 +3218,7 @@ let assignedTeam = 'BLUE';
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-const pGroup = createCutePlushie(col, "");
+        const pGroup = createCutePlushie(col, "");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3733,8 +3714,8 @@ const pGroup = createCutePlushie(col, "");
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                              (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                              (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3826,82 +3807,74 @@ const pGroup = createCutePlushie(col, "");
     bindTouchButton(btnLeft, 'turnLeft', btnLeft);
     bindTouchButton(btnRight, 'turnRight', btnRight);
 
-let touchStartX = null;
-let touchStartY = null;
-let isSwipingScreen = false;
+    let touchStartX = null;
+    let touchStartY = null;
+    let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-  if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-  if (e.touches.length > 0) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY; // Track starting Y position
-    isSwipingScreen = true;
-  }
-}, { passive: true });
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isSwipingScreen = true;
+      }
+    }, { passive: true });
 
-window.addEventListener('touchmove', (e) => {
-  if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
-  if (e.touches.length > 0) {
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
+    window.addEventListener('touchmove', (e) => {
+      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
+      if (e.touches.length > 0) {
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
 
-    const deltaX = currentX - touchStartX;
-    const deltaY = currentY - touchStartY; // Calculate vertical movement
+        const deltaX = currentX - touchStartX;
+        const deltaY = currentY - touchStartY;
 
-    // 1. Handle Turning (Horizontal Swipe)
-    const turnSensitivity = 0.008;
-    plushieRotation.yaw -= deltaX * turnSensitivity;
+        const turnSensitivity = 0.008;
+        plushieRotation.yaw -= deltaX * turnSensitivity;
 
-    if (deltaX > 5) {
-      btnRight.classList.add('active');
-      btnLeft.classList.remove('active');
-    } else if (deltaX < -5) {
-      btnLeft.classList.add('active');
-      btnRight.classList.remove('active');
-    }
+        if (deltaX > 5) {
+          btnRight.classList.add('active');
+          btnLeft.classList.remove('active');
+        } else if (deltaX < -5) {
+          btnLeft.classList.add('active');
+          btnRight.classList.remove('active');
+        }
 
-    // 2. Handle Moving Forward / Reverse (Vertical Swipe)
-    // Note: Screen Y coordinates start at 0 at the top and increase downward.
-    // Dragging from bottom to top results in a negative deltaY (moving forward).
-    // Dragging from top to bottom results in a positive deltaY (moving backward).
-    const moveThreshold = 4; // Minimum distance to trigger movement
+        const moveThreshold = 4;
 
-    if (deltaY < -moveThreshold) {
-      // Swipe Up (Bottom to Top) -> Move Forward
-      moveState.forward = true;
-      moveState.backward = false;
-      btnUp.classList.add('active');
-      btnDown.classList.remove('active');
-    } else if (deltaY > moveThreshold) {
-      // Swipe Down (Top to Bottom) -> Move Reverse
-      moveState.backward = true;
+        if (deltaY < -moveThreshold) {
+          moveState.forward = true;
+          moveState.backward = false;
+          btnUp.classList.add('active');
+          btnDown.classList.remove('active');
+        } else if (deltaY > moveThreshold) {
+          moveState.backward = true;
+          moveState.forward = false;
+          btnDown.classList.add('active');
+          btnUp.classList.remove('active');
+        }
+
+        touchStartX = currentX;
+        touchStartY = currentY;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      isSwipingScreen = false;
+      touchStartX = null;
+      touchStartY = null;
+
       moveState.forward = false;
-      btnDown.classList.add('active');
+      moveState.backward = false;
+      moveState.turnLeft = false;
+      moveState.turnRight = false;
+
+      btnLeft.classList.remove('active');
+      btnRight.classList.remove('active');
       btnUp.classList.remove('active');
-    }
+      btnDown.classList.remove('active');
+    });
 
-    // Update reference points for continuous dragging
-    touchStartX = currentX;
-    touchStartY = currentY;
-  }
-}, { passive: true });
-
-window.addEventListener('touchend', () => {
-  isSwipingScreen = false;
-  touchStartX = null;
-  touchStartY = null;
-
-  // Clear movement and turning states when finger lifts
-  moveState.forward = false;
-  moveState.backward = false;
-  moveState.turnLeft = false;
-  moveState.turnRight = false;
-
-  btnLeft.classList.remove('active');
-  btnRight.classList.remove('active');
-  btnUp.classList.remove('active');
-  btnDown.classList.remove('active');
-});
     animate();
   </script>
 </body>
