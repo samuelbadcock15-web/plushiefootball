@@ -2182,12 +2182,13 @@
     }
     renderWallClockTexture("20:00");
 
-    // Moved right to x: 5.0 (well clear of contestant screens) and grounded
+    // Grounded & angled inward towards the stage center (-0.35 rad rotation)
     const wallClockMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
     wallClockMesh.position.set(5.0, 1.84, -4.5);
+    wallClockMesh.rotation.y = -0.35;
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2799,7 +2800,6 @@
     }
     renderStageQuestionBoard();
 
-    // Grounded question board to match floor height (height 2.7 -> center y = 0.44 + 1.35 = 1.79)
     const qBoardMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
@@ -3239,7 +3239,6 @@
       studioScreenTex.needsUpdate = true;
     }
 
-    // Grounded main studio screen (height 2.8 -> center y = 0.44 + 1.4 = 1.84)
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
     studioBackScreenMesh.position.set(0, 1.84, -4.5); 
     miniDiorama.add(studioBackScreenMesh);
@@ -3572,7 +3571,6 @@
         updatePlushieVisibility(sp, false, false);
       });
 
-      // Smooth name tag updates every frame (no jitter)
       const camRot = camera.quaternion;
      
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
