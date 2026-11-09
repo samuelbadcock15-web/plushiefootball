@@ -2182,13 +2182,13 @@
     }
     renderWallClockTexture("20:00");
 
-    // Grounded & angled inward towards the stage center (-0.35 rad rotation)
+    // Steeper Y-axis rotation (-0.75 rad) for a much more natural angled look toward center stage
     const wallClockMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(5.0, 1.84, -4.5);
-    wallClockMesh.rotation.y = -0.35;
+    wallClockMesh.position.set(4.8, 1.84, -4.3);
+    wallClockMesh.rotation.y = -0.75;
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
