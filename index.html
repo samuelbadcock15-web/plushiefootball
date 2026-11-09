@@ -3690,25 +3690,28 @@ function handleLookMove(clientX, clientY) {
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
       // --- PITCH-ADJUSTED CAMERA TARGETS ---
-      const camDistance = 3.2;
-      const camHeight = 1.6 + (plushieRotation.pitch * 1.5); // Adjusts height based on pitch
+const camDistance = 3.2;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * camDistance;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * camDistance;
-      const camTargetY = plushieWorldPos.y + camHeight;
+// Allow camera height to go lower when pitch is negative (ground level view)
+const camHeight = 1.6 + (plushieRotation.pitch * 1.5); 
 
-      const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
+const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * camDistance;
+const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * camDistance;
+const camTargetY = plushieWorldPos.y + camHeight;
 
-      camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-      camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-      camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+// Ensure camera never clips completely through or below the floor
+const finalCamY = Math.max(0.15, camTargetY); 
 
-      // Look at the plushie, offset slightly upward/downward by pitch
-      camera.lookAt(
-        plushieWorldPos.x, 
-        plushieWorldPos.y + 0.6 + (plushieRotation.pitch * 0.5), 
-        plushieWorldPos.z
-      );
+camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
+camera.position.y += (finalCamY - camera.position.y) * smoothFactor;
+camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+
+// Look target adjusts dynamically with pitch
+camera.lookAt(
+   plushieWorldPos.x, 
+   plushieWorldPos.y + 0.6 + (plushieRotation.pitch * 0.5), 
+   plushieWorldPos.z
+);
       // -------------------------------------
 
       const prevPodium1 = isLocalOnPodium1;
