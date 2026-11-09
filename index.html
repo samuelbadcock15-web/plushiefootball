@@ -30,7 +30,7 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
-    /* Mobile Virtual D-Pad (Hidden on PC desktop) */
+    /* Mobile Virtual D-Pad */
     #mobile-dpad {
       position: absolute;
       bottom: 30px;
@@ -45,7 +45,6 @@
       touch-action: none;
     }
 
-    /* Automatically show on touch/mobile devices */
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-dpad { display: grid; }
     }
@@ -66,7 +65,6 @@
       transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
     }
 
-    /* Glowing highlight state when pressed or swiped */
     .dpad-btn.active, .dpad-btn:active {
       background: rgba(0, 240, 255, 0.45);
       border-color: #39ff14;
@@ -106,7 +104,7 @@
     let isHostAuthorized = true;
     let socket = null;
     const remotePlayers = new Map();
-    let localMyGuestName = "Guest 1";
+    let localMyGuestName = "Guest " + Math.floor(100 + Math.random() * 900);
     let isBallPhysicsHost = false;
 
     function unlockHostEnvironment() {
@@ -230,7 +228,6 @@
 
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
-          console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
         socket.on('assign_team', (data) => {
@@ -2331,32 +2328,29 @@
       miniDiorama.add(tile);
     }
 
-    function updatePawnNameBadge(pawnGroup, displayName) {
+    function updatePlushieNameBadge(pawnGroup, displayName, teamColor = '#00f0ff') {
       if (!pawnGroup || !pawnGroup.userData || !pawnGroup.userData.badgeCanvas) return;
       const canvas = pawnGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
       const w = canvas.width; const h = canvas.height;
-      const tagColor = pawnGroup.userData.tagColor || '#00d2d3';
-
       ctx.clearRect(0, 0, w, h);
 
-      const r = 24;
-      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
+      // Semi-transparent background (alpha set to 0.3)
+      ctx.fillStyle = 'rgba(22, 9, 44, 0.3)';
+      ctx.strokeStyle = teamColor;
+      ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, r);
-      ctx.lineTo(w - 4, h - r); ctx.quadraticCurveTo(w - 4, h - 4, w - r, h - 4);
-      ctx.lineTo(r, h - 4); ctx.quadraticCurveTo(4, h - 4, 4, h - r);
-      ctx.lineTo(4, r); ctx.quadraticCurveTo(4, 4, r, 4);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (ctx.roundRect) {
+        ctx.roundRect(4, 4, w - 8, h - 8, 20);
+      } else {
+        ctx.rect(4, 4, w - 8, h - 8);
+      }
+      ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const cleanName = (displayName || "PLAYER").toUpperCase().trim();
-      let fontSize = 48;
-      if (cleanName.length > 8) fontSize = 36;
-      if (cleanName.length > 12) fontSize = 28;
-     
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.fillText(cleanName, w / 2, h / 2 + 2);
+      ctx.fillStyle = teamColor;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
       if (pawnGroup.userData.badgeTexture) {
         pawnGroup.userData.badgeTexture.needsUpdate = true;
@@ -2378,7 +2372,7 @@
       const bTex = new THREE.CanvasTexture(bCanvas);
 
       const badgeMat = new THREE.MeshBasicMaterial({
-        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
+        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.85
       });
       const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.13), badgeMat);
       badgeMesh.position.set(0, 0.35, 0);
@@ -2893,7 +2887,7 @@
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-function createCutePlushie(color, initialName = "") {
+    function createCutePlushie(color, initialName = "") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2914,7 +2908,6 @@ function createCutePlushie(color, initialName = "") {
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
-      // Only create a badge mesh if a name was actually passed
       let badgeMesh = null;
       let bCanvas = null;
       let bTex = null;
@@ -2924,7 +2917,7 @@ function createCutePlushie(color, initialName = "") {
         bCanvas.width = 256; bCanvas.height = 96;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
+          map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.85
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
@@ -2939,84 +2932,10 @@ function createCutePlushie(color, initialName = "") {
       return pGroup;
     }
 
-   function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      // Draw team colored accent text glow or matching text color
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
-    }
-    function setPlushieVisualMode(group, mode) {
-      if (!group) return;
-      if (mode === 'invisible') {
-        group.visible = false;
-        return;
-      }
-      group.visible = true;
-      const isOpaque = (mode === 'opaque');
-      group.traverse(child => {
-        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(m => {
-            if (isOpaque) {
-              m.transparent = false;
-              m.opacity = 1.0;
-              m.depthWrite = true;
-            } else {
-              m.transparent = true;
-              m.opacity = 0.45;
-              m.depthWrite = false;
-            }
-            m.needsUpdate = true;
-          });
-        }
-      });
-    }
-
-let assignedTeam = 'BLUE';
+    let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
-
-    // Listen for the server telling us what team we are on
-    if (socket) {
-      socket.on('assign_team', (data) => {
-        assignedTeam = data.team;
-        teamColorHex = data.teamColor;
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-
-        if (localPlushie) {
-          localPlushie.userData.team = assignedTeam;
-          localPlushie.traverse(child => {
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-              child.material.color.setHex(plushieColorHex);
-            }
-          });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-        }
-      });
-    }
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
@@ -3058,7 +2977,7 @@ let assignedTeam = 'BLUE';
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-const pGroup = createCutePlushie(col, "");
+        const pGroup = createCutePlushie(col, "");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3502,9 +3421,10 @@ const pGroup = createCutePlushie(col, "");
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-      const camTargetY = plushieWorldPos.y + 1.6;
+      // Closer camera positioning (distance reduced from 3.2 to 1.8, height offset from 1.6 to 1.2)
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
+      const camTargetY = plushieWorldPos.y + 1.2;
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
@@ -3512,7 +3432,7 @@ const pGroup = createCutePlushie(col, "");
       camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
       camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
+      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.4, plushieWorldPos.z);
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
@@ -3572,32 +3492,33 @@ const pGroup = createCutePlushie(col, "");
         updatePlushieVisibility(sp, false, false);
       });
 
-      const camRot = camera.quaternion;
-     
+      // Smooth Anti-Jitter Quaternion Slerping for Name Tags
+      const targetQuat = camera.quaternion;
+
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
-        badge.quaternion.copy(camRot);
+        badge.quaternion.slerp(targetQuat, 0.3);
       }
 
       remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
           badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
-          badge.quaternion.copy(camera.quaternion);
+          badge.quaternion.slerp(targetQuat, 0.3);
         }
       });
 
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(camRot);
+        pawn1.userData.badgeMesh.quaternion.slerp(targetQuat, 0.3);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(camRot);
+        pawn2.userData.badgeMesh.quaternion.slerp(targetQuat, 0.3);
       }
 
       spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.copy(camRot);
+          sp.userData.badgeMesh.quaternion.slerp(targetQuat, 0.3);
         }
       });
 
