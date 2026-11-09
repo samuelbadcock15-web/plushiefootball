@@ -1402,8 +1402,22 @@
         if (c.open) c.send({ type: "HOST_SPEAK", text: text });
       });
 
-      if (!('speechSynthesis' in window)) {
+      let hasCompleted = false;
+      const triggerComplete = () => {
+        if (hasCompleted) return;
+        hasCompleted = true;
+        isGoodySpeaking = false;
         if (onComplete) onComplete();
+      };
+
+      // Fallback safety timer: if speech synthesis hangs or fails for 4 seconds, force progress!
+      const safetyTimeout = setTimeout(() => {
+        triggerComplete();
+      }, 4000);
+
+      if (!('speechSynthesis' in window)) {
+        clearTimeout(safetyTimeout);
+        triggerComplete();
         return;
       }
      
@@ -1421,13 +1435,13 @@
       };
 
       goodyUtterance.onend = () => {
-        isGoodySpeaking = false;
-        if (onComplete) onComplete();
+        clearTimeout(safetyTimeout);
+        triggerComplete();
       };
 
       goodyUtterance.onerror = () => {
-        isGoodySpeaking = false;
-        if (onComplete) onComplete();
+        clearTimeout(safetyTimeout);
+        triggerComplete();
       };
 
       window.speechSynthesis.speak(goodyUtterance);
