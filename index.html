@@ -230,6 +230,7 @@
 
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
+          console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
         socket.on('assign_team', (data) => {
@@ -2183,11 +2184,10 @@
     renderWallClockTexture("20:00");
 
     const wallClockMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.2, 1.1),
+      new THREE.PlaneGeometry(2.4, 1.2),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(4.8, 2.15, -4.3);
-    wallClockMesh.rotation.y = -0.75;
+    wallClockMesh.position.set(0, 6.2, -4.4);
     miniDiorama.add(wallClockMesh);
 
     const COUNTRIES = [
@@ -2803,7 +2803,7 @@
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 2.10, -3.2);
+    qBoardMesh.position.set(-4.8, 3.4, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -2893,7 +2893,7 @@
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
-    function createCutePlushie(color, initialName = "") {
+function createCutePlushie(color, initialName = "") {
       const pGroup = new THREE.Group();
       const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
       const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
@@ -2914,6 +2914,7 @@
       const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
       mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
 
+      // Only create a badge mesh if a name was actually passed
       let badgeMesh = null;
       let bCanvas = null;
       let bTex = null;
@@ -2938,7 +2939,7 @@
       return pGroup;
     }
 
-    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
+   function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
       if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
       const canvas = pGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
@@ -2956,6 +2957,7 @@
       }
       ctx.fill(); ctx.stroke();
 
+      // Draw team colored accent text glow or matching text color
       ctx.fillStyle = teamColor;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
@@ -2992,11 +2994,12 @@
       });
     }
 
-    let assignedTeam = 'BLUE';
+let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
 
+    // Listen for the server telling us what team we are on
     if (socket) {
       socket.on('assign_team', (data) => {
         assignedTeam = data.team;
@@ -3055,7 +3058,7 @@
       for (let i = 0; i < count; i++) {
         const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
         const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, "");
+const pGroup = createCutePlushie(col, "");
 
         const px = Math.sin(theta) * radius;
         const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
@@ -3239,8 +3242,7 @@
     }
 
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 2.15, -4.5); 
-    miniDiorama.add(studioBackScreenMesh);
+    studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
     const silverMetalMat = new THREE.MeshStandardMaterial({
