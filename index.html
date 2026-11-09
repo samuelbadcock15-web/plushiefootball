@@ -30,38 +30,40 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
+
     /* Mobile Virtual D-Pad */
     #mobile-dpad {
       position: absolute;
-      bottom: 30px;
-      left: 30px;
+      bottom: 40px;
+      left: 40px;
       display: none;
       grid-template-areas:
         ". up ."
         "left down right";
-      gap: 12px;
+      gap: 16px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
     }
 
+    /* Automatically show on touch/mobile devices */
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-dpad { display: grid; }
     }
 
     .dpad-btn {
-      width: 60px;
-      height: 60px;
+      width: 80px;
+      height: 80px;
       background: rgba(22, 9, 44, 0.85);
-      border: 2px solid #00f0ff;
-      border-radius: 14px;
+      border: 3px solid #00f0ff;
+      border-radius: 18px;
       color: #00f0ff;
-      font-size: 22px;
+      font-size: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
       transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
     }
 
@@ -70,6 +72,66 @@
       border-color: #39ff14;
       color: #39ff14;
       box-shadow: 0 0 22px #39ff14;
+    }
+
+    #look-pad {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      width: 140px;
+      height: 140px;
+      background: rgba(22, 9, 44, 0.65);
+      border: 2px solid rgba(0, 240, 255, 0.6);
+      border-radius: 50%;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      user-select: none;
+      cursor: grab;
+    }
+
+    #look-pad:active {
+      cursor: grabbing;
+    }
+
+    #look-pad-thumb {
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 240, 255, 0.3);
+      border: 2px solid #39ff14;
+      border-radius: 50%;
+      color: #39ff14;
+      font-family: monospace;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      pointer-events: none;
+      transition: transform 0.05s linear;
+    }
+
+    /* Crosshair - Mobile Only */
+    #mobile-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border: 2px solid rgba(0, 240, 255, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+      display: none;
+      z-index: 15;
+    }
+
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-crosshair { display: block; }
     }
   </style>
 </head>
@@ -87,14 +149,23 @@
     Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
   </div>
 
-<canvas id="canvas3d"></canvas>
+  <canvas id="canvas3d"></canvas>
 
+  <!-- Mobile Virtual D-Pad (Bottom Left) -->
   <div id="mobile-dpad">
     <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
     <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
     <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
     <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
   </div>
+
+  <!-- Virtual Look Pad (Bottom Right) -->
+  <div id="look-pad">
+    <div id="look-pad-thumb">LOOK / AIM</div>
+  </div>
+
+  <!-- Mobile-Only Crosshair -->
+  <div id="mobile-crosshair"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -104,7 +175,7 @@
     let isHostAuthorized = true;
     let socket = null;
     const remotePlayers = new Map();
-    let localMyGuestName = "Guest " + Math.floor(100 + Math.random() * 900);
+    let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
 
     function unlockHostEnvironment() {
@@ -117,6 +188,95 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
+    });
+
+    // --- Look Pad Logic (Rotation Only, No Movement) ---
+    const lookPad = document.getElementById('look-pad');
+    const lookPadThumb = document.getElementById('look-pad-thumb');
+
+    let isLooking = false;
+    let lookTouchId = null;
+    let lookStartX = 0;
+    let lookStartY = 0;
+
+    function handleLookStart(clientX, clientY, identifier = null) {
+      isLooking = true;
+      lookTouchId = identifier;
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookMove(clientX, clientY) {
+      if (!isLooking) return;
+
+      const deltaX = clientX - lookStartX;
+      const deltaY = clientY - lookStartY;
+      const lookSensitivity = 0.005;
+
+      // Only adjust view/yaw rotation
+      if (typeof plushieRotation !== 'undefined') {
+        plushieRotation.yaw -= deltaX * lookSensitivity;
+      }
+
+      const maxThumbOffset = 40;
+      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookEnd() {
+      isLooking = false;
+      lookTouchId = null;
+      lookPadThumb.style.transform = `translate(0px, 0px)`;
+    }
+
+    // Mobile Touch Events for Look Pad
+    lookPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === lookTouchId) {
+          handleLookMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+          handleLookEnd();
+          break;
+        }
+      }
+    });
+
+    // PC Mouse Events for Look Pad
+    lookPad.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handleLookStart(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isLooking && lookTouchId === null) {
+        handleLookMove(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isLooking && lookTouchId === null) {
+        handleLookEnd();
+      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -228,6 +388,7 @@
 
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
+          console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
         socket.on('assign_team', (data) => {
@@ -345,7 +506,7 @@
         p2RollVal = null;
         isDiceRollingP2 = false;
        
-        pawn2.visible = false;
+        p2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
@@ -2328,29 +2489,32 @@
       miniDiorama.add(tile);
     }
 
-    function updatePlushieNameBadge(pawnGroup, displayName, teamColor = '#00f0ff') {
+    function updatePawnNameBadge(pawnGroup, displayName) {
       if (!pawnGroup || !pawnGroup.userData || !pawnGroup.userData.badgeCanvas) return;
       const canvas = pawnGroup.userData.badgeCanvas;
       const ctx = canvas.getContext('2d');
       const w = canvas.width; const h = canvas.height;
+      const tagColor = pawnGroup.userData.tagColor || '#00d2d3';
+
       ctx.clearRect(0, 0, w, h);
 
-      // Semi-transparent background (alpha set to 0.3)
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.3)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
+      const r = 24;
+      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
       ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
+      ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, r);
+      ctx.lineTo(w - 4, h - r); ctx.quadraticCurveTo(w - 4, h - 4, w - r, h - 4);
+      ctx.lineTo(r, h - 4); ctx.quadraticCurveTo(4, h - 4, 4, h - r);
+      ctx.lineTo(4, r); ctx.quadraticCurveTo(4, 4, r, 4);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const cleanName = (displayName || "PLAYER").toUpperCase().trim();
+      let fontSize = 48;
+      if (cleanName.length > 8) fontSize = 36;
+      if (cleanName.length > 12) fontSize = 28;
+     
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillText(cleanName, w / 2, h / 2 + 2);
 
       if (pawnGroup.userData.badgeTexture) {
         pawnGroup.userData.badgeTexture.needsUpdate = true;
@@ -2372,7 +2536,7 @@
       const bTex = new THREE.CanvasTexture(bCanvas);
 
       const badgeMat = new THREE.MeshBasicMaterial({
-        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.85
+        map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
       });
       const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.13), badgeMat);
       badgeMesh.position.set(0, 0.35, 0);
@@ -2917,7 +3081,11 @@
         bCanvas.width = 256; bCanvas.height = 96;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, opacity: 0.85
+          map: bTex, 
+          transparent: true, 
+          opacity: 0.3,
+          side: THREE.DoubleSide, 
+          depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
@@ -2932,10 +3100,83 @@
       return pGroup;
     }
 
+    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
+      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
+      const canvas = pGroup.userData.badgeCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width; const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
+      ctx.strokeStyle = teamColor;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(4, 4, w - 8, h - 8, 20);
+      } else {
+        ctx.rect(4, 4, w - 8, h - 8);
+      }
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = teamColor;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
+
+      if (pGroup.userData.badgeTexture) {
+        pGroup.userData.badgeTexture.needsUpdate = true;
+      }
+    }
+
+    function setPlushieVisualMode(group, mode) {
+      if (!group) return;
+      if (mode === 'invisible') {
+        group.visible = false;
+        return;
+      }
+      group.visible = true;
+      const isOpaque = (mode === 'opaque');
+      group.traverse(child => {
+        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(m => {
+            if (isOpaque) {
+              m.transparent = false;
+              m.opacity = 1.0;
+              m.depthWrite = true;
+            } else {
+              m.transparent = true;
+              m.opacity = 0.45;
+              m.depthWrite = false;
+            }
+            m.needsUpdate = true;
+          });
+        }
+      });
+    }
+
     let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
+
+    if (socket) {
+      socket.on('assign_team', (data) => {
+        assignedTeam = data.team;
+        teamColorHex = data.teamColor;
+        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+        if (localPlushie) {
+          localPlushie.userData.team = assignedTeam;
+          localPlushie.traverse(child => {
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              child.material.color.setHex(plushieColorHex);
+            }
+          });
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+        }
+      });
+    }
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
@@ -3421,10 +3662,9 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      // Closer camera positioning (distance reduced from 3.2 to 1.8, height offset from 1.6 to 1.2)
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
-      const camTargetY = plushieWorldPos.y + 1.2;
+      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
+      const camTargetY = plushieWorldPos.y + 1.6;
 
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
@@ -3432,7 +3672,7 @@
       camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
       camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
 
-      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.4, plushieWorldPos.z);
+      camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
 
       const prevPodium1 = isLocalOnPodium1;
       const prevPodium2 = isLocalOnPodium2;
@@ -3474,8 +3714,8 @@
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                              (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                              (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3492,33 +3732,32 @@
         updatePlushieVisibility(sp, false, false);
       });
 
-      // Smooth Anti-Jitter Quaternion Slerping for Name Tags
-      const targetQuat = camera.quaternion;
-
+      const camRot = camera.quaternion;
+     
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
-        badge.quaternion.slerp(targetQuat, 0.3);
+        badge.quaternion.copy(camRot);
       }
 
       remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
           badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
-          badge.quaternion.slerp(targetQuat, 0.3);
+          badge.quaternion.copy(camera.quaternion);
         }
       });
 
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.slerp(targetQuat, 0.3);
+        pawn1.userData.badgeMesh.quaternion.copy(camRot);
       }
       if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.slerp(targetQuat, 0.3);
+        pawn2.userData.badgeMesh.quaternion.copy(camRot);
       }
 
       spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.slerp(targetQuat, 0.3);
+          sp.userData.badgeMesh.quaternion.copy(camRot);
         }
       });
 
@@ -3569,22 +3808,27 @@
     bindTouchButton(btnRight, 'turnRight', btnRight);
 
     let touchStartX = null;
+    let touchStartY = null;
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
       if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
         isSwipingScreen = true;
       }
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null) return;
+      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
       if (e.touches.length > 0) {
         const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+
         const deltaX = currentX - touchStartX;
-       
+        const deltaY = currentY - touchStartY;
+
         const turnSensitivity = 0.008;
         plushieRotation.yaw -= deltaX * turnSensitivity;
 
@@ -3596,16 +3840,41 @@
           btnRight.classList.remove('active');
         }
 
+        const moveThreshold = 4;
+
+        if (deltaY < -moveThreshold) {
+          moveState.forward = true;
+          moveState.backward = false;
+          btnUp.classList.add('active');
+          btnDown.classList.remove('active');
+        } else if (deltaY > moveThreshold) {
+          moveState.backward = true;
+          moveState.forward = false;
+          btnDown.classList.add('active');
+          btnUp.classList.remove('active');
+        }
+
         touchStartX = currentX;
+        touchStartY = currentY;
       }
     }, { passive: true });
 
     window.addEventListener('touchend', () => {
       isSwipingScreen = false;
       touchStartX = null;
+      touchStartY = null;
+
+      moveState.forward = false;
+      moveState.backward = false;
+      moveState.turnLeft = false;
+      moveState.turnRight = false;
+
       btnLeft.classList.remove('active');
       btnRight.classList.remove('active');
+      btnUp.classList.remove('active');
+      btnDown.classList.remove('active');
     });
+
     animate();
   </script>
 </body>
