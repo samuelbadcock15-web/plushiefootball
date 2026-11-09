@@ -3013,15 +3013,15 @@
         if (activeQuestion) {
           const uv = hit.uv;
           if (uv) {
-            // Corrected UV bounds matching A, B, C, D from top to bottom
+            // Precise corrected UV bounds mapped from top to bottom matching A, B, C, D
             let chosenOpt = null;
-            if (uv.y >= 0.15 && uv.y < 0.32) {
+            if (uv.y >= 0.12 && uv.y < 0.30) {
               chosenOpt = activeQuestion.options[3]; // Option D (Bottom)
-            } else if (uv.y >= 0.32 && uv.y < 0.48) {
+            } else if (uv.y >= 0.30 && uv.y < 0.46) {
               chosenOpt = activeQuestion.options[2]; // Option C
-            } else if (uv.y >= 0.48 && uv.y < 0.64) {
+            } else if (uv.y >= 0.46 && uv.y < 0.62) {
               chosenOpt = activeQuestion.options[1]; // Option B
-            } else if (uv.y >= 0.64 && uv.y <= 0.85) {
+            } else if (uv.y >= 0.62 && uv.y <= 0.82) {
               chosenOpt = activeQuestion.options[0]; // Option A (Top)
             }
 
