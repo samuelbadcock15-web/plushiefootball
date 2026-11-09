@@ -12,14 +12,12 @@ const io = new Server(server, {
   }
 });
 
-// Serve static files from the current directory
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Track active players and ball physics host
 let ballPhysicsHostId = null;
 let blueScore = 0;
 let redScore = 0;
@@ -28,22 +26,19 @@ let teamToggle = false;
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
-  // Assign team and guest name on connection
   teamToggle = !teamToggle;
   const assignedTeam = teamToggle ? 'BLUE' : 'RED';
   const teamColor = assignedTeam === 'BLUE' ? '#00f0ff' : '#ff3838';
-  const guestName = `Guest ${Math.floor(100 + Math.random() * 900)}`
+  const guestName = `Guest ${Math.floor(100 + Math.random() * 900)}`;
 
   socket.emit('assign_team', { team: assignedTeam, teamColor: teamColor, name: guestName });
 
-  // If no ball physics host is assigned yet, designate this client
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
     socket.emit('ball_host_assignment', { isHost: true });
     console.log(`Assigned ball physics host to: ${socket.id}`);
   }
 
-  // Handle player coordinate/pose updates
   socket.on('player_move', (data) => {
     socket.broadcast.emit('update_player', {
       id: socket.id,
@@ -58,31 +53,26 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Handle authoritative ball updates from host
   socket.on('ball_move', (bData) => {
     if (socket.id === ballPhysicsHostId) {
       socket.broadcast.emit('ball_sync', bData);
     }
   });
 
-  // Handle score sync updates
   socket.on('score_update', (sData) => {
     blueScore = sData.blue;
     redScore = sData.red;
     io.emit('score_sync', { blue: blueScore, red: redScore });
   });
 
-  // Podium 1 Priority Launch Sequence sync
   socket.on('podium_1_claimed', (data) => {
     socket.broadcast.emit('podium_1_secured', { id: socket.id, name: data.name });
   });
 
-  // Intermission / Dropout handler
   socket.on('player_step_off_podium', (data) => {
     io.emit('trigger_intermission', { contestant: data.contestant, name: data.name });
   });
 
-  // Handle disconnects
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
     socket.broadcast.emit('remove_player', socket.id);
