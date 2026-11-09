@@ -2182,12 +2182,11 @@
     }
     renderWallClockTexture("20:00");
 
-    // Steeper Y-axis rotation (-0.75 rad) for a much more natural angled look toward center stage
     const wallClockMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2.2, 1.1),
       new THREE.MeshBasicMaterial({ map: wallClockTex })
     );
-    wallClockMesh.position.set(4.8, 1.84, -4.3);
+    wallClockMesh.position.set(4.8, 2.15, -4.3);
     wallClockMesh.rotation.y = -0.75;
     miniDiorama.add(wallClockMesh);
 
@@ -2804,7 +2803,7 @@
       new THREE.PlaneGeometry(3.6, 2.7),
       new THREE.MeshBasicMaterial({ map: qBoardTex })
     );
-    qBoardMesh.position.set(-4.8, 1.79, -3.2);
+    qBoardMesh.position.set(-4.8, 2.10, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
 
@@ -3240,7 +3239,7 @@
     }
 
     const studioBackScreenMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 2.8), new THREE.MeshBasicMaterial({ map: studioScreenTex }));
-    studioBackScreenMesh.position.set(0, 1.84, -4.5); 
+    studioBackScreenMesh.position.set(0, 2.15, -4.5); 
     miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
