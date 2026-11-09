@@ -31,6 +31,51 @@
       pointer-events: none;
     }
 
+    /* BULLETPROOF HTML MODE OVERLAY MENU */
+    #html-mode-menu {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(18, 7, 38, 0.96);
+      border: 3px solid #00f0ff;
+      border-radius: 16px;
+      padding: 24px;
+      width: 340px;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
+      text-align: center;
+      font-family: monospace;
+    }
+    #html-mode-menu h2 {
+      color: #ffda66;
+      margin-top: 0;
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+      text-shadow: 0 0 10px rgba(255, 218, 102, 0.5);
+    }
+    .menu-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      border: 2px solid #fff;
+      font-family: monospace;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .menu-btn:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    }
+    #btn-solo { background: #3498db; color: #fff; border-color: #5dade2; }
+    #btn-goody { background: #e74c3c; color: #fff; border-color: #ec7063; }
+    #btn-twoplayers { background: #9b59b6; color: #fff; border-color: #bb8fce; }
+
     #mobile-dpad {
       position: absolute;
       bottom: 40px;
@@ -143,7 +188,15 @@
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Step on Podium 1 and select <span style="color:#ff7675;">Option 2</span> for 1-Player vs Goody!
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Step on Podium 1 to select <span style="color:#ff7675;">Option 2</span>!
+  </div>
+
+  <!-- HTML OVERLAY MENU FOR GAME MODES -->
+  <div id="html-mode-menu">
+    <h2>CHOOSE GAME MODE</h2>
+    <button class="menu-btn" id="btn-solo" onclick="chooseHostGameMode('SOLO')">[1] 1-PLAYER SOLO RACE</button>
+    <button class="menu-btn" id="btn-goody" onclick="chooseHostGameMode('GOODY')">[2] 1-PLAYER VS GOODY</button>
+    <button class="menu-btn" id="btn-twoplayers" onclick="chooseHostGameMode('TWOPLAYER')">[3] 2-PLAYER MODE</button>
   </div>
 
   <canvas id="canvas3d"></canvas>
@@ -486,6 +539,10 @@
 
     function chooseHostGameMode(modeType) {
       if (studioPower) return;
+
+      // Hide the HTML menu overlay upon selection
+      document.getElementById('html-mode-menu').style.display = 'none';
+
       if (modeType === "SOLO") {
         isSoloMode = true;
         isVsGoodyMode = false;
@@ -2625,6 +2682,14 @@
     }
 
     function renderStageQuestionBoard() {
+      // Toggle HTML menu overlay visibility based on state
+      const menuEl = document.getElementById('html-mode-menu');
+      if (gameState === "MODE_PROMPT" && isLocalOnPodium1 && !studioPower) {
+        menuEl.style.display = 'block';
+      } else {
+        menuEl.style.display = 'none';
+      }
+
       qBoardCtx.fillStyle = '#120726';
       qBoardCtx.fillRect(0, 0, 512, 384);
       qBoardCtx.strokeStyle = '#00f0ff';
@@ -2662,31 +2727,9 @@
           qBoardCtx.font = 'bold 16px sans-serif';
           qBoardCtx.fillText("STEP ON PODIUM 1 WITH YOUR PLUSHIE TO UNLOCK!", 256, 180);
         } else {
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = '15px sans-serif';
-          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 105);
-
-          qBoardCtx.fillStyle = '#3498db';
-          qBoardCtx.fillRect(40, 125, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 152);
-
-          qBoardCtx.fillStyle = '#e74c3c';
-          qBoardCtx.fillRect(40, 178, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 205);
-
-          qBoardCtx.fillStyle = '#9b59b6';
-          qBoardCtx.fillRect(40, 231, 432, 42);
-          qBoardCtx.fillStyle = '#ffffff';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 258);
-
           qBoardCtx.fillStyle = '#39ff14';
-          qBoardCtx.font = 'bold 13px monospace';
-          qBoardCtx.fillText("TAP ANY OPTION OR USE 1, 2, 3", 256, 315);
+          qBoardCtx.font = 'bold 18px monospace';
+          qBoardCtx.fillText("USE THE ON-SCREEN MENU OR KEYS 1-3!", 256, 200);
         }
       } else if (gameState === "OPENING_DUEL") {
         qBoardCtx.fillStyle = '#ffda66';
@@ -2954,32 +2997,6 @@
     qBoardMesh.position.set(-4.8, 2.15, -3.2);
     qBoardMesh.rotation.y = 0.8;
     miniDiorama.add(qBoardMesh);
-
-    // DEDICATED SEPARATE 3D CLICK COLLIDER PLANES FOR THE 3 MENU OPTIONS:
-    // This avoids all UV mapping inaccuracies by using physical 3D scene intersection boxes!
-    const modeColliderGroup = new THREE.Group();
-    modeColliderGroup.position.copy(qBoardMesh.position);
-    modeColliderGroup.rotation.copy(qBoardMesh.rotation);
-
-    // Option 1 (Top / Solo) collider
-    const opt1Mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.45), new THREE.MeshBasicMaterial({ visible: false }));
-    opt1Mesh.position.set(0, 0.55, 0.01);
-    opt1Mesh.userData = { modeChoice: "SOLO" };
-    modeColliderGroup.add(opt1Mesh);
-
-    // Option 2 (Middle / Goody) collider - wider and perfectly aligned
-    const opt2Mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.45), new THREE.MeshBasicMaterial({ visible: false }));
-    opt2Mesh.position.set(0, 0.05, 0.01);
-    opt2Mesh.userData = { modeChoice: "GOODY" };
-    modeColliderGroup.add(opt2Mesh);
-
-    // Option 3 (Bottom / 2-Player) collider
-    const opt3Mesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 0.45), new THREE.MeshBasicMaterial({ visible: false }));
-    opt3Mesh.position.set(0, -0.45, 0.01);
-    opt3Mesh.userData = { modeChoice: "TWOPLAYER" };
-    modeColliderGroup.add(opt3Mesh);
-
-    miniDiorama.add(modeColliderGroup);
 
     const screenClickMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(3.6, 2.7),
@@ -3252,18 +3269,6 @@
       mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      
-      // If we are in MODE_PROMPT, raycast against our dedicated physics colliders for bulletproof selection!
-      if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
-        const modeColliders = modeColliderGroup.children;
-        const modeIntersects = raycaster.intersectObjects(modeColliders, false);
-        if (modeIntersects.length > 0) {
-          const chosenMode = modeIntersects[0].object.userData.modeChoice;
-          chooseHostGameMode(chosenMode);
-          return;
-        }
-      }
-
       const interactiveTargets = [screenClickMesh, qBoardMesh, studioBackScreenMesh];
       const intersects = raycaster.intersectObjects(interactiveTargets, false);
 
@@ -3298,6 +3303,8 @@
     }
 
     window.addEventListener('pointerup', (e) => {
+      // Do not trigger canvas tap if clicking inside the HTML menu overlay
+      if (e.target.closest('#html-mode-menu')) return;
       handleScreenTap(e.clientX, e.clientY);
     });
 
@@ -3772,7 +3779,7 @@
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#html-mode-menu')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
