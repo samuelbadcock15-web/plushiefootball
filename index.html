@@ -74,7 +74,6 @@
       box-shadow: 0 0 22px #39ff14;
     }
 
-    /* Look Pad - Visible on BOTH PC and Mobile */
     #look-pad {
       position: absolute;
       bottom: 30px;
@@ -92,6 +91,11 @@
       justify-content: center;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
       user-select: none;
+      cursor: grab;
+    }
+
+    #look-pad:active {
+      cursor: grabbing;
     }
 
     #look-pad-thumb {
@@ -166,10 +170,115 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
-</body>
-</html>
 
   <script>
+    let isHostAuthorized = true;
+    let socket = null;
+    const remotePlayers = new Map();
+    let localMyGuestName = "Guest 1";
+    let isBallPhysicsHost = false;
+
+    function unlockHostEnvironment() {
+      isHostAuthorized = true;
+      initAudio();
+      initStudioWebRTC();
+      initSocketConnection();
+      triggerImmediateModePrompt();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      unlockHostEnvironment();
+    });
+
+    // --- Look Pad Logic (Rotation Only, No Movement) ---
+    const lookPad = document.getElementById('look-pad');
+    const lookPadThumb = document.getElementById('look-pad-thumb');
+
+    let isLooking = false;
+    let lookTouchId = null;
+    let lookStartX = 0;
+    let lookStartY = 0;
+
+    function handleLookStart(clientX, clientY, identifier = null) {
+      isLooking = true;
+      lookTouchId = identifier;
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookMove(clientX, clientY) {
+      if (!isLooking) return;
+
+      const deltaX = clientX - lookStartX;
+      const deltaY = clientY - lookStartY;
+      const lookSensitivity = 0.005;
+
+      // Only adjust view/yaw rotation
+      if (typeof plushieRotation !== 'undefined') {
+        plushieRotation.yaw -= deltaX * lookSensitivity;
+      }
+
+      const maxThumbOffset = 40;
+      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookEnd() {
+      isLooking = false;
+      lookTouchId = null;
+      lookPadThumb.style.transform = `translate(0px, 0px)`;
+    }
+
+    // Mobile Touch Events for Look Pad
+    lookPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === lookTouchId) {
+          handleLookMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+          handleLookEnd();
+          break;
+        }
+      }
+    });
+
+    // PC Mouse Events for Look Pad
+    lookPad.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handleLookStart(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isLooking && lookTouchId === null) {
+        handleLookMove(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isLooking && lookTouchId === null) {
+        handleLookEnd();
+      }
+    });
+  </script>
     let isHostAuthorized = true;
     let socket = null;
     const remotePlayers = new Map();
