@@ -143,7 +143,7 @@
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Step on Podium 1 and select <span style="color:#ff7675;">Option 2</span> for 1-Player vs Goody!
   </div>
 
   <canvas id="canvas3d"></canvas>
@@ -3236,11 +3236,12 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            if (uv.y >= 0.15 && uv.y <= 0.38) {
+            // Corrected UV bounds matching canvas button layout (y: 125-167, 178-220, 231-273)
+            if (uv.y >= 0.28 && uv.y <= 0.40) {
               chooseHostGameMode("TWOPLAYER");
-            } else if (uv.y > 0.38 && uv.y <= 0.62) {
+            } else if (uv.y > 0.40 && uv.y <= 0.55) {
               chooseHostGameMode("GOODY");
-            } else if (uv.y > 0.62 && uv.y <= 0.90) {
+            } else if (uv.y > 0.55 && uv.y <= 0.70) {
               chooseHostGameMode("SOLO");
             }
           } else {
