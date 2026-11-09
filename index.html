@@ -3232,22 +3232,22 @@
       if (intersects.length > 0) {
         const hit = intersects[0];
 
-        if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
+if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            // Corrected and expanded UV bounds for bulletproof click detection:
-            // Option 1 (Top / Solo):      uv.y between 0.55 and 0.72
-            // Option 2 (Middle / Goody):  uv.y between 0.38 and 0.55  <-- Expanded hit box!
-            // Option 3 (Bottom / 2-P):    uv.y between 0.22 and 0.38
-            if (uv.y >= 0.22 && uv.y <= 0.38) {
-              chooseHostGameMode("TWOPLAYER");
-            } else if (uv.y > 0.38 && uv.y <= 0.55) {
-              chooseHostGameMode("GOODY");
-            } else if (uv.y > 0.55 && uv.y <= 0.72) {
-              chooseHostGameMode("SOLO");
+            // Safe overlapping boundaries to eliminate dead zones and floating-point traps:
+            // Option 3 (Bottom): uv.y < 0.40
+            // Option 2 (Middle): uv.y >= 0.35 && uv.y <= 0.58
+            // Option 1 (Top):    uv.y > 0.53
+            if (uv.y < 0.38) {
+              chooseHostGameMode("TWOPLAYER"); // Option 3
+            } else if (uv.y >= 0.35 && uv.y <= 0.58) {
+              chooseHostGameMode("GOODY");     // Option 2 (Expanded & Overlapping)
+            } else {
+              chooseHostGameMode("SOLO");      // Option 1
             }
           } else {
-            chooseHostGameMode("GOODY");
+            chooseHostGameMode("GOODY"); // Fallback default
           }
           return;
         }
