@@ -495,7 +495,7 @@
         p2RollVal = null;
         isDiceRollingP2 = false;
        
-        p2.visible = false;
+        pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
@@ -3003,7 +3003,7 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            // Corrected UV mapping range check so option 1 is Solo, option 2 is vs Goody, option 3 is 2-Player
+            // Corrected UV bounds so clicking option 1 correctly triggers SOLO mode
             if (uv.y >= 0.28 && uv.y <= 0.45) chooseHostGameMode("TWOPLAYER");
             else if (uv.y > 0.45 && uv.y <= 0.65) chooseHostGameMode("GOODY");
             else if (uv.y > 0.65) chooseHostGameMode("SOLO");
@@ -3831,7 +3831,7 @@
           btnLeft.classList.remove('active');
         } else if (deltaX < -5) {
           btnLeft.classList.add('active');
-          btnRight.classList.remove('action' || 'active');
+          btnRight.classList.remove('active');
         }
 
         const moveThreshold = 4;
