@@ -174,6 +174,89 @@
     let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
+    let localPlushie = null;
+
+    // Helper functions hoisted globally
+    function updatePlushieNameBadge(pawnGroup, displayName, customColor) {
+      if (!pawnGroup || !pawnGroup.userData || !pawnGroup.userData.badgeCanvas) return;
+      const canvas = pawnGroup.userData.badgeCanvas;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width; const h = canvas.height;
+      if (customColor) pawnGroup.userData.tagColor = customColor;
+      const tagColor = pawnGroup.userData.tagColor || '#00d2d3';
+
+      ctx.clearRect(0, 0, w, h);
+      const r = 24;
+      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, r);
+      ctx.lineTo(w - 4, h - r); ctx.quadraticCurveTo(w - 4, h - 4, w - r, h - 4);
+      ctx.lineTo(r, h - 4); ctx.quadraticCurveTo(4, h - 4, 4, h - r);
+      ctx.lineTo(4, r); ctx.quadraticCurveTo(4, 4, r, 4);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const cleanName = (displayName || "PLAYER").toUpperCase().trim();
+      let fontSize = cleanName.length > 12 ? 28 : (cleanName.length > 8 ? 36 : 48);
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      ctx.fillText(cleanName, w / 2, h / 2 + 2);
+
+      if (pawnGroup.userData.badgeTexture) {
+        pawnGroup.userData.badgeTexture.needsUpdate = true;
+      }
+    }
+
+    function updatePawnNameBadge(pawnGroup, displayName) {
+      updatePlushieNameBadge(pawnGroup, displayName);
+    }
+
+    function setPlushieVisualMode(pMesh, mode) {
+      if (!pMesh) return;
+      pMesh.traverse(child => {
+        if (child.isMesh && child.material) {
+          if (mode === 'transparent') {
+            child.material.transparent = true;
+            child.material.opacity = 0.35;
+          } else {
+            child.material.transparent = false;
+            child.material.opacity = 1.0;
+          }
+        }
+      });
+    }
+
+    function createCutePlushie(color, initialName = "") {
+      const pGroup = new THREE.Group();
+      const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
+      const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
+      const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
+      const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear1.position.set(-0.14, 0.74, 0);
+      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
+      
+      let badgeMesh = null;
+      let bCanvas = null;
+      let bTex = null;
+
+      if (initialName) {
+        bCanvas = document.createElement('canvas');
+        bCanvas.width = 256; bCanvas.height = 96;
+        bTex = new THREE.CanvasTexture(bCanvas);
+        const badgeMat = new THREE.MeshBasicMaterial({
+          map: bTex, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false
+        });
+        badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
+        badgeMesh.position.set(0, 0.95, 0);
+        pGroup.add(badgeMesh);
+      }
+     
+      pGroup.userData = {
+        badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh, tagColor: '#00d2d3'
+      };
+      if (initialName) {
+        updatePlushieNameBadge(pGroup, initialName);
+      }
+      return pGroup;
+    }
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -580,442 +663,6 @@
       });
     }
 
-    function handleMidGameDropout(contestantId) {
-      if (gameState === "GAME_OVER" || gameState === "INTERMISSION") return;
-
-      if (goodyUtterance) {
-        goodyUtterance.onend = null;
-        goodyUtterance.onerror = null;
-      }
-      window.speechSynthesis.cancel();
-      isGoodySpeaking = false;
-
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
-
-      stopDiceCountdown();
-      if (questionInterval) clearInterval(questionInterval);
-      if (matchTimerInterval) clearInterval(matchTimerInterval);
-
-      isPawnMoving = false;
-      hasPlayerRolledThisTurn = false;
-      isDiceRollingP1 = false;
-      isDiceRollingP2 = false;
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-
-      savedGameState = gameState;
-      savedTurnPlayer = activePlayer;
-      savedActiveCountry = activeQuestion ? activeQuestion.country : null;
-
-      activeQuestion = null;
-      activeRecap = null;
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-
-      gameState = "INTERMISSION";
-      droppedOutContestant = contestantId;
-      droppedOutName = contestantNames[contestantId] || "";
-      droppedOutCity = contestantCities[contestantId] || "";
-      droppedOutSessionToken = contestantTokens[contestantId] || null;
-
-      const droppedNum = contestantId === "goody-contestant-1" ? `Player 1 (${droppedOutName})` : `Player 2 (${droppedOutName})`;
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#ff7675;">INTERMISSION: WAITING FOR RECONNECT...</span>`;
-      renderStageQuestionBoard();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({ type: "INTERMISSION_PAUSE", droppedContestant: contestantId });
-      });
-
-      const speech = `Ladies and gentlemen, it appears ${droppedNum} has lost connection! We are taking a short intermission while our studio crew gets them back online!`;
-      speakGoody(speech);
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      intermissionTimeout = setTimeout(() => {
-        if (gameState === "INTERMISSION") {
-          triggerOfferChoiceMode();
-        }
-      }, 90000);
-    }
-
-    function triggerOnePlayerMode() {
-      if (gameState !== "INTERMISSION" && gameState !== "CONTESTANT_CHOOSING" && gameState !== "MODE_PROMPT") return;
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      isSoloMode = true;
-      isVsGoodyMode = false;
-
-      soloPlayerId = "goody-contestant-1";
-      const soloName = contestantNames[soloPlayerId];
-      activePlayer = soloPlayerId;
-
-      p2RollVal = null;
-      isDiceRollingP2 = false;
-      pawn2.visible = false;
-      pawn1.visible = true;
-      if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
-      gameState = "IN_PLAY";
-      renderStageQuestionBoard();
-
-      startTwentyMinuteMatchTimer();
-      broadcastBoardState();
-
-      const speech = `Welcome back to the show! ${soloName} will now race the board alone to see if they can reach the end before the 20-minute show clock expires! Let's play!`;
-      speakGoody(speech, () => {
-        if (savedActiveCountry && savedTurnPlayer === soloPlayerId) {
-          const countryToAsk = savedActiveCountry;
-          savedActiveCountry = null;
-          resumeWithFreshQuestion(soloPlayerId, countryToAsk);
-        } else {
-          savedActiveCountry = null;
-          startTurnCleanly(soloPlayerId);
-        }
-      });
-    }
-
-    function triggerOfferChoiceMode() {
-      if (gameState !== "INTERMISSION") return;
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      gameState = "CONTESTANT_CHOOSING";
-
-      const remainingId = isP1Connected ? "goody-contestant-1" : "goody-contestant-2";
-      const remainingName = contestantNames[remainingId];
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WAITING FOR ${remainingName.toUpperCase()}'S CHOICE...</span>`;
-      renderStageQuestionBoard();
-
-      const speech = `Welcome back to The Goody Tonight Show! Unfortunately, we have been unable to find a replacement. So ${remainingName}, you can choose to go solo against the 20-minute timer, or battle me, Goody, head-to-head! Make your choice now!`;
-      speakGoody(speech, () => {
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({ type: "OFFER_CONTESTANT_CHOICE" });
-        });
-      });
-    }
-
-    function triggerVsGoodyMode() {
-      isSoloMode = false;
-      isVsGoodyMode = true;
-
-      goodyPlayerSlot = droppedOutContestant || "goody-contestant-2";
-      contestantNames[goodyPlayerSlot] = "Goody";
-
-      pawn1.visible = true;
-      pawn2.visible = true;
-      if (goodyPlayerSlot === "goody-contestant-1") {
-        if (window.p1PodiumGroup) window.p1PodiumGroup.visible = true;
-        updatePawnNameBadge(pawn1, "Goody");
-      } else {
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-        updatePawnNameBadge(pawn2, "Goody");
-      }
-
-      const humanId = goodyPlayerSlot === "goody-contestant-1" ? "goody-contestant-2" : "goody-contestant-1";
-      const humanName = contestantNames[humanId];
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#00f0ff;">GOODY VS ${humanName.toUpperCase()}!</span>`;
-
-      if (gameState === "MODE_PROMPT" || savedGameState === "INTRO_SPEECH" || savedGameState === "OPENING_DUEL" || savedGameState === "IDLE") {
-        gameState = "OPENING_DUEL";
-        renderStageQuestionBoard();
-        const speech = `A bold choice! You have chosen to battle me, Goody! I am taking over the board! Let's roll our dice to determine who goes first! You have 10 seconds to roll your dice!`;
-        speakGoody(speech, () => {
-          beginTenSecondDiceDuel();
-        });
-        return;
-      }
-
-      gameState = "IN_PLAY";
-      renderStageQuestionBoard();
-      startTwentyMinuteMatchTimer();
-      broadcastBoardState();
-
-      const speech = `A bold choice! You have chosen to battle me, Goody! I am hopping into the hot seat! Let's resume!`;
-      speakGoody(speech, () => {
-        if (savedActiveCountry) {
-          const countryToAsk = savedActiveCountry;
-          savedActiveCountry = null;
-          resumeWithFreshQuestion(savedTurnPlayer, countryToAsk);
-        } else {
-          startTurnCleanly(savedTurnPlayer);
-        }
-      });
-    }
-
-    function resumeWithFreshQuestion(turnPlayer, country) {
-      activePlayer = turnPlayer;
-      const pName = contestantNames[activePlayer];
-      activeRecap = null;
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-      p1RollVal = null;
-      p2RollVal = null;
-      hasPlayerRolledThisTurn = false;
-      isDiceRollingP1 = false;
-      isDiceRollingP2 = false;
-
-      stopDiceCountdown();
-      if (questionInterval) clearInterval(questionInterval);
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-
-      const qPool = COUNTRY_QUESTIONS[country] || COUNTRY_QUESTIONS["UK"];
-      const rawQ = qPool[Math.floor(Math.random() * qPool.length)];
-
-      activeQuestion = {
-        country: country,
-        text: rawQ.q,
-        q: rawQ.q,
-        options: rawQ.options,
-        ans: rawQ.ans,
-        recap: rawQ.recap
-      };
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "SHOW_QUESTION_LOCKED",
-          question: activeQuestion,
-          activeContestantId: activePlayer,
-          activeContestantName: pName
-        });
-      });
-      renderStageQuestionBoard();
-
-      const speech = `Resuming on ${country} for ${pName}! Here is your fresh question: ${activeQuestion.q}... You have 30 seconds to lock in!`;
-      speakGoody(speech, () => {
-        if (gameState === "INTERMISSION") return;
-
-        if (activePlayer === goodyPlayerSlot) {
-          executeGoodyAnswer();
-        } else {
-          connectedDataConns.forEach(c => {
-            if (c.open) c.send({
-              type: "UNLOCK_QUESTION_INPUT",
-              activeContestantId: activePlayer,
-              activeContestantName: pName
-            });
-          });
-          broadcastMicState(activePlayer, true, "🎙️ Thinking out loud? Your mic is LIVE!");
-          startQuestionCountdown();
-        }
-      });
-    }
-
-    function startTurnCleanly(turnPlayer) {
-      stopDiceCountdown();
-      activePlayer = turnPlayer;
-      const pName = contestantNames[activePlayer];
-      activeQuestion = null;
-      activeRecap = null;
-      stageSelectedOption = null;
-      stageOptionStatus = null;
-      p1RollVal = null;
-      p2RollVal = null;
-      hasPlayerRolledThisTurn = false;
-      isPawnMoving = false;
-      isDiceRollingP1 = false;
-      isDiceRollingP2 = false;
-
-      if (questionInterval) clearInterval(questionInterval);
-      isQuestionTimerActive = false;
-      questionTimer = 0;
-
-      gameState = "IN_PLAY";
-      renderStageQuestionBoard();
-
-      broadcastMicState("goody-contestant-1", false);
-      broadcastMicState("goody-contestant-2", false);
-
-      if (activePlayer === goodyPlayerSlot) {
-        speakGoody(`It is my turn! Goody is rolling the dice!`, () => {
-          setTimeout(executeGoodyTurnRoll, 1000);
-        });
-      } else {
-        speakGoody(`It is now ${pName}'s turn! You have 10 seconds to roll your dice!`, () => {
-          if (gameState === "IN_PLAY" && activePlayer === turnPlayer && !hasPlayerRolledThisTurn && !isPawnMoving) {
-            startTurnDicePrompt(activePlayer, pName);
-          }
-        });
-      }
-    }
-
-    function startDiceCountdown(onTimeout) {
-      stopDiceCountdown();
-      diceCountdown = 10;
-      isDiceTimerActive = true;
-      renderStageQuestionBoard();
-
-      diceCountdownInterval = setInterval(() => {
-        diceCountdown--;
-        renderStageQuestionBoard();
-        if (diceCountdown <= 0) {
-          stopDiceCountdown();
-          if (onTimeout) onTimeout();
-        }
-      }, 1000);
-    }
-
-    function stopDiceCountdown() {
-      if (diceCountdownInterval) {
-        clearInterval(diceCountdownInterval);
-        diceCountdownInterval = null;
-      }
-      isDiceTimerActive = false;
-    }
-
-    function startTurnDicePrompt(turnPlayer, pName) {
-      stopDiceCountdown();
-      hasPlayerRolledThisTurn = false;
-      isPawnMoving = false;
-      p1RollVal = null;
-      p2RollVal = null;
-
-      if (turnPlayer === "goody-contestant-2") {
-        isDiceRollingP2 = true;
-        isDiceRollingP1 = false;
-      } else {
-        isDiceRollingP1 = true;
-        isDiceRollingP2 = false;
-      }
-
-      renderStageQuestionBoard();
-      renderBackstageScreens();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "ENABLE_TURN_ROLL",
-          activeContestantId: turnPlayer,
-          activeContestantName: pName
-        });
-      });
-
-      startDiceCountdown(() => {
-        if (gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && !isPawnMoving && activePlayer === turnPlayer && !activeQuestion && !activeRecap) {
-          const autoVal = Math.floor(Math.random() * 6) + 1;
-          handlePlayerRoll(turnPlayer, contestantNames[turnPlayer], autoVal);
-        }
-      });
-    }
-
-    function executeGoodyTurnRoll() {
-      if (hasPlayerRolledThisTurn || isPawnMoving) return;
-
-      const isGoodyP2 = goodyPlayerSlot === "goody-contestant-2";
-      if (isGoodyP2) isDiceRollingP2 = true;
-      else isDiceRollingP1 = true;
-
-      renderStageQuestionBoard();
-      renderBackstageScreens();
-      const rollVal = Math.floor(Math.random() * 6) + 1;
-      setTimeout(() => {
-        handlePlayerRoll(goodyPlayerSlot, "Goody", rollVal);
-      }, 1500);
-    }
-
-    function calculateGoodyAccuracy() {
-      let accuracy = 0.65;
-      if (playerStats.asked > 0) {
-        const humanRatio = playerStats.correct / playerStats.asked;
-        if (humanRatio > 0.7) accuracy += 0.15;
-        if (humanRatio < 0.4) accuracy -= 0.15;
-      }
-      const humanIdx = goodyPlayerSlot === "goody-contestant-1" ? p2Index : p1Index;
-      const goodyIdx = goodyPlayerSlot === "goody-contestant-1" ? p1Index : p2Index;
-      const leadGap = goodyIdx - humanIdx;
-      if (leadGap >= 4) accuracy -= 0.25;
-      else if (leadGap <= -4) accuracy += 0.20;
-      return Math.max(0.30, Math.min(0.90, accuracy));
-    }
-
-    function executeGoodyAnswer() {
-      const willBeCorrect = Math.random() < calculateGoodyAccuracy();
-      let chosen = activeQuestion.ans;
-
-      if (!willBeCorrect) {
-        const wrongOpts = activeQuestion.options.filter(o => o !== activeQuestion.ans);
-        chosen = wrongOpts[Math.floor(Math.random() * wrongOpts.length)];
-      }
-
-      setTimeout(() => {
-        stageSelectedOption = chosen;
-        stageOptionStatus = 'selected';
-        renderStageQuestionBoard();
-
-        connectedDataConns.forEach(c => {
-          if (c.open) {
-            c.send({
-              type: "OPPONENT_ANSWERED",
-              contestant: "goody-host-bot",
-              chosenAnswer: chosen
-            });
-          }
-        });
-
-        setTimeout(() => {
-          evaluateAnswer(goodyPlayerSlot, chosen);
-        }, 1400);
-      }, 2500);
-    }
-
-    function broadcastMicState(targetSlot, enabled, promptText = "") {
-      connectedDataConns.forEach(c => {
-        if (c.open && c.metadata && c.metadata.contestant === targetSlot) {
-          c.send({
-            type: "SET_MIC_STATE",
-            enabled: enabled,
-            promptText: promptText
-          });
-        }
-      });
-    }
-
-    let currentSubtitle = "STUDIO STANDBY - POWER OFF";
-
-    const COUNTRY_QUESTIONS = {
-      "UK": [
-        { q: "In the UK, before the 2019 stake reduction, what was the maximum stake per spin on a Fixed-Odds-Betting-Terminal?", options: ["£2", "£50", "£100", "£500"], ans: "£100", recap: "In April 2019, the UK reduced the maximum FOBT stake per spin from £100 down to £2 to combat severe harms." },
-        { q: "In the UK, what is the name of the land-based self-exclusion scheme that covers Betting Shops (Bookies)?", options: ["Bingo Association", "SENSE", "Bacta", "Moses"], ans: "Moses", recap: "MOSES allows people to self-exclude across high street bookmakers in their chosen localities." },
-        { q: "In the UK, what is the name of the land-based self-exclusion scheme that covers Casinos?", options: ["Bacta", "SENSE", "Moses", "Bingo Association"], ans: "SENSE", recap: "SENSE allows players to enroll once to be excluded from all UK commercial casinos." }
-      ],
-      "Canada": [
-        { q: "In Ontario, what is the name of the land-based self-exclusion scheme that covers Casinos?", options: ["SENSE", "MyPlay Break", "Bacta", "BetGuard"], ans: "MyPlay Break", recap: "MyPlay Break is Ontario's official casino self-exclusion initiative managed by OLG." },
-        { q: "What is the name of Ontario's national online self-exclusion scheme?", options: ["BetGuard", "RUA", "GamStop", "Oasis"], ans: "BetGuard", recap: "BetGuard centralizes online exclusion across licensed iGaming Ontario operators." }
-      ],
-      "Brazil": [
-        { q: "What is the name of Brazil's national online self-exclusion scheme?", options: ["Spelpaus", "Plataforma Centralizada de Autoexclusão", "Rofus", "RGIAJ"], ans: "Plataforma Centralizada de Autoexclusão", recap: "Brazil uses the Plataforma Centralizada de Autoexclusão across its regulated betting system." }
-      ],
-      "United States": [
-        { q: "Which city in Nevada is world-famous for gambling?", options: ["Las Vegas", "Atlantic City", "Macau", "Monte Carlo"], ans: "Las Vegas", recap: "Las Vegas, Nevada is internationally renowned for its casino entertainment corridors." }
-      ],
-      "Italy": [
-        { q: "What is the name of Italy's national online self-exclusion scheme?", options: ["Spelpaus", "RUA", "GamStop", "Oasis"], ans: "RUA", recap: "RUA (Registro Unico degli Autoesclusi) covers all licensed online platforms in Italy." }
-      ],
-      "Belgium": [
-        { q: "What is the name of Belgium's national self-exclusion scheme covering both online and land-based gambling?", options: ["Rofus", "EPIS", "Oasis", "GamStop"], ans: "EPIS", recap: "EPIS (Excluded Persons Information System) covers all regulated gambling in Belgium." }
-      ],
-      "Germany": [
-        { q: "What is the name of Germany's national self-exclusion scheme covering both online and land-based gambling?", options: ["Spelpaus", "Oasis", "Rofus", "GamStop"], ans: "Oasis", recap: "OASIS is Germany's mandatory federal exclusion register across arcades, casinos, and web gaming." }
-      ],
-      "Denmark": [
-        { q: "What is the name of Denmark's national self-exclusion scheme covering both online and land-based gambling?", options: ["Rofus", "Oasis", "GamStop", "EPIS"], ans: "Rofus", recap: "ROFUS is managed by the Danish Gambling Authority to enforce cross-platform player protection." }
-      ],
-      "Australia": [
-        { q: "What is the name of Australia's national online self-exclusion scheme?", options: ["Oasis", "Rofus", "BetStop", "SafePlay"], ans: "BetStop", recap: "BetStop is Australia's National Self-Exclusion Register for licensed online and telephone wagering." }
-      ],
-      "Sweden": [
-        { q: "What is the name of Sweden's centralized national self-exclusion system?", options: ["Spelpaus", "ROFUS", "BetStop", "EPIS"], ans: "Spelpaus", recap: "Spelpaus allows individuals in Sweden to block themselves across all licensed gaming." }
-      ],
-      "Spain": [
-        { q: "What is the acronym for Spain's national register of gaming access prohibitions?", options: ["RGIAJ", "RUA", "EPIS", "OASIS"], ans: "RGIAJ", recap: "RGIAJ enforces exclusion across physical and online gaming in Spain." }
-      ],
-      "Netherlands": [
-        { q: "What is the name of the central register for the exclusion of gaming in the Netherlands?", options: ["Cruks", "GamStop", "ROFUS", "Spelpaus"], ans: "Cruks", recap: "Cruks (Centraal Register Uitsluiting Kansspelen) is mandatory across all Dutch gaming operators." }
-      ]
-    };
-
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x040208);
     scene.fog = new THREE.FogExp2(0x040208, 0.015);
@@ -1317,7 +964,6 @@
     }
 
     let audioCtx = null;
-    let goodyUtterance = null;
     function initAudio() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -1336,6 +982,8 @@
         osc.start(); osc.stop(audioCtx.currentTime + duration);
       } catch(e) {}
     }
+
+    let currentSubtitle = "STUDIO STANDBY - POWER OFF";
 
     function speakGoody(text, onComplete) {
       connectedDataConns.forEach(c => {
@@ -2482,38 +2130,6 @@
       miniDiorama.add(tile);
     }
 
-    function updatePawnNameBadge(pawnGroup, displayName) {
-      if (!pawnGroup || !pawnGroup.userData || !pawnGroup.userData.badgeCanvas) return;
-      const canvas = pawnGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      const tagColor = pawnGroup.userData.tagColor || '#00d2d3';
-
-      ctx.clearRect(0, 0, w, h);
-
-      const r = 24;
-      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, r);
-      ctx.lineTo(w - 4, h - r); ctx.quadraticCurveTo(w - 4, h - 4, w - r, h - 4);
-      ctx.lineTo(r, h - 4); ctx.quadraticCurveTo(4, h - 4, 4, h - r);
-      ctx.lineTo(4, r); ctx.quadraticCurveTo(4, 4, r, 4);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const cleanName = (displayName || "PLAYER").toUpperCase().trim();
-      let fontSize = 48;
-      if (cleanName.length > 8) fontSize = 36;
-      if (cleanName.length > 12) fontSize = 28;
-     
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.fillText(cleanName, w / 2, h / 2 + 2);
-
-      if (pawnGroup.userData.badgeTexture) {
-        pawnGroup.userData.badgeTexture.needsUpdate = true;
-      }
-    }
-
     function createPlayerPawn(colorHex, initialName) {
       const pawn = new THREE.Group();
       const baseMat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.6, roughness: 0.25 });
@@ -3052,55 +2668,6 @@
     const plushiePosition = new THREE.Vector3(32.0, 0.44, 2.5);
     const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
-
-    function createCutePlushie(color, initialName = "") {
-      const pGroup = new THREE.Group();
-      const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
-      const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
-      const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
-      const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear1.position.set(-0.14, 0.74, 0);
-      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
-      const blushMat = new THREE.MeshBasicMaterial({ color: 0xff69b4 });
-      const blush1 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush1.position.set(-0.11, 0.54, 0.17);
-      const blush2 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush2.position.set(0.11, 0.54, 0.17); pGroup.add(blush1, blush2);
-      const eyeBlackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-      const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeL.position.set(-0.07, 0.60, 0.19);
-      const shineL = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineL.position.set(-0.08, 0.612, 0.21); pGroup.add(eyeL, shineL);
-      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeR.position.set(0.07, 0.60, 0.19);
-      const shineR = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineR.position.set(0.06, 0.612, 0.21); pGroup.add(eyeR, shineR);
-      const snout = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff8fab, roughness: 0.6 }));
-      snout.scale.set(1.2, 0.8, 1); snout.position.set(0, 0.56, 0.21); pGroup.add(snout);
-      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
-      mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
-
-      let badgeMesh = null;
-      let bCanvas = null;
-      let bTex = null;
-
-      if (initialName) {
-        bCanvas = document.createElement('canvas');
-        bCanvas.width = 256; bCanvas.height = 96;
-        bTex = new THREE.CanvasTexture(bCanvas);
-        const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, 
-          transparent: true, 
-          opacity: 0.3,
-          side: THREE.DoubleSide, 
-          depthWrite: false
-        });
-        badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
-        badgeMesh.position.set(0, 0.95, 0);
-        badgeMesh.matrixAutoUpdate = true;
-        miniDiorama.add(badgeMesh);
-        updatePlushieNameBadge(pGroup, initialName);
-      }
-     
-      pGroup.userData = {
-        badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
-      };
-      return pGroup;
-    }
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
