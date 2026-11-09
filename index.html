@@ -36,7 +36,7 @@
       bottom: 30px;
       left: 30px;
       display: none;
-      grid-template-areas:
+      grid-template-areas: 
         ". up ."
         "left down right";
       gap: 12px;
@@ -107,7 +107,7 @@
     let socket = null;
     const remotePlayers = new Map();
     let localMyGuestName = "Guest 1";
-    let isBallPhysicsHost = false;
+    let isBallPhysicsHost = false; // Single-authority physics flag
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -228,18 +228,17 @@
       try {
         socket = io();
 
+        // Listen for server designation of ball physics authority
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
           console.log("Am I ball physics host?", isBallPhysicsHost);
         });
 
+        // Listen for server-assigned team
         socket.on('assign_team', (data) => {
           assignedTeam = data.team;
           teamColorHex = data.teamColor;
           plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          if (data.name) {
-            localMyGuestName = data.name;
-          }
 
           if (localPlushie) {
             localPlushie.userData.team = assignedTeam;
@@ -252,7 +251,7 @@
           }
         });
 
-        socket.on('update_player', (data) => {
+socket.on('update_player', (data) => {
           let pMesh = remotePlayers.get(data.id);
           const remoteTeam = data.team || 'BLUE';
           const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
@@ -260,6 +259,7 @@
           const playerName = data.name || "Guest";
 
           if (!pMesh) {
+            // Pass playerName here so the plushie gets the correct name right away!
             pMesh = createCutePlushie(remotePlushieHex, playerName);
             pMesh.userData.team = remoteTeam;
             updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
@@ -268,25 +268,58 @@
           } else {
             pMesh.userData.team = remoteTeam;
             pMesh.traverse(child => {
-              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
                 child.material.color.setHex(remotePlushieHex);
               }
             });
           }
-         
+          
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-         
+          
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-         
+          
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
+        
+socket.on('update_player', (data) => {
+          let pMesh = remotePlayers.get(data.id);
+          const remoteTeam = data.team || 'BLUE';
+          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
 
-        socket.on('remove_player', (id) => {
+          if (!pMesh) {
+            pMesh = createCutePlushie(remotePlushieHex, data.name || "Guest");
+            pMesh.userData.team = remoteTeam;
+            updatePlushieNameBadge(pMesh, data.name || "Guest", remoteTeamColor);
+            miniDiorama.add(pMesh);
+            remotePlayers.set(data.id, pMesh);
+          } else {
+            // Update color if team changed
+            pMesh.userData.team = remoteTeam;
+            pMesh.traverse(child => {
+              if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
+                child.material.color.setHex(remotePlushieHex);
+              }
+            });
+          }
+          
+          pMesh.position.set(data.x, data.y, data.z);
+          pMesh.rotation.y = data.yaw + Math.PI;
+          
+          if (data.name) {
+            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
+          }
+          
+          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
+        });
+        
+socket.on('remove_player', (id) => {
           const pMesh = remotePlayers.get(id);
           if (pMesh) {
+            // Remove the name badge mesh from the diorama if it exists
             if (pMesh.userData && pMesh.userData.badgeMesh) {
               miniDiorama.remove(pMesh.userData.badgeMesh);
             }
@@ -1744,6 +1777,7 @@
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
    
+
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -1899,10 +1933,10 @@
     miniDiorama.add(feltCarpet);
 
     const miniWall = new THREE.Mesh(
-      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2),
+      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2), 
       new THREE.MeshStandardMaterial({ color: 0x15092a, side: THREE.BackSide })
     );
-    miniWall.position.y = 2.65;
+    miniWall.position.y = 2.65; 
     miniDiorama.add(miniWall);
 
     const enclosingWallsGroup = new THREE.Group();
@@ -1951,7 +1985,7 @@
     partitionGroup.add(rightWall);
 
     const gateGroup = new THREE.Group();
-    gateGroup.position.set(0, 0, -4.0);
+    gateGroup.position.set(0, 0, -4.0); 
 
     const gateMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4.2, 3.0),
@@ -1980,14 +2014,14 @@
     pitchSbTexture.minFilter = THREE.LinearFilter;
 
     const pitchBoardGeo = new THREE.PlaneGeometry(12, 6);
-    const pitchBoardMat = new THREE.MeshBasicMaterial({
-      map: pitchSbTexture,
-      side: THREE.DoubleSide
+    const pitchBoardMat = new THREE.MeshBasicMaterial({ 
+      map: pitchSbTexture, 
+      side: THREE.DoubleSide 
     });
 
     const pitchScoreboardMesh = new THREE.Mesh(pitchBoardGeo, pitchBoardMat);
     pitchScoreboardMesh.position.set(34.0, 3.5, 14.0);
-    pitchScoreboardMesh.rotation.y = Math.PI;
+    pitchScoreboardMesh.rotation.y = Math.PI; 
     miniDiorama.add(pitchScoreboardMesh);
 
     function renderPitchScoreboard(blue, red) {
@@ -2076,7 +2110,7 @@
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
      
-      const goalSpan = 5.0;
+      const goalSpan = 5.0; 
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
       goalGroup.add(post1);
@@ -2932,7 +2966,7 @@ function createCutePlushie(color, initialName = "") {
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
-     
+      
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -2958,7 +2992,7 @@ function createCutePlushie(color, initialName = "") {
       ctx.fill(); ctx.stroke();
 
       // Draw team colored accent text glow or matching text color
-      ctx.fillStyle = teamColor;
+      ctx.fillStyle = teamColor; 
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
       ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
@@ -3021,7 +3055,7 @@ let assignedTeam = 'BLUE';
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-   
+    
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -3390,9 +3424,9 @@ const pGroup = createCutePlushie(col, "");
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
-            plushiePosition.x = 9.6;
+            plushiePosition.x = 9.6; 
           } else {
-            plushiePosition.x = 10.4;
+            plushiePosition.x = 10.4; 
           }
         }
       }
@@ -3404,13 +3438,16 @@ const pGroup = createCutePlushie(col, "");
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
+        // Single-authority physics check with multi-player collision support
         if (isBallPhysicsHost) {
+          // 1. Check local player collision
           if (distToBall < 0.78) {
             const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
             ballVelocity.addScaledVector(pushDir, 13.0);
             playTone(600, 'triangle', 0.08, 0.1);
           }
 
+          // 2. Check all remote players for ball collisions
           remotePlayers.forEach((pMesh) => {
             if (pMesh) {
               const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
@@ -3462,6 +3499,7 @@ const pGroup = createCutePlushie(col, "");
             });
           }
         } else {
+          // Non-host player cleanly interpolates ball position from the master host
           if (hasRemoteBallUpdate) {
             ballMesh.position.lerp(remoteBallTarget, 0.35);
           }
@@ -3502,10 +3540,11 @@ const pGroup = createCutePlushie(col, "");
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
       const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
       const camTargetY = plushieWorldPos.y + 1.6;
 
+      // Framerate-independent smooth damping factor
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
       camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
@@ -3572,14 +3611,18 @@ const pGroup = createCutePlushie(col, "");
         updatePlushieVisibility(sp, false, false);
       });
 
+const cameraRotation = camera.quaternion;
+
       const camRot = camera.quaternion;
-     
+      
+      // Update local plushie badge world position & camera lock
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
         badge.quaternion.copy(camRot);
       }
 
+      // Update remote player name tags so they track position and face the camera
       remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
@@ -3588,6 +3631,7 @@ const pGroup = createCutePlushie(col, "");
         }
       });
 
+      // Update game board pawns
       if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
         pawn1.userData.badgeMesh.quaternion.copy(camRot);
       }
@@ -3595,6 +3639,7 @@ const pGroup = createCutePlushie(col, "");
         pawn2.userData.badgeMesh.quaternion.copy(camRot);
       }
 
+      // Update spectator plushies
       spectatorPlushies.forEach(sp => {
         if (sp && sp.userData && sp.userData.badgeMesh) {
           sp.userData.badgeMesh.quaternion.copy(camRot);
@@ -3615,7 +3660,7 @@ const pGroup = createCutePlushie(col, "");
 
       renderer.render(scene, camera);
     }
-
+    // --- MOBILE VIRTUAL DPAD & SWIPE CONTROLS ---
     const btnUp = document.getElementById('btn-up');
     const btnDown = document.getElementById('btn-down');
     const btnLeft = document.getElementById('btn-left');
@@ -3647,6 +3692,7 @@ const pGroup = createCutePlushie(col, "");
     bindTouchButton(btnLeft, 'turnLeft', btnLeft);
     bindTouchButton(btnRight, 'turnRight', btnRight);
 
+    // Screen Touch Swipe to Turn + Light up Left/Right buttons
     let touchStartX = null;
     let isSwipingScreen = false;
 
@@ -3663,7 +3709,7 @@ const pGroup = createCutePlushie(col, "");
       if (e.touches.length > 0) {
         const currentX = e.touches[0].clientX;
         const deltaX = currentX - touchStartX;
-       
+        
         const turnSensitivity = 0.008;
         plushieRotation.yaw -= deltaX * turnSensitivity;
 
