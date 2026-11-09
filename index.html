@@ -8,7 +8,10 @@
       margin: 0; padding: 0; width: 100%; height: 100%;
       overflow: hidden; background-color: #05020a;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      touch-action: manipulation;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     #canvas3d { width: 100%; height: 100%; display: block; cursor: pointer; }
 
@@ -30,47 +33,60 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
-    /* Mobile Virtual D-Pad (Hidden on PC desktop) */
+
+    /* Mobile Virtual D-Pad & Look Zone */
     #mobile-dpad {
       position: absolute;
-      bottom: 30px;
-      left: 30px;
+      bottom: 25px;
+      left: 25px;
       display: none;
       grid-template-areas:
         ". up ."
         "left down right";
-      gap: 12px;
+      gap: 16px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
     }
 
-    /* Automatically show on touch/mobile devices */
+    #mobile-look-zone {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50%;
+      height: 100%;
+      display: none;
+      z-index: 28;
+      touch-action: none;
+    }
+
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-dpad { display: grid; }
+      #mobile-look-zone { display: block; }
     }
 
     .dpad-btn {
-      width: 60px;
-      height: 60px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 2px solid #00f0ff;
-      border-radius: 14px;
+      width: 76px;
+      height: 76px;
+      background: rgba(22, 9, 44, 0.88);
+      border: 3px solid #00f0ff;
+      border-radius: 18px;
       color: #00f0ff;
-      font-size: 22px;
+      font-size: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
-      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+      -webkit-user-select: none;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+      transition: background 0.05s, box-shadow 0.05s, border-color 0.05s;
     }
 
     .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
+      background: rgba(0, 240, 255, 0.5);
       border-color: #39ff14;
       color: #39ff14;
-      box-shadow: 0 0 22px #39ff14;
+      box-shadow: 0 0 26px #39ff14;
     }
   </style>
 </head>
@@ -85,10 +101,12 @@
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Step on <span style="color:#00d2d3;">Podium 1</span> to trigger Launch Sequence!
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Step on <span style="color:#00d2d3;">Podium 1</span> or <span style="color:#ff3838;">Podium 2</span> to Launch!
   </div>
 
   <canvas id="canvas3d"></canvas>
+
+  <div id="mobile-look-zone"></div>
 
   <div id="mobile-dpad">
     <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
@@ -152,7 +170,7 @@
     let antiSpamTimer = null;
     let podiumOffCount = 0;
     let lastPodiumOffTime = 0;
-    let hasTriggeredExtendedWindow = false; // One-time extension guard
+    let hasTriggeredExtendedWindow = false;
 
     let diceCountdown = 10;
     let diceCountdownInterval = null;
@@ -998,19 +1016,19 @@
     camera.position.set(0, 5.8, -5.0);
 
     const canvas = document.getElementById('canvas3d');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = false;
 
     const canvasPlayer1 = document.createElement('canvas');
-    canvasPlayer1.width = 640; canvasPlayer1.height = 360;
+    canvasPlayer1.width = 480; canvasPlayer1.height = 270;
 
     const canvasPlayer2 = document.createElement('canvas');
-    canvasPlayer2.width = 640; canvasPlayer2.height = 360;
+    canvasPlayer2.width = 480; canvasPlayer2.height = 270;
 
-    const streamPlayer1 = canvasPlayer1.captureStream(30);
-    const streamPlayer2 = canvasPlayer2.captureStream(30);
+    const streamPlayer1 = canvasPlayer1.captureStream(24);
+    const streamPlayer2 = canvasPlayer2.captureStream(24);
 
     let studioPeer = null;
     let connectedDataConns = [];
@@ -1990,17 +2008,17 @@
 
     const trussGroup = new THREE.Group();
     trussGroup.position.set(0, 8.4, -9.8);
-    const trussMat = new THREE.MeshStandardMaterial({ color: 0x3d3d4e, metalness: 0.85, roughness: 0.3 });
-    const trussArch = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.08, 8, 24, Math.PI), trussMat);
+    const trussMat = new THREE.MeshBasicMaterial({ color: 0x3d3d4e });
+    const trussArch = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.08, 6, 16, Math.PI), trussMat);
     trussArch.rotation.x = Math.PI / 2;
     trussGroup.add(trussArch);
 
     function createDownFacingSpotlight(colorHex, x, y, z) {
       const fixGroup = new THREE.Group(); fixGroup.position.set(x, y, z);
       const headPivot = new THREE.Group();
-      const can = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.55, 16), new THREE.MeshStandardMaterial({ color: 0x15151e }));
+      const can = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.55, 12), new THREE.MeshBasicMaterial({ color: 0x15151e }));
       can.rotation.x = Math.PI / 2; headPivot.add(can);
-      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.19, 16), new THREE.MeshBasicMaterial({ color: 0x050505 }));
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.19, 12), new THREE.MeshBasicMaterial({ color: 0x050505 }));
       lens.position.set(0, 0, 0.28); headPivot.add(lens);
       const spot = new THREE.SpotLight(colorHex, 0, 18, Math.PI / 3.4, 0.35);
       spot.position.set(0, 0, 0.28); headPivot.add(spot);
@@ -2028,13 +2046,13 @@
     }
 
     const miniDiorama = new THREE.Group(); miniDiorama.position.set(0, 3.95, -9);
-    const feltCarpet = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 0.08, 48), new THREE.MeshStandardMaterial({ color: 0x271147 }));
+    const feltCarpet = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 0.08, 32), new THREE.MeshBasicMaterial({ color: 0x271147 }));
     feltCarpet.position.y = 0.44;
     miniDiorama.add(feltCarpet);
 
     const miniWall = new THREE.Mesh(
-      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 32, 1, true, 0, Math.PI * 2),
-      new THREE.MeshStandardMaterial({ color: 0x15092a, side: THREE.BackSide })
+      new THREE.CylinderGeometry(7.0, 7.0, 4.5, 24, 1, true, 0, Math.PI * 2),
+      new THREE.MeshBasicMaterial({ color: 0x15092a, side: THREE.BackSide })
     );
     miniWall.position.y = 2.65;
     miniDiorama.add(miniWall);
@@ -2042,13 +2060,7 @@
     const enclosingWallsGroup = new THREE.Group();
     enclosingWallsGroup.position.set(0, 0.44, 0.0);
 
-    const studioWallMat = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      side: THREE.DoubleSide,
-      transparent: false
-    });
+    const studioWallMat = new THREE.MeshBasicMaterial({ color: 0x1f113a, side: THREE.DoubleSide });
 
     const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.0, 14.0), studioWallMat);
     westWall.position.set(-7.0, 2.5, 0.0);
@@ -2067,20 +2079,11 @@
     const partitionGroup = new THREE.Group();
     partitionGroup.position.set(10.0, 0.44, 0.0);
 
-    const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      transparent: false,
-      opacity: 1.0,
-      side: THREE.DoubleSide
-    });
-
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 4.5), wallMaterial);
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 4.5), studioWallMat);
     leftWall.position.set(0, 2.25, -7.75);
     partitionGroup.add(leftWall);
 
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 12.5), wallMaterial);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 12.5), studioWallMat);
     rightWall.position.set(0, 2.25, 3.75);
     partitionGroup.add(rightWall);
 
@@ -2089,16 +2092,7 @@
 
     const gateMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4.2, 3.0),
-      new THREE.MeshStandardMaterial({
-        color: 0x050505,
-        roughness: 0.1,
-        metalness: 0.85,
-        emissive: 0x111115,
-        emissiveIntensity: 0.2,
-        transparent: false,
-        opacity: 1.0,
-        side: THREE.DoubleSide
-      })
+      new THREE.MeshBasicMaterial({ color: 0x050505, side: THREE.DoubleSide })
     );
     gateMesh.position.set(0, 2.1, 0);
     gateGroup.add(gateMesh);
@@ -2107,8 +2101,8 @@
     miniDiorama.add(partitionGroup);
 
     const pitchSbCanvas = document.createElement('canvas');
-    pitchSbCanvas.width = 1024;
-    pitchSbCanvas.height = 512;
+    pitchSbCanvas.width = 512;
+    pitchSbCanvas.height = 256;
     const pitchSbCtx = pitchSbCanvas.getContext('2d');
     const pitchSbTexture = new THREE.CanvasTexture(pitchSbCanvas);
     pitchSbTexture.minFilter = THREE.LinearFilter;
@@ -2126,44 +2120,28 @@
 
     function renderPitchScoreboard(blue, red) {
       pitchSbCtx.fillStyle = '#05020a';
-      pitchSbCtx.fillRect(0, 0, 1024, 512);
+      pitchSbCtx.fillRect(0, 0, 512, 256);
 
       pitchSbCtx.strokeStyle = '#00f0ff';
-      pitchSbCtx.lineWidth = 10;
-      pitchSbCtx.strokeRect(10, 10, 1004, 492);
+      pitchSbCtx.lineWidth = 6;
+      pitchSbCtx.strokeRect(6, 6, 500, 244);
 
       pitchSbCtx.fillStyle = '#ffda66';
-      pitchSbCtx.font = 'bold 44px monospace';
+      pitchSbCtx.font = 'bold 22px monospace';
       pitchSbCtx.textAlign = 'center';
-      pitchSbCtx.fillText('★ PLUSHIE RUGBY-FOOTIE ARENA ★', 512, 85);
-
-      pitchSbCtx.fillStyle = 'rgba(0, 240, 255, 0.15)';
-      pitchSbCtx.fillRect(80, 140, 400, 300);
-      pitchSbCtx.strokeStyle = '#00f0ff';
-      pitchSbCtx.lineWidth = 4;
-      pitchSbCtx.strokeRect(80, 140, 400, 300);
+      pitchSbCtx.fillText('★ PLUSHIE RUGBY-FOOTIE ARENA ★', 256, 42);
 
       pitchSbCtx.fillStyle = '#00f0ff';
-      pitchSbCtx.font = 'bold 36px monospace';
-      pitchSbCtx.fillText('BLUE TEAM', 280, 195);
-
-      pitchSbCtx.fillStyle = '#ffffff';
-      pitchSbCtx.font = 'bold 96px monospace';
-      pitchSbCtx.fillText(blue, 280, 330);
-
-      pitchSbCtx.fillStyle = 'rgba(255, 56, 56, 0.15)';
-      pitchSbCtx.fillRect(544, 140, 400, 300);
-      pitchSbCtx.strokeStyle = '#ff3838';
-      pitchSbCtx.lineWidth = 4;
-      pitchSbCtx.strokeRect(544, 140, 400, 300);
+      pitchSbCtx.font = 'bold 18px monospace';
+      pitchSbCtx.fillText('BLUE TEAM: ' + blue, 140, 110);
 
       pitchSbCtx.fillStyle = '#ff3838';
-      pitchSbCtx.font = 'bold 36px monospace';
-      pitchSbCtx.fillText('RED TEAM', 744, 195);
+      pitchSbCtx.fillText('RED TEAM: ' + red, 372, 110);
 
       pitchSbCtx.fillStyle = '#ffffff';
-      pitchSbCtx.font = 'bold 96px monospace';
-      pitchSbCtx.fillText(red, 744, 330);
+      pitchSbCtx.font = 'bold 64px monospace';
+      pitchSbCtx.fillText(blue, 140, 185);
+      pitchSbCtx.fillText(red, 372, 185);
 
       pitchSbTexture.needsUpdate = true;
     }
@@ -2178,7 +2156,7 @@
 
     const turfMesh = new THREE.Mesh(
       new THREE.BoxGeometry(arenaLength, 0.06, arenaWidth),
-      new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.8 })
+      new THREE.MeshBasicMaterial({ color: 0x27ae60 })
     );
     turfMesh.position.y = 0.03;
     foosballGroup.add(turfMesh);
@@ -2189,12 +2167,7 @@
     centerLine.position.y = 0.065;
     foosballGroup.add(centerLine);
 
-    const centerCircle = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.1, 32), pitchLinesMat);
-    centerCircle.rotation.x = -Math.PI / 2;
-    centerCircle.position.y = 0.066;
-    foosballGroup.add(centerCircle);
-
-    const arenaWallMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x004466, metalness: 0.8, roughness: 0.2 });
+    const arenaWallMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
     const halfLen = arenaLength / 2;
     const halfWid = arenaWidth / 2;
 
@@ -2208,31 +2181,23 @@
 
     function createVibrantGoal(isLeft) {
       const goalGroup = new THREE.Group();
-      const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
+      const postMat = new THREE.MeshBasicMaterial({ color: isLeft ? 0x00f0ff : 0xff3838 });
      
       const goalSpan = 5.0;
-      const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
+      const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 8), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
       goalGroup.add(post1);
 
-      const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
+      const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 8), postMat);
       post2.position.set(0, 1.5, -goalSpan / 2);
       goalGroup.add(post2);
 
-      const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, goalSpan, 16), postMat);
+      const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, goalSpan, 8), postMat);
       crossbar.rotation.z = Math.PI / 2;
       crossbar.position.set(0, 3.0, 0);
       goalGroup.add(crossbar);
 
-      const up1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.5, 16), postMat);
-      up1.position.set(0, 5.25, goalSpan / 2);
-      goalGroup.add(up1);
-
-      const up2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.5, 16), postMat);
-      up2.position.set(0, 5.25, -goalSpan / 2);
-      goalGroup.add(up2);
-
-      const netMat = new THREE.MeshBasicMaterial({ color: isLeft ? 0x00ffff : 0xff79b0, wireframe: true, transparent: true, opacity: 0.7 });
+      const netMat = new THREE.MeshBasicMaterial({ color: isLeft ? 0x00ffff : 0xff79b0, wireframe: true, transparent: true, opacity: 0.6 });
       const netBox = new THREE.Mesh(new THREE.BoxGeometry(1.6, 3.0, goalSpan), netMat);
       netBox.position.set(-0.8, 1.5, 0);
       goalGroup.add(netBox);
@@ -2247,8 +2212,8 @@
     miniDiorama.add(foosballGroup);
 
     const ballMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.38, 24, 24),
-      new THREE.MeshStandardMaterial({ color: 0xffda66, emissive: 0x443300, roughness: 0.3, metalness: 0.5 })
+      new THREE.SphereGeometry(0.38, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffda66 })
     );
     ballMesh.position.set(34.0, 0.82, 0.0);
     miniDiorama.add(ballMesh);
@@ -2259,15 +2224,15 @@
 
     const p1PodiumGroup = new THREE.Group();
     const p1PodiumBase = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.40, 0.48, 0.55, 20),
-      new THREE.MeshStandardMaterial({ color: 0x1b0c30, metalness: 0.5, roughness: 0.3 })
+      new THREE.CylinderGeometry(0.40, 0.48, 0.55, 12),
+      new THREE.MeshBasicMaterial({ color: 0x1b0c30 })
     );
     p1PodiumBase.position.y = 0.275;
     p1PodiumGroup.add(p1PodiumBase);
 
     const p1PodiumRim = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.42, 0.04, 20),
-      new THREE.MeshStandardMaterial({ color: 0x00d2d3, metalness: 0.9, roughness: 0.2 })
+      new THREE.CylinderGeometry(0.42, 0.42, 0.04, 12),
+      new THREE.MeshBasicMaterial({ color: 0x00d2d3 })
     );
     p1PodiumRim.position.y = 0.56;
     p1PodiumGroup.add(p1PodiumRim);
@@ -2277,15 +2242,15 @@
 
     const p2PodiumGroup = new THREE.Group();
     const p2PodiumBase = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.40, 0.48, 0.55, 20),
-      new THREE.MeshStandardMaterial({ color: 0x1b0c30, metalness: 0.5, roughness: 0.3 })
+      new THREE.CylinderGeometry(0.40, 0.48, 0.55, 12),
+      new THREE.MeshBasicMaterial({ color: 0x1b0c30 })
     );
     p2PodiumBase.position.y = 0.275;
     p2PodiumGroup.add(p2PodiumBase);
 
     const p2PodiumRim = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.42, 0.04, 20),
-      new THREE.MeshStandardMaterial({ color: 0xff3838, metalness: 0.9, roughness: 0.2 })
+      new THREE.CylinderGeometry(0.42, 0.42, 0.04, 12),
+      new THREE.MeshBasicMaterial({ color: 0xff3838 })
     );
     p2PodiumRim.position.y = 0.56;
     p2PodiumGroup.add(p2PodiumRim);
@@ -2294,25 +2259,25 @@
     window.p2PodiumGroup = p2PodiumGroup;
 
     const wallClockCanvas = document.createElement('canvas');
-    wallClockCanvas.width = 256; wallClockCanvas.height = 128;
+    wallClockCanvas.width = 128; wallClockCanvas.height = 64;
     const wallClockCtx = wallClockCanvas.getContext('2d');
     const wallClockTex = new THREE.CanvasTexture(wallClockCanvas);
 
     function renderWallClockTexture(str) {
       wallClockCtx.fillStyle = '#06020f';
-      wallClockCtx.fillRect(0, 0, 256, 128);
+      wallClockCtx.fillRect(0, 0, 128, 64);
       wallClockCtx.strokeStyle = '#00f0ff';
-      wallClockCtx.lineWidth = 4;
-      wallClockCtx.strokeRect(4, 4, 248, 120);
+      wallClockCtx.lineWidth = 2;
+      wallClockCtx.strokeRect(2, 2, 124, 60);
 
       wallClockCtx.fillStyle = '#ffda66';
-      wallClockCtx.font = 'bold 18px monospace';
+      wallClockCtx.font = 'bold 10px monospace';
       wallClockCtx.textAlign = 'center';
-      wallClockCtx.fillText("20-MIN SHOW CLOCK", 128, 36);
+      wallClockCtx.fillText("20-MIN SHOW CLOCK", 64, 18);
 
       wallClockCtx.fillStyle = '#ff7675';
-      wallClockCtx.font = 'bold 50px monospace';
-      wallClockCtx.fillText(str, 128, 95);
+      wallClockCtx.font = 'bold 26px monospace';
+      wallClockCtx.fillText(str, 64, 50);
       wallClockTex.needsUpdate = true;
     }
     renderWallClockTexture("20:00");
@@ -2332,10 +2297,10 @@
 
     function createCountryFlagTexture(countryName) {
       const c = document.createElement('canvas');
-      c.width = 256; c.height = 256;
-      const ctx = c.getContext('2d'); const w = 256; const h = 256;
+      c.width = 128; c.height = 128;
+      const ctx = c.getContext('2d'); const w = 128; const h = 128;
       ctx.fillStyle = '#1e1035'; ctx.fillRect(0, 0, w, h);
-      ctx.save(); ctx.beginPath(); ctx.arc(128, 128, 124, 0, Math.PI * 2); ctx.clip();
+      ctx.save(); ctx.beginPath(); ctx.arc(64, 64, 60, 0, Math.PI * 2); ctx.clip();
 
       switch(countryName) {
         case "France":
@@ -2351,19 +2316,18 @@
         case "Canada":
           ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h);
           ctx.fillStyle = '#FF0000'; ctx.fillRect(0, 0, w * 0.28, h); ctx.fillRect(w * 0.72, 0, w * 0.28, h);
-          ctx.beginPath(); ctx.arc(128, 128, 36, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(64, 64, 18, 0, Math.PI * 2); ctx.fill();
           break;
         case "Brazil":
           ctx.fillStyle = '#009739'; ctx.fillRect(0, 0, w, h);
           ctx.fillStyle = '#FEDD00';
-          ctx.beginPath(); ctx.moveTo(128, 24); ctx.lineTo(236, 128); ctx.lineTo(128, 232); ctx.lineTo(20, 128); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = '#012169'; ctx.beginPath(); ctx.arc(128, 128, 52, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(128, 134, 46, 3.4, 6.0); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(64, 12); ctx.lineTo(118, 64); ctx.lineTo(64, 116); ctx.lineTo(10, 64); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#012169'; ctx.beginPath(); ctx.arc(64, 64, 26, 0, Math.PI * 2); ctx.fill();
           break;
         case "Sweden":
           ctx.fillStyle = '#006AA7'; ctx.fillRect(0, 0, w, h);
           ctx.fillStyle = '#FECC00';
-          ctx.fillRect(75, 0, 36, h); ctx.fillRect(0, 110, w, 36);
+          ctx.fillRect(38, 0, 18, h); ctx.fillRect(0, 55, w, 18);
           break;
         case "Italy":
           ctx.fillStyle = '#009246'; ctx.fillRect(0, 0, w / 3, h);
@@ -2373,22 +2337,16 @@
         case "Denmark":
           ctx.fillStyle = '#C60C30'; ctx.fillRect(0, 0, w, h);
           ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(80, 0, 34, h); ctx.fillRect(0, 111, w, 34);
+          ctx.fillRect(40, 0, 16, h); ctx.fillRect(0, 56, w, 16);
           break;
         case "Australia":
           ctx.fillStyle = '#00008B'; ctx.fillRect(0, 0, w, h);
-          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 120, 120);
-          ctx.fillStyle = '#CC0000'; ctx.fillRect(48, 0, 24, 120); ctx.fillRect(0, 48, 120, 24);
-          ctx.fillStyle = '#FFFFFF';
-          [[60, 180], [180, 70], [210, 120], [180, 190], [150, 130]].forEach(([sx, sy]) => {
-            ctx.beginPath(); ctx.arc(sx, sy, 10, 0, Math.PI * 2); ctx.fill();
-          });
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 60, 60);
+          ctx.fillStyle = '#CC0000'; ctx.fillRect(24, 0, 12, 60); ctx.fillRect(0, 24, 60, 12);
           break;
         case "Spain":
           ctx.fillStyle = '#AA151B'; ctx.fillRect(0, 0, w, h);
           ctx.fillStyle = '#F1BF00'; ctx.fillRect(0, h * 0.25, w, h * 0.5);
-          ctx.fillStyle = '#AA151B';
-          ctx.beginPath(); ctx.arc(80, 128, 22, 0, Math.PI * 2); ctx.fill();
           break;
         case "Germany":
           ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, w, h / 3);
@@ -2397,12 +2355,9 @@
           break;
         case "UK":
           ctx.fillStyle = '#012169'; ctx.fillRect(0, 0, w, h);
-          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 36;
+          ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 18;
           ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, h); ctx.moveTo(w, 0); ctx.lineTo(0, h); ctx.stroke();
-          ctx.strokeStyle = '#C8102E'; ctx.lineWidth = 14;
-          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w, h); ctx.moveTo(w, 0); ctx.lineTo(0, h); ctx.stroke();
-          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(100, 0, 56, h); ctx.fillRect(0, 100, w, 56);
-          ctx.fillStyle = '#C8102E'; ctx.fillRect(112, 0, 32, h); ctx.fillRect(0, 112, w, 32);
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(50, 0, 28, h); ctx.fillRect(0, 50, w, 28);
           break;
         case "Nigeria":
           ctx.fillStyle = '#008751'; ctx.fillRect(0, 0, w / 3, h);
@@ -2418,12 +2373,6 @@
             }
           }
           ctx.fillStyle = '#3C3B6E'; ctx.fillRect(0, 0, w * 0.48, h * 0.54);
-          ctx.fillStyle = '#FFFFFF';
-          for (let r = 18; r < 125; r += 26) {
-            for (let col = 16; col < 115; col += 24) {
-              ctx.beginPath(); ctx.arc(col, r, 4, 0, Math.PI * 2); ctx.fill();
-            }
-          }
           break;
         case "Belgium":
           ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, w / 3, h);
@@ -2435,7 +2384,7 @@
       }
       ctx.restore();
 
-      ctx.strokeStyle = '#e6c875'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(128, 128, 123, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#e6c875'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(64, 64, 61, 0, Math.PI * 2); ctx.stroke();
       const tex = new THREE.CanvasTexture(c); tex.needsUpdate = true; return tex;
     }
 
@@ -2453,12 +2402,12 @@
 
       boardTileCoords.push({ x, z, country: countryName });
 
-      const sideMat = new THREE.MeshStandardMaterial({ color: 0x241e33, metalness: 0.6, roughness: 0.3 });
+      const sideMat = new THREE.MeshBasicMaterial({ color: 0x241e33 });
       const topMat = new THREE.MeshBasicMaterial({ map: flagTextures[i % flagTextures.length] });
       const botMat = new THREE.MeshBasicMaterial({ color: 0x110d1c });
 
       const tile = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.28, 0.30, 0.08, 24),
+        new THREE.CylinderGeometry(0.28, 0.30, 0.08, 12),
         [sideMat, topMat, botMat]
       );
       tile.position.set(x, 0.48, z);
@@ -2474,20 +2423,14 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      const r = 24;
-      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(r, 4); ctx.lineTo(w - r, 4); ctx.quadraticCurveTo(w - 4, 4, w - 4, r);
-      ctx.lineTo(w - 4, h - r); ctx.quadraticCurveTo(w - 4, h - 4, w - r, h - 4);
-      ctx.lineTo(r, h - 4); ctx.quadraticCurveTo(4, h - 4, 4, h - r);
-      ctx.lineTo(4, r); ctx.quadraticCurveTo(4, 4, r, 4);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#0a0314'; ctx.strokeStyle = tagColor; ctx.lineWidth = 6;
+      ctx.fillRect(4, 4, w - 8, h - 8);
+      ctx.strokeRect(4, 4, w - 8, h - 8);
 
       ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const cleanName = (displayName || "PLAYER").toUpperCase().trim();
-      let fontSize = 48;
-      if (cleanName.length > 8) fontSize = 36;
-      if (cleanName.length > 12) fontSize = 28;
+      let fontSize = 36;
+      if (cleanName.length > 8) fontSize = 28;
      
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillText(cleanName, w / 2, h / 2 + 2);
@@ -2499,16 +2442,16 @@
 
     function createPlayerPawn(colorHex, initialName) {
       const pawn = new THREE.Group();
-      const baseMat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.6, roughness: 0.25 });
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.04, 16), baseMat);
+      const baseMat = new THREE.MeshBasicMaterial({ color: colorHex });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.04, 8), baseMat);
       base.position.y = 0.02; pawn.add(base);
-      const body = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 16), baseMat);
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.16, 8), baseMat);
       body.position.y = 0.12; pawn.add(body);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 16), baseMat);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), baseMat);
       head.position.y = 0.22; pawn.add(head);
 
       const bCanvas = document.createElement('canvas');
-      bCanvas.width = 256; bCanvas.height = 96;
+      bCanvas.width = 128; bCanvas.height = 48;
       const bTex = new THREE.CanvasTexture(bCanvas);
 
       const badgeMat = new THREE.MeshBasicMaterial({
@@ -2552,42 +2495,13 @@
       if (rotationAngle !== 0) ctx.rotate(rotationAngle);
 
       const half = size / 2;
-      const radius = size * 0.16;
 
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 18;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 5;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-half, -half, size, size);
 
-      ctx.beginPath();
-      ctx.moveTo(-half + radius, -half);
-      ctx.lineTo(half - radius, -half);
-      ctx.quadraticCurveTo(half, -half, half, -half + radius);
-      ctx.lineTo(half, half - radius);
-      ctx.quadraticCurveTo(half, half, half - radius, half);
-      ctx.lineTo(-half + radius, half);
-      ctx.quadraticCurveTo(-half, half, -half, half - radius);
-      ctx.lineTo(-half, -half + radius);
-      ctx.quadraticCurveTo(-half, -half, -half + radius, -half);
-      ctx.closePath();
-
-      const grad = ctx.createLinearGradient(-half, -half, half, half);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.5, '#f5f6fa');
-      grad.addColorStop(1, '#dcdde1');
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
       ctx.strokeStyle = glowColor;
       ctx.lineWidth = 3.5;
-      ctx.stroke();
-
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(-half + 4, -half + 4, size - 8, size - 8);
+      ctx.strokeRect(-half, -half, size, size);
 
       ctx.fillStyle = '#e74c3c';
       const r = size * 0.085;
@@ -2597,9 +2511,6 @@
         ctx.beginPath();
         ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
       };
 
       if (value % 2 === 1) pip(0, 0);
@@ -2623,17 +2534,10 @@
         qBoardCtx.textAlign = 'center';
         qBoardCtx.fillText("STUDIO INTERMISSION", 256, 70);
 
-        qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 88, 440, 2);
-
         qBoardCtx.fillStyle = '#ffda66';
         qBoardCtx.font = 'bold 18px monospace';
-        const missingName = contestantNames[droppedOutContestant] || (droppedOutContestant === "goody-contestant-1" ? "Player 1" : "Player 2");
+        const missingName = contestantNames[droppedOutContestant] || "Player";
         qBoardCtx.fillText(`LOST CONNECTION TO ${missingName.toUpperCase()}`, 256, 140);
-
-        qBoardCtx.fillStyle = '#ffffff';
-        qBoardCtx.font = '16px sans-serif';
-        qBoardCtx.fillText("10S REPLACEMENT GRACE WINDOW ACTIVE...", 256, 195);
       } else if (gameState === "PODIUM_1_WAIT") {
         qBoardCtx.fillStyle = '#ffda66';
         qBoardCtx.font = 'bold 22px sans-serif';
@@ -2644,22 +2548,15 @@
         qBoardCtx.font = 'bold 20px monospace';
         qBoardCtx.fillText(`⏱️ WAITING FOR PLAYER 2: ${prioritySecondsLeft}s`, 256, 100);
 
-        qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 120, 440, 2);
-
         qBoardCtx.fillStyle = '#ffffff';
         qBoardCtx.font = '15px sans-serif';
-        qBoardCtx.fillText("Player 1 secured Podium 1!", 256, 175);
-        qBoardCtx.fillText("Step onto Podium 2 to start 2-Player mode,", 256, 210);
-        qBoardCtx.fillText("or wait for timer to choose Solo / vs Goody.", 256, 245);
+        qBoardCtx.fillText("Step onto Podium 2 to start 2-Player mode,", 256, 175);
+        qBoardCtx.fillText("or wait for timer to choose Solo / vs Goody.", 256, 210);
       } else if (gameState === "MODE_PROMPT") {
         qBoardCtx.fillStyle = '#ffda66';
         qBoardCtx.font = 'bold 24px sans-serif';
         qBoardCtx.textAlign = 'center';
         qBoardCtx.fillText("CHOOSE GAME MODE", 256, 50);
-
-        qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 66, 440, 2);
 
         if (antiSpamLockout) {
           qBoardCtx.fillStyle = '#ff7675';
@@ -2668,33 +2565,29 @@
         } else if (!isLocalOnPodium1 && !isP1Connected) {
           qBoardCtx.fillStyle = '#ff7675';
           qBoardCtx.font = 'bold 16px sans-serif';
-          qBoardCtx.fillText("STEP ON PODIUM 1 TO START LAUNCH SEQUENCE!", 256, 180);
+          qBoardCtx.fillText("STEP ON PODIUM 1 OR 2 TO START!", 256, 180);
         } else {
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = '15px sans-serif';
-          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 105);
+          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 95);
 
           qBoardCtx.fillStyle = '#3498db';
-          qBoardCtx.fillRect(40, 125, 432, 42);
+          qBoardCtx.fillRect(40, 115, 432, 42);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 152);
+          qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 142);
 
           qBoardCtx.fillStyle = '#e74c3c';
-          qBoardCtx.fillRect(40, 178, 432, 42);
+          qBoardCtx.fillRect(40, 168, 432, 42);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 205);
+          qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 195);
 
           qBoardCtx.fillStyle = '#9b59b6';
-          qBoardCtx.fillRect(40, 231, 432, 42);
+          qBoardCtx.fillRect(40, 221, 432, 42);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 258);
-
-          qBoardCtx.fillStyle = '#39ff14';
-          qBoardCtx.font = 'bold 13px monospace';
-          qBoardCtx.fillText("TAP ANY OPTION OR USE 1, 2, 3", 256, 315);
+          qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 248);
         }
       } else if (gameState === "OPENING_DUEL") {
         qBoardCtx.fillStyle = '#ffda66';
@@ -2702,50 +2595,18 @@
         qBoardCtx.textAlign = 'center';
         qBoardCtx.fillText("OPENING DICE ROLL", 256, 40);
 
-        if (isDiceTimerActive) {
-          qBoardCtx.fillStyle = '#ff7675';
-          qBoardCtx.font = 'bold 18px monospace';
-          qBoardCtx.textAlign = 'right';
-          qBoardCtx.fillText(`⏱️ ${diceCountdown}s`, 485, 40);
-        }
-
-        qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 54, 440, 2);
-
-        qBoardCtx.fillStyle = '#ffffff';
-        qBoardCtx.font = '15px sans-serif';
-        qBoardCtx.textAlign = 'center';
-        qBoardCtx.fillText("TAP SCREEN TO FREEZE & LOCK IN YOUR DICE!", 256, 80);
-
-        const nowMs = performance.now();
-        const randSeed1 = Math.floor((nowMs / 65) % 6) + 1;
-        const randSeed2 = Math.floor((nowMs / 85 + 2) % 6) + 1;
-
-        const valP1 = isDiceRollingP1 ? randSeed1 : (p1RollVal || 1);
-        const valP2 = isDiceRollingP2 ? randSeed2 : (p2RollVal || 1);
-
-        const rot1 = isDiceRollingP1 ? Math.sin(nowMs * 0.012) * 0.15 : 0;
-        const rot2 = isDiceRollingP2 ? Math.cos(nowMs * 0.014) * 0.15 : 0;
+        const valP1 = p1RollVal || 1;
+        const valP2 = p2RollVal || 1;
 
         if (isSoloMode) {
-          drawStudioDie(qBoardCtx, 256, 175, 96, valP1, isDiceRollingP1 ? '#39ff14' : '#00f0ff', rot1);
-
-          qBoardCtx.fillStyle = isDiceRollingP1 ? '#ffda66' : '#39ff14';
+          drawStudioDie(qBoardCtx, 208, 130, 96, valP1, '#00f0ff');
+          qBoardCtx.fillStyle = '#39ff14';
           qBoardCtx.font = 'bold 18px monospace';
           qBoardCtx.textAlign = 'center';
-          qBoardCtx.fillText(isDiceRollingP1 ? `${contestantNames["goody-contestant-1"].toUpperCase()} OPENING ROLL` : `LOCKED IN: ${p1RollVal}!`, 256, 260);
+          qBoardCtx.fillText(`LOCKED IN: ${p1RollVal || '...'}`, 256, 260);
         } else {
-          drawStudioDie(qBoardCtx, 170, 165, 82, valP1, isDiceRollingP1 ? '#00d2d3' : '#39ff14', rot1);
-          drawStudioDie(qBoardCtx, 342, 165, 82, valP2, isDiceRollingP2 ? '#ff3838' : '#39ff14', rot2);
-
-          qBoardCtx.fillStyle = isDiceRollingP1 ? '#00d2d3' : '#39ff14';
-          qBoardCtx.font = 'bold 15px monospace';
-          qBoardCtx.textAlign = 'center';
-          qBoardCtx.fillText(isDiceRollingP1 ? contestantNames["goody-contestant-1"].toUpperCase() : `LOCKED: ${p1RollVal}`, 170, 245);
-
-          qBoardCtx.fillStyle = isDiceRollingP2 ? '#ff3838' : '#39ff14';
-          qBoardCtx.fillText(isDiceRollingP2 ? contestantNames["goody-contestant-2"].toUpperCase() : `LOCKED: ${p2RollVal}`, 342, 245);
-
+          drawStudioDie(qBoardCtx, 120, 130, 82, valP1, '#00d2d3');
+          drawStudioDie(qBoardCtx, 310, 130, 82, valP2, '#ff3838');
           qBoardCtx.fillStyle = '#ffda66';
           qBoardCtx.font = 'bold 18px monospace';
           qBoardCtx.fillText("VS", 256, 170);
@@ -2760,196 +2621,37 @@
         qBoardCtx.fillStyle = activeRecap.isCorrect ? '#00b894' : '#ff7675';
         qBoardCtx.font = 'bold 22px sans-serif';
         qBoardCtx.textAlign = 'center';
-        qBoardCtx.fillText(activeRecap.isCorrect ? " CORRECT! WHAT WE LEARNED:" : " INCORRECT! WHAT WE LEARNED:", 256, 44);
-
-        qBoardCtx.fillStyle = '#ffda66';
-        qBoardCtx.font = 'bold 16px monospace';
-        qBoardCtx.fillText(` COUNTRY: ${activeRecap.country.toUpperCase()}`, 256, 78);
-
-        qBoardCtx.fillStyle = '#00f0ff';
-        qBoardCtx.fillRect(36, 94, 440, 2);
+        qBoardCtx.fillText(activeRecap.isCorrect ? " CORRECT!" : " INCORRECT!", 256, 50);
 
         qBoardCtx.fillStyle = '#ffffff';
         qBoardCtx.font = '16px sans-serif';
-        qBoardCtx.textAlign = 'center';
-
-        const words = activeRecap.text.split(' ');
-        let line = '';
-        let y = 140;
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + ' ';
-          const metrics = qBoardCtx.measureText(testLine);
-          if (metrics.width > 440 && n > 0) {
-            qBoardCtx.fillText(line, 256, y);
-            line = words[n] + ' ';
-            y += 28;
-          } else {
-            line = testLine;
-          }
-        }
-        qBoardCtx.fillText(line, 256, y);
-
-        qBoardCtx.fillStyle = '#39ff14';
-        qBoardCtx.font = '14px monospace';
-        qBoardCtx.fillText("NEXT TURN STARTING SHORTLY...", 256, 342);
+        qBoardCtx.fillText(activeRecap.text.substring(0, 75) + "...", 256, 140);
       } else if (activeQuestion) {
-        const pName = isTieBreakerActive ? "SUDDEN DEATH TIE-BREAKER" : `${contestantNames[activePlayer].toUpperCase()}'S TURN`;
         qBoardCtx.fillStyle = '#ffda66';
         qBoardCtx.font = 'bold 18px monospace';
         qBoardCtx.textAlign = 'left';
-        qBoardCtx.fillText(` ${activeQuestion.country.toUpperCase()} [${pName}]`, 20, 36);
-
-        if (isQuestionTimerActive && questionTimer > 0 && !isTieBreakerActive) {
-          qBoardCtx.fillStyle = '#ff7675';
-          qBoardCtx.font = 'bold 20px monospace';
-          qBoardCtx.textAlign = 'right';
-          qBoardCtx.fillText(` ${questionTimer}s`, 492, 36);
-        }
+        qBoardCtx.fillText(` ${activeQuestion.country.toUpperCase()} QUESTION`, 20, 36);
 
         qBoardCtx.fillStyle = '#ffffff';
         qBoardCtx.font = '15px sans-serif';
-        qBoardCtx.textAlign = 'left';
-        const words = activeQuestion.q.split(' ');
-        let line = '';
-        let y = 72;
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + ' ';
-          const metrics = qBoardCtx.measureText(testLine);
-          if (metrics.width > 470 && n > 0) {
-            qBoardCtx.fillText(line, 20, y);
-            line = words[n] + ' ';
-            y += 22;
-          } else {
-            line = testLine;
-          }
-        }
-        qBoardCtx.fillText(line, 20, y);
+        qBoardCtx.fillText(activeQuestion.q.substring(0, 65) + "...", 20, 85);
 
-        const letters = ["A", "B", "C", "D"];
         activeQuestion.options.forEach((opt, idx) => {
-          const optY = 210 + (idx * 40);
-          const isSelected = stageSelectedOption === opt;
-
-          if (isSelected) {
-            if (stageOptionStatus === 'correct') {
-              qBoardCtx.fillStyle = '#00b894';
-              qBoardCtx.strokeStyle = '#55efc4';
-            } else if (stageOptionStatus === 'wrong') {
-              qBoardCtx.fillStyle = '#d63031';
-              qBoardCtx.strokeStyle = '#ff7675';
-            } else {
-              qBoardCtx.fillStyle = '#6c5ce7';
-              qBoardCtx.strokeStyle = '#fdcb6e';
-            }
-          } else {
-            qBoardCtx.fillStyle = '#220f3d';
-            qBoardCtx.strokeStyle = '#a29bfe';
-          }
-
-          qBoardCtx.fillRect(20, optY - 24, 472, 32);
-          qBoardCtx.lineWidth = isSelected ? 4 : 2;
-          qBoardCtx.strokeRect(20, optY - 24, 472, 32);
-
-          qBoardCtx.fillStyle = isSelected ? '#ffffff' : '#ffda66';
-          qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText(`${letters[idx]})`, 30, optY - 2);
+          const optY = 150 + (idx * 50);
+          qBoardCtx.fillStyle = '#220f3d';
+          qBoardCtx.fillRect(20, optY, 472, 40);
+          qBoardCtx.strokeStyle = '#a29bfe';
+          qBoardCtx.strokeRect(20, optY, 472, 40);
 
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = '14px sans-serif';
-          const trimmed = opt.length > 48 ? opt.substring(0, 48) + "..." : opt;
-          qBoardCtx.fillText(trimmed, 64, optY - 2);
+          qBoardCtx.fillText(opt.substring(0, 50), 32, optY + 25);
         });
       } else {
-        if (!studioPower) {
-          qBoardCtx.fillStyle = '#ffda66';
-          qBoardCtx.font = 'bold 26px sans-serif';
-          qBoardCtx.textAlign = 'center';
-          qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
-        } else {
-          const isCurrentPlayerTurn = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
-         
-          if (gameState === "IN_PLAY" && (!hasPlayerRolledThisTurn || (hasPlayerRolledThisTurn && isPawnMoving && (p1RollVal !== null || p2RollVal !== null))) && isCurrentPlayerTurn) {
-            const pName = contestantNames[activePlayer];
-            const currentRolled = activePlayer === "goody-contestant-2" ? p2RollVal : p1RollVal;
-
-            qBoardCtx.fillStyle = '#ffda66';
-            qBoardCtx.font = 'bold 20px monospace';
-            qBoardCtx.textAlign = 'center';
-            qBoardCtx.fillText(`🎲 ${pName.toUpperCase()}'S TURN TO ROLL 🎲`, 230, 40);
-
-            if (isDiceTimerActive) {
-              qBoardCtx.fillStyle = '#ff7675';
-              qBoardCtx.font = 'bold 18px monospace';
-              qBoardCtx.textAlign = 'right';
-              qBoardCtx.fillText(`⏱️ ${diceCountdown}s`, 485, 40);
-            }
-
-            qBoardCtx.fillStyle = '#00f0ff';
-            qBoardCtx.fillRect(36, 52, 440, 2);
-
-            const now = performance.now();
-
-            if (currentRolled !== null) {
-              drawStudioDie(qBoardCtx, 256, 155, 96, currentRolled, '#39ff14', 0);
-
-              qBoardCtx.fillStyle = '#39ff14';
-              qBoardCtx.font = 'bold 24px monospace';
-              qBoardCtx.textAlign = 'center';
-              qBoardCtx.fillText(`LOCKED IN: ${currentRolled}!`, 256, 255);
-
-              qBoardCtx.fillStyle = '#ffffff';
-              qBoardCtx.font = '15px sans-serif';
-              qBoardCtx.fillText("Advancing pawn on the game board...", 256, 290);
-            } else {
-              const livePipA = Math.floor((now / 60) % 6) + 1;
-              const livePipB = Math.floor(((now / 75) + 3) % 6) + 1;
-              const wobbleA = Math.sin(now * 0.015) * 0.12;
-              const wobbleB = -Math.cos(now * 0.013) * 0.14;
-
-              drawStudioDie(qBoardCtx, 195, 145, 88, livePipA, '#00f0ff', wobbleA);
-              drawStudioDie(qBoardCtx, 317, 145, 88, livePipB, '#ff79b0', wobbleB);
-
-              qBoardCtx.fillStyle = '#39ff14';
-              qBoardCtx.font = 'bold 17px monospace';
-              qBoardCtx.textAlign = 'center';
-              qBoardCtx.fillText("[ TAP SCREEN TO STOP DICE ]", 256, 245);
-
-              qBoardCtx.fillStyle = '#ffda66';
-              qBoardCtx.font = 'bold 14px monospace';
-              qBoardCtx.fillText(`You have ${diceCountdown} seconds to roll!`, 256, 285);
-            }
-          } else {
-            const headerTxt = isSoloMode ? " SOLO RACE ACTIVE " : (isVsGoodyMode ? " GOODY HEAD-TO-HEAD BATTLE " : " OFFICIAL GAME RULES ");
-            qBoardCtx.fillStyle = '#ffda66';
-            qBoardCtx.font = 'bold 22px sans-serif';
-            qBoardCtx.textAlign = 'center';
-            qBoardCtx.fillText(headerTxt, 256, 45);
-
-            qBoardCtx.fillStyle = '#00f0ff';
-            qBoardCtx.fillRect(36, 58, 440, 2);
-
-            const rules = [
-              " 1. Tap the studio screen to roll your dice.",
-              " 2. Land on tiles to trigger country trivia.",
-              " 3. You have 30 seconds to answer questions.",
-              " 4. Correct answer secures your position.",
-              " 5. Incorrect answer sends you back to START!",
-              " 6. Reach tile 32 before 20:00 to WIN!"
-            ];
-
-            qBoardCtx.font = '13px monospace';
-            qBoardCtx.textAlign = 'left';
-            rules.forEach((rule, idx) => {
-              qBoardCtx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#ebdcf9';
-              qBoardCtx.fillText(rule, 26, 85 + (idx * 24));
-            });
-
-            qBoardCtx.fillStyle = '#39ff14';
-            qBoardCtx.font = 'bold 14px monospace';
-            qBoardCtx.textAlign = 'center';
-            qBoardCtx.fillText(" LIVE BROADCAST IN PROGRESS", 256, 250);
-          }
-        }
+        qBoardCtx.fillStyle = '#ffda66';
+        qBoardCtx.font = 'bold 22px sans-serif';
+        qBoardCtx.textAlign = 'center';
+        qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
       }
       qBoardTex.needsUpdate = true;
     }
@@ -2969,7 +2671,6 @@
     );
     screenClickMesh.position.copy(qBoardMesh.position);
     screenClickMesh.rotation.copy(qBoardMesh.rotation);
-    screenClickMesh.userData = { clickableType: 'QUESTION_BOARD' };
     miniDiorama.add(screenClickMesh);
 
     const raycaster = new THREE.Raycaster();
@@ -3000,39 +2701,24 @@
       mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const interactiveTargets = [screenClickMesh, qBoardMesh, studioBackScreenMesh];
-      const intersects = raycaster.intersectObjects(interactiveTargets, false);
+      const intersects = raycaster.intersectObject(screenClickMesh, false);
 
       if (intersects.length > 0) {
-        const hit = intersects[0];
-
         if (gameState === "CONTESTANT_CHOOSING") {
-          const uv = hit.uv;
-          if (uv) {
-            if (uv.y > 0.5) triggerOnePlayerMode();
-            else triggerVsGoodyMode();
-          } else {
-            triggerOnePlayerMode();
-          }
+          triggerOnePlayerMode();
           return;
         }
 
-        if (gameState === "MODE_PROMPT" && (isLocalOnPodium1 || isP1Connected)) {
-          const uv = hit.uv;
-          if (uv) {
-            if (uv.y > 0.60) chooseHostGameMode("SOLO");
-            else if (uv.y > 0.40) chooseHostGameMode("GOODY");
-            else chooseHostGameMode("TWOPLAYER");
-          } else {
-            chooseHostGameMode("SOLO");
-          }
+        if (gameState === "MODE_PROMPT" && (isLocalOnPodium1 || isLocalOnPodium2 || isP1Connected)) {
+          chooseHostGameMode("SOLO");
           return;
         }
 
         if (activeQuestion) {
+          const hit = intersects[0];
           const uv = hit.uv;
-          if (uv && uv.y < 0.5) {
-            const optIdx = Math.floor((0.5 - uv.y) / 0.12);
+          if (uv && uv.y < 0.6) {
+            const optIdx = Math.floor((0.6 - uv.y) / 0.15);
             if (optIdx >= 0 && optIdx < activeQuestion.options.length) {
               const chosenOpt = activeQuestion.options[optIdx];
               stageSelectedOption = chosenOpt;
@@ -3062,24 +2748,11 @@
 
     function createCutePlushie(color, initialName = "") {
       const pGroup = new THREE.Group();
-      const pMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.95 });
-      const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 14), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
-      const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
-      const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear1.position.set(-0.14, 0.74, 0);
-      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
-      const blushMat = new THREE.MeshBasicMaterial({ color: 0xff69b4 });
-      const blush1 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush1.position.set(-0.11, 0.54, 0.17);
-      const blush2 = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), blushMat); blush2.position.set(0.11, 0.54, 0.17); pGroup.add(blush1, blush2);
-      const eyeBlackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-      const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeL.position.set(-0.07, 0.60, 0.19);
-      const shineL = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineL.position.set(-0.08, 0.612, 0.21); pGroup.add(eyeL, shineL);
-      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeBlackMat); eyeR.position.set(0.07, 0.60, 0.19);
-      const shineR = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 6), eyeWhiteMat); shineR.position.set(0.06, 0.612, 0.21); pGroup.add(eyeR, shineR);
-      const snout = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff8fab, roughness: 0.6 }));
-      snout.scale.set(1.2, 0.8, 1); snout.position.set(0, 0.56, 0.21); pGroup.add(snout);
-      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 4, 8, Math.PI), new THREE.MeshBasicMaterial({ color: 0x222222 }));
-      mouth.position.set(0, 0.525, 0.21); mouth.rotation.x = Math.PI * 0.1; pGroup.add(mouth);
+      const pMat = new THREE.MeshBasicMaterial({ color: color });
+      const pBody = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), pMat); pBody.position.y = 0.28; pGroup.add(pBody);
+      const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), pMat); pHead.position.y = 0.58; pGroup.add(pHead);
+      const ear1 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), pMat); ear1.position.set(-0.14, 0.74, 0);
+      const ear2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), pMat); ear2.position.set(0.14, 0.74, 0); pGroup.add(ear1, ear2);
 
       let badgeMesh = null;
       let bCanvas = null;
@@ -3087,14 +2760,13 @@
 
       if (initialName) {
         bCanvas = document.createElement('canvas');
-        bCanvas.width = 256; bCanvas.height = 96;
+        bCanvas.width = 128; bCanvas.height = 48;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
           map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
-        badgeMesh.matrixAutoUpdate = true;
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
@@ -3103,34 +2775,6 @@
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
       return pGroup;
-    }
-
-    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
     }
 
     function setPlushieVisualMode(group, mode) {
@@ -3143,19 +2787,9 @@
       const isOpaque = (mode === 'opaque');
       group.traverse(child => {
         if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(m => {
-            if (isOpaque) {
-              m.transparent = false;
-              m.opacity = 1.0;
-              m.depthWrite = true;
-            } else {
-              m.transparent = true;
-              m.opacity = 0.45;
-              m.depthWrite = false;
-            }
-            m.needsUpdate = true;
-          });
+          child.material.transparent = !isOpaque;
+          child.material.opacity = isOpaque ? 1.0 : 0.45;
+          child.material.depthWrite = isOpaque;
         }
       });
     }
@@ -3164,24 +2798,6 @@
     let teamColorHex = '#00f0ff';
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
-
-    if (socket) {
-      socket.on('assign_team', (data) => {
-        assignedTeam = data.team;
-        teamColorHex = data.teamColor;
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-
-        if (localPlushie) {
-          localPlushie.userData.team = assignedTeam;
-          localPlushie.traverse(child => {
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-              child.material.color.setHex(plushieColorHex);
-            }
-          });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-        }
-      });
-    }
 
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
@@ -3198,7 +2814,7 @@
       if (e.code === 'KeyA') moveState.turnLeft = true;
       if (e.code === 'KeyD') moveState.turnRight = true;
 
-      if (gameState === "MODE_PROMPT" && (isLocalOnPodium1 || isP1Connected)) {
+      if (gameState === "MODE_PROMPT" && (isLocalOnPodium1 || isLocalOnPodium2 || isP1Connected)) {
         if (e.key === '1') chooseHostGameMode("SOLO");
         if (e.key === '2') chooseHostGameMode("GOODY");
         if (e.key === '3') chooseHostGameMode("TWOPLAYER");
@@ -3213,36 +2829,13 @@
       if (e.code === 'KeyD') moveState.turnRight = false;
     });
 
-    const miniAudience = new THREE.Group();
-    const plushColors = [0xff7675, 0x74b9ff, 0xa29bfe, 0xffbe76, 0x55efc4, 0xfd79a8, 0xf6e58d, 0x48dbfb, 0xff9ff3];
-    let playerPlushie1 = null;
-    let playerPlushie2 = null;
+    const playerPlushie1 = createCutePlushie(0xff7675, "");
+    playerPlushie1.position.set(-3.0, 0.46, 1.2);
+    miniDiorama.add(playerPlushie1);
 
-    [5.7, 6.4].forEach((radius, rowIdx) => {
-      const count = rowIdx === 0 ? 14 : 18;
-      for (let i = 0; i < count; i++) {
-        const theta = -Math.PI * 0.65 + (i / (count - 1)) * (Math.PI * 1.30);
-        const col = plushColors[(i + rowIdx * 3) % plushColors.length];
-        const pGroup = createCutePlushie(col, "");
-
-        const px = Math.sin(theta) * radius;
-        const pz = Math.cos(theta) * (radius * 0.95) + 0.8;
-        pGroup.position.set(px, 0.46 + rowIdx * 0.25, pz);
-        pGroup.lookAt(0, 1.8, -2.6);
-        pGroup.userData = {
-          initialY: pGroup.position.y,
-          phase: Math.random() * Math.PI * 2,
-          theta: theta,
-          radius: radius,
-          isAudienceSeat: true
-        };
-        miniDiorama.add(pGroup);
-
-        if (rowIdx === 0 && i === 4) playerPlushie1 = pGroup;
-        if (rowIdx === 0 && i === 9) playerPlushie2 = pGroup;
-      }
-    });
-    miniDiorama.add(miniAudience);
+    const playerPlushie2 = createCutePlushie(0x74b9ff, "");
+    playerPlushie2.position.set(3.0, 0.46, 1.2);
+    miniDiorama.add(playerPlushie2);
 
     function handlePlushieMovement(contestant, direction) {
       const targetPlushie = contestant === "goody-contestant-2" ? playerPlushie2 : playerPlushie1;
@@ -3253,8 +2846,6 @@
 
       const fwdX = -Math.sin(rot);
       const fwdZ = -Math.cos(rot);
-      const rightX = Math.cos(rot);
-      const rightZ = -Math.sin(rot);
 
       if (direction === 'FORWARD') {
         targetPlushie.position.x += fwdX * step;
@@ -3264,144 +2855,25 @@
         targetPlushie.position.x -= fwdX * step;
         targetPlushie.position.z -= fwdZ * step;
       }
-      if (direction === 'LEFT') {
-        targetPlushie.position.x -= rightX * step;
-        targetPlushie.position.z -= rightZ * step;
-      }
-      if (direction === 'RIGHT') {
-        targetPlushie.position.x += rightX * step;
-        targetPlushie.position.z += rightZ * step;
-      }
-
-      targetPlushie.position.x = Math.max(-6.8, Math.min(54.0, targetPlushie.position.x));
-      targetPlushie.position.z = Math.max(-14.0, Math.min(14.0, targetPlushie.position.z));
-      targetPlushie.position.y = 0.46;
     }
 
-    function drawDiceFace(ctx, x, y, size, value) {
-      drawStudioDie(ctx, x + size / 2, y + size / 2, size, value, '#ff79b0');
-    }
-
-    const studioScreenCanvas = document.createElement('canvas'); studioScreenCanvas.width = 512; studioScreenCanvas.height = 256;
+    const studioScreenCanvas = document.createElement('canvas'); studioScreenCanvas.width = 256; studioScreenCanvas.height = 128;
     const sScreenCtx = studioScreenCanvas.getContext('2d');
     const studioScreenTex = new THREE.CanvasTexture(studioScreenCanvas);
 
-    function drawScreenFeed(ctx, x, y, width, height, name, city, isLive, videoElem, isGuy, currentRoll, isRolling, isGoodyHostSlot) {
-      ctx.fillStyle = '#05020a'; ctx.fillRect(x, y, width, height);
-      ctx.strokeStyle = isGoodyHostSlot ? '#a29bfe' : (isLive ? '#39ff14' : '#ffb300');
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x, y, width, height);
-
-      if (isGoodyHostSlot) {
-        ctx.fillStyle = '#16082b';
-        ctx.fillRect(x + 2, y + 2, width - 4, height - 4);
-
-        const cx = x + width / 2;
-        const cy = y + height * 0.45;
-
-        ctx.fillStyle = '#cccccc';
-        ctx.strokeStyle = '#00f0ff';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(cx - 40, cy - 35, 80, 70);
-
-        ctx.strokeStyle = '#39ff14';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(cx - 24, cy - 10);
-        ctx.lineTo(cx - 14, cy - 22);
-        ctx.lineTo(cx - 4, cy - 10);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(cx + 4, cy - 10);
-        ctx.lineTo(cx + 14, cy - 22);
-        ctx.lineTo(cx + 24, cy - 10);
-        ctx.stroke();
-
-        if (isGoodySpeaking) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy + 15, 16, 8, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        } else {
-          ctx.beginPath();
-          ctx.arc(cx, cy + 10, 12, 0.2, Math.PI - 0.2, false);
-          ctx.stroke();
-        }
-      } else if (isLive && videoElem.readyState >= 2) {
-        ctx.save(); ctx.drawImage(videoElem, x + 2, y + 2, width - 4, height - 4); ctx.restore();
-      } else {
-        ctx.fillStyle = isGuy ? '#1b2a47' : '#3d1b38'; ctx.fillRect(x + 2, y + 2, width - 4, height - 4);
-        const cx = x + width / 2; const cy = y + height * 0.58;
-        ctx.fillStyle = isGuy ? '#4a69bd' : '#e84393'; ctx.beginPath(); ctx.ellipse(cx, cy + 25, 26, 32, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#f8c291'; ctx.beginPath(); ctx.arc(cx, cy - 10, 16, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(cx - 5, cy - 10, 2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(cx + 5, cy - 10, 2, 0, Math.PI * 2); ctx.fill();
-      }
-
-      const diceSize = 42;
-      const diceX = x + width - diceSize - 12;
-      const diceY = y + 12;
-
-      if (isRolling) {
-        const animVal = Math.floor((performance.now() / 80) % 6) + 1;
-        drawDiceFace(ctx, diceX, diceY, diceSize, animVal);
-      } else if (currentRoll !== null) {
-        drawDiceFace(ctx, diceX, diceY, diceSize, currentRoll);
-      }
-
-      ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(x, y + height - 26, width, 26);
-      ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
-      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-     
-      const tag = isGoodyHostSlot
-        ? `[AI HOST: GOODY]`
-        : `${isLive ? ' LIVE ' : ' CALL'} ${name.toUpperCase()} [${city.toUpperCase()}]`;
-
-      ctx.fillText(tag, x + width/2, y + height - 8);
-    }
-
     function renderBackstageScreens() {
-      sScreenCtx.fillStyle = '#060210'; sScreenCtx.fillRect(0, 0, 512, 256);
+      sScreenCtx.fillStyle = '#060210'; sScreenCtx.fillRect(0, 0, 256, 128);
       if (studioPower) {
-        const isP1Goody = isVsGoodyMode && goodyPlayerSlot === "goody-contestant-1";
-        const isP2Goody = isVsGoodyMode && goodyPlayerSlot === "goody-contestant-2";
+        sScreenCtx.fillStyle = '#1b2a47';
+        sScreenCtx.fillRect(10, 10, 110, 108);
+        sScreenCtx.fillStyle = '#39ff14';
+        sScreenCtx.font = 'bold 12px monospace';
+        sScreenCtx.fillText(contestantNames["goody-contestant-1"].toUpperCase(), 16, 32);
 
-        if (isSoloMode) {
-          sScreenCtx.fillStyle = '#030108';
-          sScreenCtx.fillRect(15, 20, 225, 215);
-          sScreenCtx.strokeStyle = '#441111';
-          sScreenCtx.lineWidth = 3;
-          sScreenCtx.strokeRect(15, 20, 225, 215);
-
-          sScreenCtx.fillStyle = '#ff7675';
-          sScreenCtx.font = 'bold 16px sans-serif';
-          sScreenCtx.textAlign = 'center';
-          sScreenCtx.fillText("GOODY MODE", 127, 105);
-
-          sScreenCtx.fillStyle = '#ffda66';
-          sScreenCtx.font = 'bold 12px monospace';
-          sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
-        } else {
-          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], contestantCities["goody-contestant-1"], hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
-        }
-
-        if (isSoloMode) {
-          sScreenCtx.fillStyle = '#030108';
-          sScreenCtx.fillRect(272, 20, 225, 215);
-          sScreenCtx.strokeStyle = '#441111';
-          sScreenCtx.lineWidth = 3;
-          sScreenCtx.strokeRect(272, 20, 225, 215);
-
-          sScreenCtx.fillStyle = '#ff7675';
-          sScreenCtx.font = 'bold 18px sans-serif';
-          sScreenCtx.textAlign = 'center';
-          sScreenCtx.fillText("POWER OFF", 384, 105);
-
-          sScreenCtx.fillStyle = '#ffda66';
-          sScreenCtx.font = 'bold 13px monospace';
-          sScreenCtx.fillText("1 PLAYER SOLO MODE", 384, 135);
-        } else {
-          drawScreenFeed(sScreenCtx, 272, 20, 225, 215, contestantNames["goody-contestant-2"], contestantCities["goody-contestant-2"], hasLivePlayer2Stream, videoPlayer2, false, p2RollVal, isDiceRollingP2, isP2Goody);
-        }
+        sScreenCtx.fillStyle = '#3d1b38';
+        sScreenCtx.fillRect(136, 10, 110, 108);
+        sScreenCtx.fillStyle = '#ff79b0';
+        sScreenCtx.fillText(contestantNames["goody-contestant-2"].toUpperCase(), 142, 32);
       }
       studioScreenTex.needsUpdate = true;
     }
@@ -3410,106 +2882,27 @@
     studioBackScreenMesh.position.set(0, 3.4, -4.5); miniDiorama.add(studioBackScreenMesh);
 
     const miniGoody = new THREE.Group();
-    const silverMetalMat = new THREE.MeshStandardMaterial({
-      color: 0xcccccc, metalness: 0.95, roughness: 0.15
-    });
-
-    const gPodium = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.6, 20), new THREE.MeshStandardMaterial({ color: 0x2b154a }));
+    const gPodium = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.6, 12), new THREE.MeshBasicMaterial({ color: 0x2b154a }));
     gPodium.position.y = 0.74; miniGoody.add(gPodium);
 
-    const podiumTrim = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.05, 20), silverMetalMat);
-    podiumTrim.position.y = 1.02; miniGoody.add(podiumTrim);
-
-    const gBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.4), silverMetalMat);
+    const gBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.4), new THREE.MeshBasicMaterial({ color: 0xcccccc }));
     gBody.position.y = 1.34; miniGoody.add(gBody);
-    const gHead = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.35, 0.35), silverMetalMat);
-    gHead.position.y = 1.82; miniGoody.add(gHead);
-    const gAntennaStem = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 8), silverMetalMat);
-    gAntennaStem.position.y = 2.08; miniGoody.add(gAntennaStem);
-    const gAntOrb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-    gAntOrb.position.y = 2.20; miniGoody.add(gAntOrb);
-
-    const faceCanvas = document.createElement('canvas'); faceCanvas.width = 128; faceCanvas.height = 128;
-    const fctx = faceCanvas.getContext('2d'); fctx.fillStyle = '#00'; fctx.fillRect(0, 0, 128, 128);
-    const faceTex = new THREE.CanvasTexture(faceCanvas);
-    const gFace = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.25), new THREE.MeshBasicMaterial({ map: faceTex }));
-    gFace.position.set(0, 1.82, 0.19); miniGoody.add(gFace);
 
     miniGoody.position.set(0, 0, -2.6);
     miniDiorama.add(miniGoody);
 
-    function renderGoodyFace(time) {
-      fctx.fillStyle = '#030108';
-      fctx.fillRect(0, 0, 128, 128);
-
-      if (!studioPower) {
-        gAntOrb.material.color.setHex(0x111111);
-        faceTex.needsUpdate = true;
-        return;
-      }
-
-      gAntOrb.material.color.setHex(isGoodySpeaking ? 0x00f0ff : 0x39ff14);
-
-      fctx.fillStyle = '#39ff14'; fctx.strokeStyle = '#39ff14'; fctx.lineWidth = 4;
-      fctx.lineCap = 'round'; fctx.lineJoin = 'round';
-
-      fctx.beginPath();
-      fctx.moveTo(28, 56); fctx.lineTo(44, 38); fctx.lineTo(60, 56); fctx.stroke();
-      fctx.beginPath();
-      fctx.moveTo(68, 56); fctx.lineTo(84, 38); fctx.lineTo(100, 56); fctx.stroke();
-
-      if (isGoodySpeaking) {
-        const mouthOpen = (Math.sin(time * 0.022) + 1.0) * 0.5;
-        const mouthHeight = 6 + (mouthOpen * 20);
-        const mouthWidth = 40 + (mouthOpen * 6);
-
-        fctx.fillStyle = '#220033'; fctx.strokeStyle = '#39ff14'; fctx.lineWidth = 3.5;
-        fctx.beginPath();
-        fctx.ellipse(64, 88, mouthWidth / 2, mouthHeight / 2, 0, 0, Math.PI * 2);
-        fctx.fill(); fctx.stroke();
-
-        fctx.fillStyle = '#ffffff';
-        fctx.fillRect(54, 88 - (mouthHeight / 2) + 2, 20, Math.min(5, mouthHeight / 2));
-      } else {
-        fctx.strokeStyle = '#39ff14'; fctx.lineWidth = 5;
-        fctx.beginPath();
-        fctx.arc(64, 78, 16, 0.2, Math.PI - 0.2, false);
-        fctx.stroke();
-      }
-
-      faceTex.needsUpdate = true;
-    }
-
     function createStudioRoboticCamera(x, z) {
       const camRig = new THREE.Group(); camRig.position.set(x, 0.44, z);
-      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1f1f26 });
-      const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.08, 16), darkMat); basePlate.position.y = 0.04; camRig.add(basePlate);
-      const outerCol = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.55, 16), darkMat); outerCol.position.y = 0.35; camRig.add(outerCol);
-      const headPivot = new THREE.Group(); headPivot.position.y = 1.0;
-      const cameraBox = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.42), darkMat); headPivot.add(cameraBox);
-      const lensBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.26, 16), new THREE.MeshStandardMaterial({ color: 0x0a0a0a }));
-      lensBarrel.rotation.x = Math.PI / 2; lensBarrel.position.set(0, 0, -0.24); headPivot.add(lensBarrel);
-      const frontGlass = new THREE.Mesh(new THREE.CircleGeometry(0.08, 16), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
-      frontGlass.position.set(0, 0, -0.431); headPivot.add(frontGlass);
-      const tallyLamp = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-      tallyLamp.position.set(0, 0.15, -0.28); headPivot.add(tallyLamp);
-      camRig.add(headPivot); miniDiorama.add(camRig);
-      return { headPivot, tallyLamp, frontGlass };
+      const darkMat = new THREE.MeshBasicMaterial({ color: 0x1f1f26 });
+      const basePlate = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.08, 8), darkMat); basePlate.position.y = 0.04; camRig.add(basePlate);
+      const cameraBox = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.42), darkMat); cameraBox.position.y = 1.0; camRig.add(cameraBox);
+      miniDiorama.add(camRig);
+      return { camRig };
     }
-    const autoCam1 = createStudioRoboticCamera(-2.4, 0.3);
-    const autoCam2 = createStudioRoboticCamera(2.4, 0.3);
+    createStudioRoboticCamera(-2.4, 0.3);
+    createStudioRoboticCamera(2.4, 0.3);
 
-    function updateCameraAlignment() {
-      const hostHeadPos = new THREE.Vector3(0, 5.77, -11.6);
-      if (studioPower) {
-        autoCam1.headPivot.lookAt(hostHeadPos); autoCam2.headPivot.lookAt(hostHeadPos);
-        autoCam1.headPivot.rotation.y += Math.PI; autoCam2.headPivot.rotation.y += Math.PI;
-        autoCam1.tallyLamp.material.color.setHex(0xff0000); autoCam2.tallyLamp.material.color.setHex(0xff0000);
-      } else {
-        autoCam1.headPivot.rotation.set(0.6, 0.2, 0); autoCam2.headPivot.rotation.set(0.6, -0.2, 0);
-        autoCam1.tallyLamp.material.color.setHex(0x111111); autoCam2.tallyLamp.material.color.setHex(0x111111);
-      }
-    }
+    function updateCameraAlignment() {}
     scene.add(miniDiorama);
 
     window.addEventListener('resize', () => {
@@ -3524,14 +2917,6 @@
       requestAnimationFrame(animate);
       const time = performance.now();
       const delta = Math.min((time - prevTime) / 1000, 0.1);
-
-      renderBackstageScreens();
-      renderGoodyFace(time);
-
-      const isPlayerTurnRoll = gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && (isSoloMode ? activePlayer === soloPlayerId : activePlayer !== goodyPlayerSlot);
-      if (gameState === "OPENING_DUEL" || isPlayerTurnRoll) {
-        renderStageQuestionBoard();
-      }
 
       if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
       if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
@@ -3552,16 +2937,6 @@
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
      
-      if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
-        if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
-          if (plushiePosition.x < 10.0) {
-            plushiePosition.x = 9.6;
-          } else {
-            plushiePosition.x = 10.4;
-          }
-        }
-      }
-
       const inPitchArena = plushiePosition.x > 10.0;
       if (inPitchArena) {
         const ballPos = ballMesh.position;
@@ -3576,60 +2951,35 @@
             playTone(600, 'triangle', 0.08, 0.1);
           }
 
-          remotePlayers.forEach((pMesh) => {
-            if (pMesh) {
-              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
-              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
-                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                ballVelocity.addScaledVector(pushDir, 13.0);
-                playTone(600, 'triangle', 0.08, 0.1);
-              }
-            }
-          });
-
           ballPos.addScaledVector(ballVelocity, delta);
           ballVelocity.multiplyScalar(0.96);
 
-          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; }
+          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; }
 
           if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
             redScore++;
             renderPitchScoreboard(blueScore, redScore);
-            playTone(200, 'sawtooth', 0.3, 0.15);
             ballMesh.position.set(34.0, 0.82, 0.0);
             ballVelocity.set(0, 0, 0);
-            if (socket && socket.connected) {
-              socket.emit('score_update', { blue: blueScore, red: redScore });
-            }
           } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
             blueScore++;
             renderPitchScoreboard(blueScore, redScore);
-            playTone(800, 'sine', 0.3, 0.15);
             ballMesh.position.set(34.0, 0.82, 0.0);
             ballVelocity.set(0, 0, 0);
-            if (socket && socket.connected) {
-              socket.emit('score_update', { blue: blueScore, red: redScore });
-            }
           }
 
           ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
-          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+          if (socket && socket.connected && (time - lastBallSyncTime > 40)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
-              x: ballPos.x,
-              y: ballPos.y,
-              z: ballPos.z,
-              vx: ballVelocity.x,
-              vy: ballVelocity.y,
-              vz: ballVelocity.vz
+              x: ballPos.x, y: ballPos.y, z: ballPos.z,
+              vx: ballVelocity.x, vy: ballVelocity.y, vz: ballVelocity.vz
             });
           }
-        } else {
-          if (hasRemoteBallUpdate) {
-            ballMesh.position.lerp(remoteBallTarget, 0.35);
-          }
+        } else if (hasRemoteBallUpdate) {
+          ballMesh.position.lerp(remoteBallTarget, 0.35);
         }
       } else {
         ballMesh.position.set(34.0, 0.82, 0.0);
@@ -3640,12 +2990,8 @@
       if (socket && socket.connected) {
         socket.emit('player_move', {
           name: localMyGuestName,
-          x: plushiePosition.x,
-          y: plushiePosition.y,
-          z: plushiePosition.z,
-          yaw: plushieRotation.yaw,
-          team: assignedTeam,
-          teamColor: teamColorHex
+          x: plushiePosition.x, y: plushiePosition.y, z: plushiePosition.z,
+          yaw: plushieRotation.yaw, team: assignedTeam, teamColor: teamColorHex
         });
       }
 
@@ -3694,25 +3040,20 @@
           if (!studioPower && gameState === "PODIUM_1_WAIT") {
             cancelPodium1PriorityLaunch();
           }
-          if (studioPower && gameState === "IN_PLAY" && !isSoloMode && activePlayer === "goody-contestant-1") {
-            handleMidGameDropout("goody-contestant-1");
-          }
         }
       }
 
       if (isLocalOnPodium2 !== prevPodium2) {
         if (isLocalOnPodium2) {
-          if (!studioPower && (gameState === "PODIUM_1_WAIT")) {
-            chooseHostGameMode("TWOPLAYER");
-          }
-        } else {
-          if (studioPower && gameState === "IN_PLAY" && !isSoloMode && activePlayer === "goody-contestant-2") {
-            handleMidGameDropout("goody-contestant-2");
+          if (!studioPower) {
+            if (gameState === "MODE_PROMPT" || gameState === "PODIUM_1_WAIT") {
+              chooseHostGameMode("TWOPLAYER");
+            }
           }
         }
       }
 
-      function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
+      function updatePlushieVisibility(plushieMesh, onP1, onP2) {
         if (!plushieMesh) return;
         const pos = plushieMesh.position;
         const dP1 = pos.distanceTo(p1Pos);
@@ -3720,83 +3061,29 @@
         const onPodium1 = dP1 < 0.65;
         const onPodium2 = dP2 < 0.65;
 
-        const inPitchArena = pos.x > 10.0;
-        if (inPitchArena) {
+        const inPitch = pos.x > 10.0;
+        if (inPitch) {
           setPlushieVisualMode(plushieMesh, 'opaque');
           return;
         }
 
-        const podium1Occupied = isP1Connected || isLocalOnPodium1;
-        const podium2Occupied = isP2Connected || isLocalOnPodium2;
-        const shouldBeSolid = (onPodium1 && podium1Occupied) || (onPodium2 && podium2Occupied);
-
-        if (shouldBeSolid) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-        } else {
-          setPlushieVisualMode(plushieMesh, 'transparent');
-        }
+        const shouldBeSolid = (onPodium1 && (isP1Connected || onP1)) || (onPodium2 && (isP2Connected || onP2));
+        setPlushieVisualMode(plushieMesh, shouldBeSolid ? 'opaque' : 'transparent');
       }
 
-      const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && (isLocalOnPodium1 || isLocalOnPodium2)) ||
-                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
-
-      updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
-
-      if (playerPlushie1) {
-        const isP1InGame = studioPower && isP1Connected;
-        updatePlushieVisibility(playerPlushie1, isP1InGame, false);
-      }
-      if (playerPlushie2) {
-        const isP2InGame = studioPower && isP2Connected && !isVsGoodyMode;
-        updatePlushieVisibility(playerPlushie2, false, isP2InGame);
-      }
-
-      spectatorPlushies.forEach(sp => {
-        updatePlushieVisibility(sp, false, false);
-      });
+      updatePlushieVisibility(localPlushie, isLocalOnPodium1, isLocalOnPodium2);
+      updatePlushieVisibility(playerPlushie1, false, false);
+      updatePlushieVisibility(playerPlushie2, false, false);
 
       const camRot = camera.quaternion;
-     
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
-        const badge = localPlushie.userData.badgeMesh;
-        badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
-        badge.quaternion.copy(camRot);
+        localPlushie.userData.badgeMesh.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
+        localPlushie.userData.badgeMesh.quaternion.copy(camRot);
       }
-
-      remotePlayers.forEach((pMesh, id) => {
-        if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
-          const badge = pMesh.userData.badgeMesh;
-          badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
-          badge.quaternion.copy(camera.quaternion);
-        }
-      });
-
-      if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) {
-        pawn1.userData.badgeMesh.quaternion.copy(camRot);
-      }
-      if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) {
-        pawn2.userData.badgeMesh.quaternion.copy(camRot);
-      }
-
-      spectatorPlushies.forEach(sp => {
-        if (sp && sp.userData && sp.userData.badgeMesh) {
-          sp.userData.badgeMesh.quaternion.copy(camRot);
-        }
-      });
-
-      if (studioPower) {
-        updateCameraAlignment();
-        fixtureCyan.target.position.x = -1.2 + Math.sin(time * 0.003) * 1.5;
-        fixtureMagenta.target.position.x = 1.2 + Math.cos(time * 0.003) * 1.5;
-
-        miniAudience.children.forEach((p) => {
-          p.position.y = p.userData.initialY + Math.sin(time * 0.006 + p.userData.phase) * 0.04;
-        });
-      }
+      if (pawn1 && pawn1.userData && pawn1.userData.badgeMesh) pawn1.userData.badgeMesh.quaternion.copy(camRot);
+      if (pawn2 && pawn2.userData && pawn2.userData.badgeMesh) pawn2.userData.badgeMesh.quaternion.copy(camRot);
 
       prevTime = time;
-
       renderer.render(scene, camera);
     }
 
@@ -3804,18 +3091,19 @@
     const btnDown = document.getElementById('btn-down');
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
+    const mobileLookZone = document.getElementById('mobile-look-zone');
 
     function bindTouchButton(elem, stateKey, btnElement) {
       if (!elem) return;
       const activate = (e) => {
         e.preventDefault();
         moveState[stateKey] = true;
-        btnElement.classList.add('active');
+        if (btnElement) btnElement.classList.add('active');
       };
       const deactivate = (e) => {
         e.preventDefault();
         moveState[stateKey] = false;
-        btnElement.classList.remove('active');
+        if (btnElement) btnElement.classList.remove('active');
       };
 
       elem.addEventListener('touchstart', activate, { passive: false });
@@ -3831,44 +3119,25 @@
     bindTouchButton(btnLeft, 'turnLeft', btnLeft);
     bindTouchButton(btnRight, 'turnRight', btnRight);
 
-    let touchStartX = null;
-    let isSwipingScreen = false;
-
-    window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+    let lookTouchStartX = null;
+    mobileLookZone.addEventListener('touchstart', (e) => {
       if (e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        isSwipingScreen = true;
+        lookTouchStartX = e.touches[0].clientX;
       }
     }, { passive: true });
 
-    window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null) return;
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const deltaX = currentX - touchStartX;
-       
-        const turnSensitivity = 0.008;
-        plushieRotation.yaw -= deltaX * turnSensitivity;
-
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
-
-        touchStartX = currentX;
-      }
+    mobileLookZone.addEventListener('touchmove', (e) => {
+      if (lookTouchStartX === null || e.touches.length === 0) return;
+      const currentX = e.touches[0].clientX;
+      const deltaX = currentX - lookTouchStartX;
+      plushieRotation.yaw -= deltaX * 0.007;
+      lookTouchStartX = currentX;
     }, { passive: true });
 
-    window.addEventListener('touchend', () => {
-      isSwipingScreen = false;
-      touchStartX = null;
-      btnLeft.classList.remove('active');
-      btnRight.classList.remove('active');
+    mobileLookZone.addEventListener('touchend', () => {
+      lookTouchStartX = null;
     });
+
     animate();
   </script>
 </body>
