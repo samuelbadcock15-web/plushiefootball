@@ -46,7 +46,6 @@
       touch-action: none;
     }
 
-    /* Automatically show on touch/mobile devices */
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-dpad { display: grid; }
     }
@@ -74,56 +73,49 @@
       box-shadow: 0 0 22px #39ff14;
     }
 
-    /* Plushie View Toggle Button (Bottom Right) */
+    /* Plushie View Button (Bottom Right) */
     #plushie-view-btn {
       position: absolute;
       bottom: 30px;
       right: 30px;
-      width: 130px;
-      height: 130px;
+      width: 120px;
+      height: 120px;
       background: rgba(22, 9, 44, 0.85);
       border: 3px solid #00f0ff;
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
-      touch-action: manipulation;
+      touch-action: none;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      text-align: center;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+      user-select: none;
+      cursor: pointer;
       color: #00f0ff;
       font-family: monospace;
       font-weight: bold;
-      font-size: 0.9rem;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
-      cursor: pointer;
-      user-select: none;
-      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
-    }
-
-    #plushie-view-btn:hover {
-      background: rgba(0, 240, 255, 0.2);
+      font-size: 0.8rem;
+      text-align: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
     }
 
     #plushie-view-btn.active {
-      background: rgba(57, 255, 20, 0.35);
+      background: rgba(0, 240, 255, 0.35);
       border-color: #39ff14;
       color: #39ff14;
       box-shadow: 0 0 25px #39ff14;
     }
 
-    #plushie-view-btn:active {
-      transform: scale(0.95);
-    }
-
-    /* Crosshair - Mobile Only */
+    /* Crosshair - Mobile/First-Person */
     #mobile-crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       border: 2px solid rgba(0, 240, 255, 0.8);
       border-radius: 50%;
       pointer-events: none;
@@ -147,7 +139,7 @@
   </div>
 
   <div id="mode-banner">
-    Move with <span style="color:#39ff14;">W, A, S, D</span> • Click <span style="color:#00f0ff;">PLUSHIE VIEW</span> to orbit & look around!
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Click <span style="color:#00f0ff;">PLUSHIE VIEW</span> to look up at the studio timer!
   </div>
 
   <canvas id="canvas3d"></canvas>
@@ -160,10 +152,12 @@
     <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
   </div>
 
-  <!-- Plushie View Toggle Button (Bottom Right) -->
-  <div id="plushie-view-btn">PLUSHIE<br>VIEW</div>
+  <!-- Plushie View Button (Bottom Right) -->
+  <div id="plushie-view-btn">
+    👁️<br>PLUSHIE<br>VIEW
+  </div>
 
-  <!-- Mobile-Only Crosshair -->
+  <!-- Crosshair -->
   <div id="mobile-crosshair"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -177,114 +171,9 @@
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
 
-    // Plushie View State
+    // Plushie View Mode State
     let isPlushieViewActive = false;
-    let plushieViewYaw = 0;
-    let plushieViewPitch = 0.2;
-    let isOrbitDragging = false;
-    let orbitTouchId = null;
-    let orbitStartX = 0;
-    let orbitStartY = 0;
-
-    const plushieViewBtn = document.getElementById('plushie-view-btn');
-
-    function togglePlushieView() {
-      isPlushieViewActive = !isPlushieViewActive;
-      if (isPlushieViewActive) {
-        plushieViewBtn.classList.add('active');
-        plushieViewBtn.innerHTML = 'EXIT<br>VIEW';
-        // Initialize orbit angles relative to current plushie orientation
-        plushieViewYaw = plushieRotation.yaw;
-        plushieViewPitch = 0.2;
-      } else {
-        plushieViewBtn.classList.remove('active');
-        plushieViewBtn.innerHTML = 'PLUSHIE<br>VIEW';
-      }
-    }
-
-    plushieViewBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      togglePlushieView();
-    });
-
-    plushieViewBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      togglePlushieView();
-    }, { passive: false });
-
-    // Orbit Dragging Logic for Plushie View
-    function handleOrbitStart(clientX, clientY, identifier = null) {
-      if (!isPlushieViewActive) return;
-      isOrbitDragging = true;
-      orbitTouchId = identifier;
-      orbitStartX = clientX;
-      orbitStartY = clientY;
-    }
-
-    function handleOrbitMove(clientX, clientY) {
-      if (!isPlushieViewActive || !isOrbitDragging) return;
-
-      const deltaX = clientX - orbitStartX;
-      const deltaY = clientY - orbitStartY;
-      const sensitivity = 0.005;
-
-      plushieViewYaw -= deltaX * sensitivity;
-      plushieViewPitch = Math.max(-0.2, Math.min(1.2, plushieViewPitch + deltaY * sensitivity));
-
-      orbitStartX = clientX;
-      orbitStartY = clientY;
-    }
-
-    function handleOrbitEnd() {
-      isOrbitDragging = false;
-      orbitTouchId = null;
-    }
-
-    window.addEventListener('touchstart', (e) => {
-      if (!isPlushieViewActive) return;
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#plushie-view-btn')) return;
-      const touch = e.changedTouches[0];
-      handleOrbitStart(touch.clientX, touch.clientY, touch.identifier);
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isPlushieViewActive || !isOrbitDragging) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === orbitTouchId) {
-          handleOrbitMove(touch.clientX, touch.clientY);
-          break;
-        }
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchend', (e) => {
-      if (!isOrbitDragging) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === orbitTouchId) {
-          handleOrbitEnd();
-          break;
-        }
-      }
-    });
-
-    window.addEventListener('mousedown', (e) => {
-      if (!isPlushieViewActive) return;
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#plushie-view-btn')) return;
-      handleOrbitStart(e.clientX, e.clientY);
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (isPlushieViewActive && isOrbitDragging && orbitTouchId === null) {
-        handleOrbitMove(e.clientX, e.clientY);
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (isPlushieViewActive && isOrbitDragging && orbitTouchId === null) {
-        handleOrbitEnd();
-      }
-    });
+    let plushiePitch = 0; // vertical camera angle
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -296,6 +185,58 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
+    });
+
+    // --- Plushie View Toggle & Drag-Look Logic (PC & Mobile) ---
+    const plushieViewBtn = document.getElementById('plushie-view-btn');
+    const mobileCrosshair = document.getElementById('mobile-crosshair');
+    let isDraggingView = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    plushieViewBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePlushieView();
+    });
+
+    function togglePlushieView() {
+      isPlushieViewActive = !isPlushieViewActive;
+      if (isPlushieViewActive) {
+        plushieViewBtn.classList.add('active');
+        plushieViewBtn.innerHTML = "🔓<br>EXIT<br>VIEW";
+        mobileCrosshair.style.display = 'block';
+      } else {
+        plushieViewBtn.classList.remove('active');
+        plushieViewBtn.innerHTML = "👁️<br>PLUSHIE<br>VIEW";
+        mobileCrosshair.style.display = 'none';
+        plushiePitch = 0; // reset vertical look
+      }
+    }
+
+    // Screen drag for looking around in Plushie View
+    window.addEventListener('pointerdown', (e) => {
+      if (!isPlushieViewActive) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#plushie-view-btn') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      isDraggingView = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isPlushieViewActive || !isDraggingView) return;
+      const deltaX = e.clientX - dragStartX;
+      const deltaY = e.clientY - dragStartY;
+      const sensitivity = 0.005;
+
+      plushieRotation.yaw -= deltaX * sensitivity;
+      plushiePitch = Math.max(-1.3, Math.min(1.3, plushiePitch - deltaY * sensitivity)); // allow full up/down looking
+
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+    });
+
+    window.addEventListener('pointerup', () => {
+      isDraggingView = false;
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -449,14 +390,14 @@
               }
             });
           }
-         
+
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-         
+
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-         
+
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -523,7 +464,7 @@
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-       
+
         p2.visible = false;
         p1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
@@ -1372,7 +1313,7 @@
         if (onComplete) onComplete();
         return;
       }
-     
+
       window.speechSynthesis.cancel();
       goodyUtterance = new SpeechSynthesisUtterance(text);
       goodyUtterance.rate = 0.95;
@@ -1464,7 +1405,7 @@
         stopDiceCountdown();
         hasPlayerRolledThisTurn = true;
         isPawnMoving = true;
-       
+
         if (contestant === "goody-contestant-2") {
           p2RollVal = roll; isDiceRollingP2 = false;
         } else {
@@ -1495,7 +1436,7 @@
         const mins = Math.max(0, Math.floor(matchTimerSeconds / 60)).toString().padStart(2, '0');
         const secs = Math.max(0, (matchTimerSeconds % 60)).toString().padStart(2, '0');
         const timeStr = `${mins}:${secs}`;
-       
+
         gameClockValEl.textContent = timeStr;
         renderWallClockTexture(timeStr);
 
@@ -1639,7 +1580,7 @@
         const landedCountry = boardTileCoords[currentTileIdx].country;
         const qPool = COUNTRY_QUESTIONS[landedCountry] || COUNTRY_QUESTIONS["UK"];
         const rawQ = qPool[Math.floor(Math.random() * qPool.length)];
-       
+
         activeQuestion = {
           country: landedCountry,
           text: rawQ.q,
@@ -1919,7 +1860,7 @@
       speakGoody(speech);
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
-   
+
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -2251,7 +2192,7 @@
     function createVibrantGoal(isLeft) {
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
-     
+
       const goalSpan = 5.0;
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
@@ -2530,7 +2471,7 @@
       let fontSize = 48;
       if (cleanName.length > 8) fontSize = 36;
       if (cleanName.length > 12) fontSize = 28;
-     
+
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillText(cleanName, w / 2, h / 2 + 2);
 
@@ -2887,7 +2828,7 @@
           qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
         } else {
           const isCurrentPlayerTurn = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
-         
+
           if (gameState === "IN_PLAY" && (!hasPlayerRolledThisTurn || (hasPlayerRolledThisTurn && isPawnMoving && (p1RollVal !== null || p2RollVal !== null))) && isCurrentPlayerTurn) {
             const pName = contestantNames[activePlayer];
             const currentRolled = activePlayer === "goody-contestant-2" ? p2RollVal : p1RollVal;
@@ -3061,7 +3002,10 @@
     }
 
     window.addEventListener('pointerup', (e) => {
-      handleScreenTap(e.clientX, e.clientY);
+      // Only trigger screen tap if we weren't actively dragging around in Plushie View
+      if (!isDraggingView) {
+        handleScreenTap(e.clientX, e.clientY);
+      }
     });
 
     const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
@@ -3111,7 +3055,7 @@
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
-     
+
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -3199,19 +3143,17 @@
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-   
+
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
 
     document.addEventListener('keydown', (e) => {
       if (!isHostAuthorized) return;
-      if (!isPlushieViewActive) {
-        if (e.code === 'KeyW') moveState.forward = true;
-        if (e.code === 'KeyS') moveState.backward = true;
-        if (e.code === 'KeyA') moveState.turnLeft = true;
-        if (e.code === 'KeyD') moveState.turnRight = true;
-      }
+      if (e.code === 'KeyW') moveState.forward = true;
+      if (e.code === 'KeyS') moveState.backward = true;
+      if (e.code === 'KeyA') moveState.turnLeft = true;
+      if (e.code === 'KeyD') moveState.turnRight = true;
 
       if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
         if (e.key === '1') chooseHostGameMode("SOLO");
@@ -3366,7 +3308,7 @@
       ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(x, y + height - 26, width, 26);
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-     
+
       const tag = isGoodyHostSlot
         ? `[AI HOST: GOODY]`
         : `${isLive ? ' LIVE ' : ' CALL'} ${name.toUpperCase()} [${city.toUpperCase()}]`;
@@ -3548,6 +3490,7 @@
         renderStageQuestionBoard();
       }
 
+      // Only allow movement if not in Plushie View
       if (!isPlushieViewActive) {
         if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
         if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
@@ -3568,7 +3511,7 @@
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
-     
+
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
@@ -3684,26 +3627,30 @@
       localPlushie.position.copy(plushiePosition);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
-      let camTargetX, camTargetY, camTargetZ;
       const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
 
       if (isPlushieViewActive) {
-        // Third-person orbit view around the plushie
-        const orbitDist = 3.5;
-        camTargetX = plushieWorldPos.x + Math.sin(plushieViewYaw) * Math.cos(plushieViewPitch) * orbitDist;
-        camTargetY = plushieWorldPos.y + 0.6 + Math.sin(plushieViewPitch) * orbitDist;
-        camTargetZ = plushieWorldPos.z + Math.cos(plushieViewYaw) * Math.cos(plushieViewPitch) * orbitDist;
+        // --- FIRST-PERSON PLUSHIE VIEW (Through the eyes) ---
+        // Hide local plushie so it doesn't obstruct view
+        setPlushieVisualMode(localPlushie, 'invisible');
 
-        camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-        camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-        camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+        const eyePos = plushieWorldPos.clone().add(new THREE.Vector3(0, 0.68, 0)); // eye level of the plushie
+        camera.position.lerp(eyePos, smoothFactor);
 
-        camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.4, plushieWorldPos.z);
+        const lookDir = new THREE.Vector3(
+          -Math.sin(plushieRotation.yaw),
+          plushPitch,
+          -Math.cos(plushieRotation.yaw)
+        ).normalize();
+        const lookTarget = eyePos.clone().add(lookDir.multiplyScalar(10));
+        camera.lookAt(lookTarget);
       } else {
-        // Standard first-person/chase view
-        camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
-        camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
-        camTargetY = plushieWorldPos.y + 1.6;
+        // --- THIRD-PERSON FOLLOW VIEW ---
+        setPlushieVisualMode(localPlushie, 'opaque');
+
+        const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 3.2;
+        const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 3.2;
+        const camTargetY = plushieWorldPos.y + 1.6;
 
         camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
         camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
@@ -3729,6 +3676,10 @@
 
       function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
         if (!plushieMesh) return;
+        if (plushieMesh === localPlushie && isPlushieViewActive) {
+          setPlushieVisualMode(plushieMesh, 'invisible');
+          return;
+        }
         const pos = plushieMesh.position;
         const dP1 = pos.distanceTo(p1Pos);
         const dP2 = pos.distanceTo(p2Pos);
@@ -3752,8 +3703,8 @@
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                              (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                              (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3771,7 +3722,7 @@
       });
 
       const camRot = camera.quaternion;
-     
+
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
@@ -3823,10 +3774,8 @@
       if (!elem) return;
       const activate = (e) => {
         e.preventDefault();
-        if (!isPlushieViewActive) {
-          moveState[stateKey] = true;
-          btnElement.classList.add('active');
-        }
+        moveState[stateKey] = true;
+        btnElement.classList.add('active');
       };
       const deactivate = (e) => {
         e.preventDefault();
@@ -3852,8 +3801,8 @@
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (isPlushieViewActive) return;
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#plushie-view-btn')) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#plushie-view-btn') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (isPlushieViewActive) return; // handled by drag look
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
