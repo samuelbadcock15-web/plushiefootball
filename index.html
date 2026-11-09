@@ -2919,12 +2919,16 @@ function createCutePlushie(color, initialName = "") {
       let bCanvas = null;
       let bTex = null;
 
-      if (initialName) {
+if (initialName) {
         bCanvas = document.createElement('canvas');
         bCanvas.width = 256; bCanvas.height = 96;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, transparent: true, side: THREE.DoubleSide, depthWrite: false
+          map: bTex, 
+          transparent: true, 
+          opacity: 0.5, // <-- Added opacity here (adjust from 0.0 to 1.0)
+          side: THREE.DoubleSide, 
+          depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
