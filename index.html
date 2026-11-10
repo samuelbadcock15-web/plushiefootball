@@ -32,17 +32,9 @@
     }
 
     #mobile-dpad {
-      position: absolute;
-      bottom: 40px;
-      left: 40px;
-      display: none;
-      grid-template-areas:
-        ". up ."
-        "left down right";
-      gap: 16px;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
+      position: absolute; bottom: 40px; left: 40px; display: none;
+      grid-template-areas: ". up ." "left down right"; gap: 16px;
+      z-index: 30; pointer-events: auto; touch-action: none;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
@@ -50,81 +42,35 @@
     }
 
     .dpad-btn {
-      width: 80px;
-      height: 80px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 3px solid #00f0ff;
-      border-radius: 18px;
-      color: #00f0ff;
-      font-size: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
-      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+      width: 80px; height: 80px; background: rgba(22, 9, 44, 0.85);
+      border: 3px solid #00f0ff; border-radius: 18px; color: #00f0ff;
+      font-size: 32px; display: flex; align-items: center; justify-content: center;
+      user-select: none; box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
     }
 
     .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
-      border-color: #39ff14;
-      color: #39ff14;
+      background: rgba(0, 240, 255, 0.45); border-color: #39ff14; color: #39ff14;
       box-shadow: 0 0 22px #39ff14;
     }
 
     #look-pad {
-      position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 140px;
-      height: 140px;
-      background: rgba(22, 9, 44, 0.65);
-      border: 2px solid rgba(0, 240, 255, 0.6);
-      border-radius: 50%;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
-      user-select: none;
-      cursor: grab;
-    }
-
-    #look-pad:active {
-      cursor: grabbing;
+      position: absolute; bottom: 30px; right: 30px; width: 140px; height: 140px;
+      background: rgba(22, 9, 44, 0.65); border: 2px solid rgba(0, 240, 255, 0.6);
+      border-radius: 50%; z-index: 30; pointer-events: auto; touch-action: none;
+      display: flex; align-items: center; justify-content: center; user-select: none; cursor: grab;
     }
 
     #look-pad-thumb {
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.3);
-      border: 2px solid #39ff14;
-      border-radius: 50%;
-      color: #39ff14;
-      font-family: monospace;
-      font-size: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      pointer-events: none;
-      transition: transform 0.05s linear;
+      width: 50px; height: 50px; background: rgba(0, 240, 255, 0.3);
+      border: 2px solid #39ff14; border-radius: 50%; color: #39ff14;
+      font-family: monospace; font-size: 10px; display: flex; align-items: center;
+      justify-content: center; text-align: center; pointer-events: none;
     }
 
     #mobile-crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(0, 240, 255, 0.8);
-      border-radius: 50%;
-      pointer-events: none;
-      display: none;
-      z-index: 15;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 24px; height: 24px; border: 2px solid rgba(0, 240, 255, 0.8);
+      border-radius: 50%; pointer-events: none; display: none; z-index: 15;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
@@ -201,7 +147,6 @@
 
     function handleLookMove(clientX, clientY) {
       if (!isLooking) return;
-
       const deltaX = clientX - lookStartX;
       const deltaY = clientY - lookStartY;
       const lookSensitivity = 0.005;
@@ -428,8 +373,6 @@
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-         
-          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
         socket.on('remove_player', (id) => {
@@ -443,7 +386,6 @@
           }
         });
 
-        // FIXED: Listen for client stepping on podium 2 from remote networks
         socket.on('client_stepped_podium_2', (data) => {
           if (gameState === "WAITING_FOR_P2") {
             isLocalOnPodium2 = true;
@@ -605,8 +547,9 @@
       pawn2.visible = true;
       if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
 
-      if (isLocalOnPodium2 && !isP2Connected) {
-        contestantNames["goody-contestant-2"] = localMyGuestName || "Player 2";
+      // Ensure exact guest name is assigned to P2 if they are connected
+      if (isLocalOnPodium2 && !isP2Connected && localMyGuestName) {
+        contestantNames["goody-contestant-2"] = localMyGuestName;
         updatePawnNameBadge(pawn2, contestantNames["goody-contestant-2"]);
       }
 
@@ -698,30 +641,6 @@
           savedActiveCountry = null;
           startTurnCleanly(soloPlayerId);
         }
-      });
-    }
-
-    function triggerOfferChoiceMode() {
-      if (gameState !== "INTERMISSION") return;
-
-      if (intermissionTimeout) clearTimeout(intermissionTimeout);
-      gameState = "CONTESTANT_CHOOSING";
-      areChoiceButtonsEnabled = false;
-
-      const remainingId = isP1Connected ? "goody-contestant-1" : "goody-contestant-2";
-      const remainingName = contestantNames[remainingId];
-
-      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WAITING FOR ${remainingName.toUpperCase()}'S CHOICE...</span>`;
-      renderStageQuestionBoard();
-
-      const speech = `Welcome back to The Goody Tonight Show! Unfortunately, we have been unable to find a replacement. So ${remainingName}, you can choose to go solo against the 20-minute timer, or battle me, Goody, head-to-head! Make your choice now!`;
-      speakGoody(speech, () => {
-        areChoiceButtonsEnabled = true;
-        renderStageQuestionBoard();
-
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({ type: "OFFER_CONTESTANT_CHOICE" });
-        });
       });
     }
 
@@ -1196,21 +1115,17 @@
               isP1Connected = true;
               p1PeerId = conn.peer;
               if (clientToken) contestantTokens["goody-contestant-1"] = clientToken;
-              if (gameState !== "INTERMISSION") {
-                contestantNames["goody-contestant-1"] = clientName;
-                contestantCities["goody-contestant-1"] = clientCity;
-                updatePawnNameBadge(pawn1, clientName);
-              }
+              contestantNames["goody-contestant-1"] = clientName;
+              contestantCities["goody-contestant-1"] = clientCity;
+              updatePawnNameBadge(pawn1, clientName);
             }
             if (cId === "goody-contestant-2") {
               isP2Connected = true;
               p2PeerId = conn.peer;
               if (clientToken) contestantTokens["goody-contestant-2"] = clientToken;
-              if (gameState !== "INTERMISSION") {
-                contestantNames["goody-contestant-2"] = clientName;
-                contestantCities["goody-contestant-2"] = clientCity;
-                updatePawnNameBadge(pawn2, clientName);
-              }
+              contestantNames["goody-contestant-2"] = clientName;
+              contestantCities["goody-contestant-2"] = clientCity;
+              updatePawnNameBadge(pawn2, clientName);
             }
 
             conn.send({ type: "AUTH_SUCCESS" });
@@ -1588,7 +1503,6 @@
 
           const elapsed = now - hopStartTime;
           const progress = Math.min(1.0, elapsed / hopDurationMs);
-
           const jumpArc = 4.0 * 0.35 * progress * (1.0 - progress);
 
           pawn.position.x = startPos.x + (endPos.x - startPos.x) * progress;
@@ -2098,11 +2012,7 @@
     enclosingWallsGroup.position.set(0, 0.44, 0.0);
 
     const studioWallMat = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      side: THREE.DoubleSide,
-      transparent: false
+      color: 0x1f113a, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide
     });
 
     const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.0, 14.0), studioWallMat);
@@ -2123,12 +2033,7 @@
     partitionGroup.position.set(10.0, 0.44, 0.0);
 
     const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      transparent: false,
-      opacity: 1.0,
-      side: THREE.DoubleSide
+      color: 0x1f113a, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide
     });
 
     const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 4.5), wallMaterial);
@@ -2145,14 +2050,7 @@
     const gateMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4.2, 3.0),
       new THREE.MeshStandardMaterial({
-        color: 0x050505,
-        roughness: 0.1,
-        metalness: 0.85,
-        emissive: 0x111115,
-        emissiveIntensity: 0.2,
-        transparent: false,
-        opacity: 1.0,
-        side: THREE.DoubleSide
+        color: 0x050505, roughness: 0.1, metalness: 0.85, emissive: 0x111115, emissiveIntensity: 0.2, side: THREE.DoubleSide
       })
     );
     gateMesh.position.set(0, 2.1, 0);
@@ -2162,17 +2060,13 @@
     miniDiorama.add(partitionGroup);
 
     const pitchSbCanvas = document.createElement('canvas');
-    pitchSbCanvas.width = 1024;
-    pitchSbCanvas.height = 512;
+    pitchSbCanvas.width = 1024; pitchSbCanvas.height = 512;
     const pitchSbCtx = pitchSbCanvas.getContext('2d');
     const pitchSbTexture = new THREE.CanvasTexture(pitchSbCanvas);
     pitchSbTexture.minFilter = THREE.LinearFilter;
 
     const pitchBoardGeo = new THREE.PlaneGeometry(12, 6);
-    const pitchBoardMat = new THREE.MeshBasicMaterial({
-      map: pitchSbTexture,
-      side: THREE.DoubleSide
-    });
+    const pitchBoardMat = new THREE.MeshBasicMaterial({ map: pitchSbTexture, side: THREE.DoubleSide });
 
     const pitchScoreboardMesh = new THREE.Mesh(pitchBoardGeo, pitchBoardMat);
     pitchScoreboardMesh.position.set(34.0, 3.5, 14.0);
@@ -2182,7 +2076,6 @@
     function renderPitchScoreboard(blue, red) {
       pitchSbCtx.fillStyle = '#05020a';
       pitchSbCtx.fillRect(0, 0, 1024, 512);
-
       pitchSbCtx.strokeStyle = '#00f0ff';
       pitchSbCtx.lineWidth = 10;
       pitchSbCtx.strokeRect(10, 10, 1004, 492);
@@ -2201,7 +2094,6 @@
       pitchSbCtx.fillStyle = '#00f0ff';
       pitchSbCtx.font = 'bold 36px monospace';
       pitchSbCtx.fillText('BLUE TEAM', 280, 195);
-
       pitchSbCtx.fillStyle = '#ffffff';
       pitchSbCtx.font = 'bold 96px monospace';
       pitchSbCtx.fillText(blue, 280, 330);
@@ -2215,7 +2107,6 @@
       pitchSbCtx.fillStyle = '#ff3838';
       pitchSbCtx.font = 'bold 36px monospace';
       pitchSbCtx.fillText('RED TEAM', 744, 195);
-
       pitchSbCtx.fillStyle = '#ffffff';
       pitchSbCtx.font = 'bold 96px monospace';
       pitchSbCtx.fillText(red, 744, 330);
@@ -2264,8 +2155,8 @@
     function createVibrantGoal(isLeft) {
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
-     
       const goalSpan = 5.0;
+
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
       goalGroup.add(post1);
@@ -2634,9 +2525,7 @@
       ctx.fillStyle = grad;
       ctx.fill();
 
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       ctx.strokeStyle = glowColor;
       ctx.lineWidth = 3.5;
       ctx.stroke();
@@ -3208,11 +3097,7 @@
         bCanvas.width = 256; bCanvas.height = 96;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, 
-          transparent: true, 
-          opacity: 0.3,
-          side: THREE.DoubleSide, 
-          depthWrite: false
+          map: bTex, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
@@ -3421,7 +3306,6 @@
       if (isGoodyHostSlot) {
         ctx.fillStyle = '#16082b';
         ctx.fillRect(x + 2, y + 2, width - 4, height - 4);
-
         const cx = x + width / 2;
         const cy = y + height * 0.45;
 
@@ -3433,25 +3317,14 @@
         ctx.strokeStyle = '#39ff14';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(cx - 24, cy - 10);
-        ctx.lineTo(cx - 14, cy - 22);
-        ctx.lineTo(cx - 4, cy - 10);
-        ctx.stroke();
-
+        ctx.moveTo(cx - 24, cy - 10); ctx.lineTo(cx - 14, cy - 22); ctx.lineTo(cx - 4, cy - 10); ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(cx + 4, cy - 10);
-        ctx.lineTo(cx + 14, cy - 22);
-        ctx.lineTo(cx + 24, cy - 10);
-        ctx.stroke();
+        ctx.moveTo(cx + 4, cy - 10); ctx.lineTo(cx + 14, cy - 22); ctx.lineTo(cx + 24, cy - 10); ctx.stroke();
 
         if (isGoodySpeaking) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy + 15, 16, 8, 0, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(cx, cy + 15, 16, 8, 0, 0, Math.PI * 2); ctx.stroke();
         } else {
-          ctx.beginPath();
-          ctx.arc(cx, cy + 10, 12, 0.2, Math.PI - 0.2, false);
-          ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx, cy + 10, 12, 0.2, Math.PI - 0.2, false); ctx.stroke();
         }
       } else if (isLive && videoElem.readyState >= 2) {
         ctx.save(); ctx.drawImage(videoElem, x + 2, y + 2, width - 4, height - 4); ctx.restore();
@@ -3478,10 +3351,7 @@
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
      
-      const tag = isGoodyHostSlot
-        ? `[AI HOST: GOODY]`
-        : `${isLive ? ' LIVE ' : ''}${name.toUpperCase()}`;
-
+      const tag = isGoodyHostSlot ? `[AI HOST: GOODY]` : `${isLive ? ' LIVE ' : ''}${name.toUpperCase()}`;
       ctx.fillText(tag, x + width/2, y + height - 8);
     }
 
@@ -3731,12 +3601,8 @@
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
-              x: ballPos.x,
-              y: ballPos.y,
-              z: ballPos.z,
-              vx: ballVelocity.x,
-              vy: ballVelocity.y,
-              vz: ballVelocity.vz
+              x: ballPos.x, y: ballPos.y, z: ballPos.z,
+              vx: ballVelocity.x, vy: ballVelocity.y, vz: ballVelocity.vz
             });
           }
         } else {
@@ -3753,12 +3619,9 @@
       if (socket && socket.connected) {
         socket.emit('player_move', {
           name: localMyGuestName,
-          x: plushiePosition.x,
-          y: plushiePosition.y,
-          z: plushiePosition.z,
+          x: plushiePosition.x, y: plushiePosition.y, z: plushiePosition.z,
           yaw: plushieRotation.yaw,
-          team: assignedTeam,
-          teamColor: teamColorHex
+          team: assignedTeam, teamColor: teamColorHex
         });
       }
 
@@ -3797,7 +3660,6 @@
 
       isLocalOnPodium1 = distP1 < 0.65;
       
-      // Check remote/spectator plushies on Podium 2
       let remoteOnPodium2 = false;
       remotePlayers.forEach((pMesh) => {
         if (pMesh && pMesh.position.distanceTo(p2Pos) < 0.65) {
@@ -3812,7 +3674,6 @@
 
       isLocalOnPodium2 = (distP2 < 0.65) || remoteOnPodium2;
 
-      // If we are a connected client standing on podium 2, alert the host
       if (socket && !isBallPhysicsHost && distP2 < 0.65) {
         socket.emit('client_stepped_podium_2', { name: localMyGuestName });
       }
@@ -3823,6 +3684,7 @@
         }
       }
 
+      // ENHANCED VISIBILITY HIERARCHY FOR PODIUMS & STUDIO
       function updatePlushieVisibility(plushieMesh) {
         if (!plushieMesh) return;
         const pos = plushieMesh.position;
@@ -3830,16 +3692,10 @@
         const dP2 = pos.distanceTo(p2Pos);
         const onPodium1 = dP1 < 0.65;
         const onPodium2 = dP2 < 0.65;
-
         const inPitchArena = pos.x > 10.0;
-        if (inPitchArena) {
-          setPlushieVisualMode(plushieMesh, 'opaque');
-          return;
-        }
 
-        const shouldBeSolid = onPodium1 || onPodium2;
-
-        if (shouldBeSolid) {
+        // Guaranteed opaque if in football pitch OR standing on either podium
+        if (inPitchArena || onPodium1 || onPodium2) {
           setPlushieVisualMode(plushieMesh, 'opaque');
         } else {
           setPlushieVisualMode(plushieMesh, 'transparent');
@@ -3847,17 +3703,10 @@
       }
 
       updatePlushieVisibility(localPlushie);
-
-      if (playerPlushie1) {
-        updatePlushieVisibility(playerPlushie1);
-      }
-      if (playerPlushie2) {
-        updatePlushieVisibility(playerPlushie2);
-      }
-
-      spectatorPlushies.forEach(sp => {
-        updatePlushieVisibility(sp);
-      });
+      if (playerPlushie1) updatePlushieVisibility(playerPlushie1);
+      if (playerPlushie2) updatePlushieVisibility(playerPlushie2);
+      spectatorPlushies.forEach(sp => updatePlushieVisibility(sp));
+      remotePlayers.forEach(pMesh => updatePlushieVisibility(pMesh));
 
       const camRot = camera.quaternion;
      
@@ -3899,7 +3748,6 @@
       }
 
       prevTime = time;
-
       renderer.render(scene, camera);
     }
 
