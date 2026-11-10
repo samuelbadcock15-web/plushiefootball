@@ -443,6 +443,18 @@
           }
         });
 
+        // FIXED: Listen for client stepping on podium 2 from remote networks
+        socket.on('client_stepped_podium_2', (data) => {
+          if (gameState === "WAITING_FOR_P2") {
+            isLocalOnPodium2 = true;
+            if (p2WaitCountdownInterval) {
+              clearInterval(p2WaitCountdownInterval);
+              p2WaitCountdownInterval = null;
+            }
+            finalizeTwoPlayerStart();
+          }
+        });
+
         socket.on('ball_sync', (bData) => {
           if (ballMesh) {
             remoteBallTarget.set(bData.x, bData.y, bData.z);
@@ -3784,7 +3796,26 @@
       const prevPodium2 = isLocalOnPodium2;
 
       isLocalOnPodium1 = distP1 < 0.65;
-      isLocalOnPodium2 = distP2 < 0.65;
+      
+      // Check remote/spectator plushies on Podium 2
+      let remoteOnPodium2 = false;
+      remotePlayers.forEach((pMesh) => {
+        if (pMesh && pMesh.position.distanceTo(p2Pos) < 0.65) {
+          remoteOnPodium2 = true;
+        }
+      });
+      spectatorPlushies.forEach((sp) => {
+        if (sp && sp.position.distanceTo(p2Pos) < 0.65) {
+          remoteOnPodium2 = true;
+        }
+      });
+
+      isLocalOnPodium2 = (distP2 < 0.65) || remoteOnPodium2;
+
+      // If we are a connected client standing on podium 2, alert the host
+      if (socket && !isBallPhysicsHost && distP2 < 0.65) {
+        socket.emit('client_stepped_podium_2', { name: localMyGuestName });
+      }
 
       if ((isLocalOnPodium1 !== prevPodium1) || (isLocalOnPodium2 !== prevPodium2)) {
         if (!studioPower && gameState === "MODE_PROMPT") {
@@ -3806,7 +3837,6 @@
           return;
         }
 
-        // FIXED: Either podium makes the plushie standing on it solid immediately!
         const shouldBeSolid = onPodium1 || onPodium2;
 
         if (shouldBeSolid) {
