@@ -437,6 +437,7 @@
       gameState = "MODE_PROMPT";
       countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">SELECT GAME MODE (STEP ON PODIUM 1)</span>`;
       renderStageQuestionBoard();
+      broadcastGameStateUpdate();
     }
 
     let p2WaitCountdownInterval = null;
@@ -485,6 +486,7 @@
           pawn2.visible = true;
           if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
           renderStageQuestionBoard();
+          broadcastGameStateUpdate();
 
           speakGoody(`2-Player mode selected! We have Player 1 on Podium 1. Opening the floor for 10 seconds for Player 2 to jump onto Podium 2!`, () => {
             if (gameState !== "WAITING_FOR_P2") return;
@@ -499,6 +501,7 @@
 
               p2WaitSecondsLeft--;
               renderStageQuestionBoard();
+              broadcastGameStateUpdate();
 
               if (isLocalOnPodium2 || isP2Connected) {
                 clearInterval(p2WaitCountdownInterval);
@@ -527,12 +530,14 @@
       const remainingName = contestantNames["goody-contestant-1"] || "Player 1";
       countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WAITING FOR ${remainingName.toUpperCase()}'S CHOICE...</span>`;
       renderStageQuestionBoard();
+      broadcastGameStateUpdate();
 
       const speech = `It appears Podium 2 is empty! But not to worry! We have not been able to find a contestant for Podium 2. So Player 1, you can choose to go solo against the 20-minute timer, or battle me, Goody, head-to-head! Make your choice now!`;
       
       speakGoody(speech, () => {
         areChoiceButtonsEnabled = true;
         renderStageQuestionBoard();
+        broadcastGameStateUpdate();
 
         connectedDataConns.forEach(c => {
           if (c.open) c.send({ type: "OFFER_CONTESTANT_CHOICE" });
@@ -554,19 +559,30 @@
       });
     }
 
-    function broadcastBoardState() {
+    function broadcastGameStateUpdate(extraData = {}) {
       connectedDataConns.forEach(c => {
         if (c.open) {
           c.send({
-            type: "SYNC_BOARD_STATE",
-            studioPower: studioPower,
+            type: "SYNC_STUDIO_STATE",
+            gameState: gameState,
+            activePlayer: activePlayer,
+            activeQuestion: activeQuestion,
             p1Name: contestantNames["goody-contestant-1"] || "Player 1",
             p2Name: contestantNames["goody-contestant-2"] || "Player 2",
             p1Index: p1Index,
             p2Index: p2Index,
-            gameState: gameState,
-            activeQuestion: activeQuestion,
-            activePlayer: activePlayer
+            p1RollVal: p1RollVal,
+            p2RollVal: p2RollVal,
+            isDiceRollingP1: isDiceRollingP1,
+            isDiceRollingP2: isDiceRollingP2,
+            stageSelectedOption: stageSelectedOption,
+            stageOptionStatus: stageOptionStatus,
+            diceCountdown: diceCountdown,
+            isDiceTimerActive: isDiceTimerActive,
+            p2WaitSecondsLeft: p2WaitSecondsLeft,
+            areChoiceButtonsEnabled: areChoiceButtonsEnabled,
+            studioPower: studioPower,
+            ...extraData
           });
         }
       });
@@ -624,9 +640,9 @@
       gameState = "IN_PLAY";
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       startTwentyMinuteMatchTimer();
-      broadcastBoardState();
 
       const speech = `Welcome back to the show! ${soloName} will now race the board alone to see if they can reach the end before the 20-minute show clock expires! Let's play!`;
       speakGoody(speech, () => {
@@ -669,6 +685,8 @@
       gameState = "OPENING_DUEL";
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
+
       const speech = `A bold choice! You have chosen to battle me, Goody! I am taking over the board! Let's roll our dice to determine who goes first! You have 10 seconds to roll your dice!`;
       speakGoody(speech, () => {
         beginTenSecondDiceDuel();
@@ -704,16 +722,9 @@
         recap: rawQ.recap
       };
 
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "SHOW_QUESTION_LOCKED",
-          question: activeQuestion,
-          activeContestantId: activePlayer,
-          activeContestantName: pName
-        });
-      });
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       const speech = `Resuming on ${country} for ${pName}! Here is your fresh question: ${activeQuestion.q}... You have 30 seconds to lock in!`;
       speakGoody(speech, () => {
@@ -757,6 +768,7 @@
       gameState = "IN_PLAY";
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       broadcastMicState("goody-contestant-1", false);
       broadcastMicState("goody-contestant-2", false);
@@ -780,11 +792,13 @@
       isDiceTimerActive = true;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       diceCountdownInterval = setInterval(() => {
         diceCountdown--;
         renderStageQuestionBoard();
         renderBackstageScreens();
+        broadcastGameStateUpdate();
         if (diceCountdown <= 0) {
           stopDiceCountdown();
           if (onTimeout) onTimeout();
@@ -817,6 +831,7 @@
 
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       connectedDataConns.forEach(c => {
         if (c.open) c.send({
@@ -843,6 +858,8 @@
 
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
+
       const rollVal = Math.floor(Math.random() * 6) + 1;
       setTimeout(() => {
         handlePlayerRoll(goodyPlayerSlot, "Goody", rollVal);
@@ -878,6 +895,7 @@
         stageOptionStatus = 'selected';
         renderStageQuestionBoard();
         renderBackstageScreens();
+        broadcastGameStateUpdate();
 
         connectedDataConns.forEach(c => {
           if (c.open) {
@@ -906,8 +924,6 @@
         }
       });
     }
-
-    let currentSubtitle = "STUDIO STANDBY - POWER OFF";
 
     const COUNTRY_QUESTIONS = {
       "UK": [
@@ -1031,7 +1047,7 @@
               showPlayer1 = true;
               broadcastNewStreamToAllAudience(remoteStream, "goody-contestant-1");
             }
-            broadcastBoardState();
+            broadcastGameStateUpdate();
           });
         });
 
@@ -1078,17 +1094,7 @@
               const secs = Math.max(0, (matchTimerSeconds % 60)).toString().padStart(2, '0');
               conn.send({ type: "SYNC_MATCH_TIMER", timeStr: `${mins}:${secs}`, secondsLeft: matchTimerSeconds });
 
-              conn.send({
-                type: "SYNC_BOARD_STATE",
-                studioPower: studioPower,
-                p1Name: contestantNames["goody-contestant-1"] || "Player 1",
-                p2Name: contestantNames["goody-contestant-2"] || "Player 2",
-                p1Index: p1Index,
-                p2Index: p2Index,
-                gameState: gameState,
-                activeQuestion: activeQuestion,
-                activePlayer: activePlayer
-              });
+              broadcastGameStateUpdate();
 
               if (activeQuestion) {
                 conn.send({
@@ -1130,7 +1136,7 @@
 
             conn.send({ type: "AUTH_SUCCESS" });
             broadcastAudienceCount();
-            broadcastBoardState();
+            broadcastGameStateUpdate();
           });
 
           conn.on('data', (data) => {
@@ -1186,6 +1192,7 @@
               stageOptionStatus = 'selected';
               renderStageQuestionBoard();
               renderBackstageScreens();
+              broadcastGameStateUpdate();
 
               connectedDataConns.forEach(c => {
                 if (c.open) {
@@ -1316,13 +1323,15 @@
       updateCameraAlignment();
       renderStageQuestionBoard();
       renderBackstageScreens();
-      broadcastBoardState();
+      broadcastGameStateUpdate();
     }
 
     function beginTenSecondDiceDuel() {
       gameState = "OPENING_DUEL";
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
+
       p1RollVal = null;
       p2RollVal = null;
       isDiceRollingP1 = true;
@@ -1345,6 +1354,7 @@
           isDiceRollingP2 = false;
           renderStageQuestionBoard();
           renderBackstageScreens();
+          broadcastGameStateUpdate();
           setTimeout(finalizeDiceDuel, 1200);
         }
       });
@@ -1362,6 +1372,7 @@
         playTone(587, 'sine', 0.15, 0.08);
         renderStageQuestionBoard();
         renderBackstageScreens();
+        broadcastGameStateUpdate();
 
         if ((isSoloMode && p1RollVal !== null) || (p1RollVal !== null && p2RollVal !== null)) {
           stopDiceCountdown();
@@ -1385,6 +1396,7 @@
         playTone(587, 'sine', 0.15, 0.08);
         renderStageQuestionBoard();
         renderBackstageScreens();
+        broadcastGameStateUpdate();
 
         setTimeout(() => {
           const speech = contestant === goodyPlayerSlot
@@ -1452,7 +1464,7 @@
       renderStageQuestionBoard();
       renderBackstageScreens();
       startTwentyMinuteMatchTimer();
-      broadcastBoardState();
+      broadcastGameStateUpdate();
 
       const pName = contestantNames[activePlayer];
       speakGoody(`${pName} wins the opening roll with a ${finalWinningRoll}! The 20-minute show clock has begun! Moving ${finalWinningRoll} spaces.`, () => {
@@ -1537,7 +1549,7 @@
 
       animatePawnHop(targetPawn, oldIdx, targetIdx, xOffset, () => {
         isPawnMoving = false;
-        broadcastBoardState();
+        broadcastGameStateUpdate();
 
         if (p1Index >= boardTileCoords.length - 1 || p2Index >= boardTileCoords.length - 1) {
           const winName = isP1 ? contestantNames["goody-contestant-1"] : contestantNames["goody-contestant-2"];
@@ -1580,6 +1592,7 @@
         });
         renderStageQuestionBoard();
         renderBackstageScreens();
+        broadcastGameStateUpdate();
 
         const speech = activePlayer === goodyPlayerSlot
           ? `I landed on ${landedCountry}! Here is my question: ${activeQuestion.q}... Let me process this in my circuits!`
@@ -1610,6 +1623,7 @@
       isQuestionTimerActive = true;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       if (questionInterval) clearInterval(questionInterval);
       questionInterval = setInterval(() => {
@@ -1621,6 +1635,7 @@
         questionTimer--;
         renderStageQuestionBoard();
         renderBackstageScreens();
+        broadcastGameStateUpdate();
         if (questionTimer <= 0) {
           clearInterval(questionInterval);
           isQuestionTimerActive = false;
@@ -1646,6 +1661,7 @@
       stageOptionStatus = isCorrect ? 'correct' : 'wrong';
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       connectedDataConns.forEach(c => {
         if (c.open) c.send({
@@ -1662,6 +1678,7 @@
       activeQuestion = null;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       const isGoody = contestant === goodyPlayerSlot;
       if (isCorrect) {
@@ -1699,6 +1716,7 @@
       stageOptionStatus = 'wrong';
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       connectedDataConns.forEach(c => {
         if (c.open) c.send({
@@ -1715,6 +1733,7 @@
       activeQuestion = null;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       speakGoody(`I'm sorry, you ran out of time! You must go back to the start! Here is what we learned: ${activeRecap.text}`, () => {
         resetPlayerToStart(contestant, () => {
@@ -1735,6 +1754,7 @@
       stageOptionStatus = null;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       if (isTimeExpired) {
         setTimeout(() => evaluateFinalShowdown(), 2000);
@@ -1756,7 +1776,7 @@
       else p2Index = 0;
 
       animatePawnHop(pawnToMove, startFromIdx, 0, xOffset, () => {
-        broadcastBoardState();
+        broadcastGameStateUpdate();
         if (onComplete) onComplete();
       }, 110);
     }
@@ -1792,6 +1812,7 @@
       questionTimer = 0;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       if (activePlayer === goodyPlayerSlot) {
         speakGoody(`It is my turn! Goody is rolling the dice!`, () => {
@@ -1816,6 +1837,7 @@
 
       if (isSoloMode) {
         gameState = "GAME_OVER";
+        broadcastGameStateUpdate();
         const soloName = contestantNames[soloPlayerId];
         const speech = `The 20-minute timer has expired! Unfortunately, ${soloName} was unable to complete the board in time! Tonight's prize rolls over. Goodnight everyone!`;
         speakGoody(speech);
@@ -1825,6 +1847,7 @@
 
       if (p1Index === 0 && p2Index === 0) {
         gameState = "GAME_OVER";
+        broadcastGameStateUpdate();
         const speech = "The 20-minute show timer has run out, and both contestants are still on the starting square! Nobody wins tonight. Goodnight everyone!";
         speakGoody(speech);
         broadcastGameOver("NOBODY", "ROLLOVER_START_SQUARE");
@@ -1837,6 +1860,7 @@
       }
 
       gameState = "GAME_OVER";
+      broadcastGameStateUpdate();
       const winner = p1Index > p2Index ? contestantNames["goody-contestant-1"] : contestantNames["goody-contestant-2"];
       const loser = p1Index > p2Index ? contestantNames["goody-contestant-2"] : contestantNames["goody-contestant-1"];
 
@@ -1864,6 +1888,7 @@
       stageOptionStatus = null;
       renderStageQuestionBoard();
       renderBackstageScreens();
+      broadcastGameStateUpdate();
 
       speakGoody("We have a dead heat draw! Both contestants finished on the exact same tile! We are going to a sudden death tie-breaker question!", () => {
         connectedDataConns.forEach(c => {
@@ -1899,6 +1924,8 @@
       renderBackstageScreens();
 
       gameState = "GAME_OVER";
+      broadcastGameStateUpdate();
+
       const winner = isCorrect ? answeringName : opponentName;
       const loser = isCorrect ? opponentName : answeringName;
 
@@ -1923,6 +1950,8 @@
 
     function triggerFinishLineVictory(winnerName, loserName) {
       gameState = "GAME_OVER";
+      broadcastGameStateUpdate();
+
       if (matchTimerInterval) clearInterval(matchTimerInterval);
       if (questionInterval) clearInterval(questionInterval);
       stopDiceCountdown();
@@ -3040,6 +3069,7 @@
               stageOptionStatus = 'selected';
               renderStageQuestionBoard();
               renderBackstageScreens();
+              broadcastGameStateUpdate();
 
               setTimeout(() => {
                 evaluateAnswer(activePlayer, chosenOpt);
@@ -3110,34 +3140,6 @@
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
       return pGroup;
-    }
-
-    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "PLAYER 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
     }
 
     function setPlushieVisualMode(group, mode) {
@@ -3684,7 +3686,6 @@
         }
       }
 
-      // ENHANCED VISIBILITY HIERARCHY FOR PODIUMS & STUDIO
       function updatePlushieVisibility(plushieMesh) {
         if (!plushieMesh) return;
         const pos = plushieMesh.position;
@@ -3694,7 +3695,6 @@
         const onPodium2 = dP2 < 0.65;
         const inPitchArena = pos.x > 10.0;
 
-        // Guaranteed opaque if in football pitch OR standing on either podium
         if (inPitchArena || onPodium1 || onPodium2) {
           setPlushieVisualMode(plushieMesh, 'opaque');
         } else {
