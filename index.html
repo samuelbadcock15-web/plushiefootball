@@ -3356,9 +3356,14 @@
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
      
-      const tag = isGoodyHostSlot
-        ? `[AI HOST: GOODY]`
-        : `${isLive ? ' LIVE ' : ' CALL'} ${name.toUpperCase()} [${city.toUpperCase()}]`;
+let tag = "";
+      if (isGoodyHostSlot) {
+        tag = `[AI HOST: GOODY]`;
+      } else if (city === "") {
+        tag = name.toUpperCase();
+      } else {
+        tag = `${isLive ? ' LIVE ' : ' CALL'} ${name.toUpperCase()} [${city.toUpperCase()}]`;
+      }
 
       ctx.fillText(tag, x + width/2, y + height - 8);
     }
