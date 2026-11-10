@@ -8,7 +8,10 @@
       margin: 0; padding: 0; width: 100%; height: 100%;
       overflow: hidden; background-color: #05020a;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      touch-action: manipulation;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     #canvas3d { width: 100%; height: 100%; display: block; cursor: pointer; }
 
@@ -31,15 +34,20 @@
       pointer-events: none;
     }
 
+    @media (pointer: coarse), (max-width: 900px) {
+      #mode-banner { display: none !important; }
+    }
+
+    /* MASSIVE MOBILE CONTROLS FILLING THE BOTTOM */
     #mobile-dpad {
       position: absolute;
-      bottom: 40px;
-      left: 40px;
+      bottom: 25px;
+      left: 25px;
       display: none;
       grid-template-areas:
         ". up ."
         "left down right";
-      gap: 16px;
+      gap: 22px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
@@ -50,36 +58,37 @@
     }
 
     .dpad-btn {
-      width: 80px;
-      height: 80px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 3px solid #00f0ff;
-      border-radius: 18px;
+      width: 100px;
+      height: 100px;
+      background: rgba(22, 9, 44, 0.9);
+      border: 4px solid #00f0ff;
+      border-radius: 26px;
       color: #00f0ff;
-      font-size: 32px;
+      font-size: 42px;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
-      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+      -webkit-user-select: none;
+      box-shadow: 0 0 24px rgba(0, 240, 255, 0.5);
+      transition: background 0.08s, box-shadow 0.08s, border-color 0.08s;
     }
 
     .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
+      background: rgba(0, 240, 255, 0.5);
       border-color: #39ff14;
       color: #39ff14;
-      box-shadow: 0 0 22px #39ff14;
+      box-shadow: 0 0 32px #39ff14;
     }
 
     #look-pad {
       position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 140px;
-      height: 140px;
-      background: rgba(22, 9, 44, 0.65);
-      border: 2px solid rgba(0, 240, 255, 0.6);
+      bottom: 25px;
+      right: 25px;
+      width: 220px;
+      height: 220px;
+      background: rgba(22, 9, 44, 0.75);
+      border: 3px solid rgba(0, 240, 255, 0.8);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
@@ -87,8 +96,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.35);
       user-select: none;
+      -webkit-user-select: none;
       cursor: grab;
     }
 
@@ -97,20 +107,22 @@
     }
 
     #look-pad-thumb {
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.3);
-      border: 2px solid #39ff14;
+      width: 85px;
+      height: 85px;
+      background: rgba(0, 240, 255, 0.4);
+      border: 3px solid #39ff14;
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 10px;
+      font-size: 13px;
+      font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
       pointer-events: none;
       transition: transform 0.05s linear;
+      box-shadow: 0 0 15px #39ff14;
     }
 
     #mobile-crosshair {
@@ -118,13 +130,14 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(0, 240, 255, 0.8);
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(0, 240, 255, 0.9);
       border-radius: 50%;
       pointer-events: none;
       display: none;
       z-index: 15;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
     }
 
     @media (pointer: coarse), (max-width: 900px) {
@@ -156,7 +169,7 @@
   </div>
 
   <div id="look-pad">
-    <div id="look-pad-thumb">LOOK / AIM</div>
+    <div id="look-pad-thumb">AIM / LOOK</div>
   </div>
 
   <div id="mobile-crosshair"></div>
@@ -210,7 +223,7 @@
         plushieRotation.yaw -= deltaX * lookSensitivity;
       }
 
-      const maxThumbOffset = 40;
+      const maxThumbOffset = 65;
       const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
       const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
       lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
@@ -500,7 +513,7 @@
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        startTwentyMinuteMatchTimer(); // Fixed: Ensure match timer starts immediately for 1-player solo mode
+        startTwentyMinuteMatchTimer();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
           startTurnCleanly(soloPlayerId);
@@ -516,6 +529,7 @@
         updatePawnNameBadge(pawn2, "Goody");
 
         bootStudio();
+        startTwentyMinuteMatchTimer();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player versus Goody mode! I am taking control of Podium 2. Let's roll our dice and start the show!`;
         speakGoody(speech, () => {
           beginTenSecondDiceDuel();
@@ -3573,7 +3587,6 @@
 
       const inPitchArena = plushiePosition.x > 10.0;
       
-      // Momentum-based player-to-player collision on the pitch arena
       if (inPitchArena) {
         const radius = 0.45;
         remotePlayers.forEach((pMesh) => {
@@ -3850,7 +3863,7 @@
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#look-pad')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
