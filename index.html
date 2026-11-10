@@ -500,7 +500,7 @@
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        startTwentyMinuteMatchTimer(); // Fixed: Ensure match timer starts immediately for 1-player solo mode
+        startTwentyMinuteMatchTimer();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
           startTurnCleanly(soloPlayerId);
@@ -3572,8 +3572,8 @@
       }
 
       const inPitchArena = plushiePosition.x > 10.0;
-      
-      // Momentum-based player-to-player collision on the pitch arena
+     
+      // Decentralized physics collision: any client who touches the ball takes immediate local control and broadcasts sync
       if (inPitchArena) {
         const radius = 0.45;
         remotePlayers.forEach((pMesh) => {
@@ -3598,72 +3598,72 @@
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        if (isBallPhysicsHost) {
-          if (distToBall < 0.78) {
-            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-            ballVelocity.addScaledVector(pushDir, 13.0);
-            playTone(600, 'triangle', 0.08, 0.1);
-          }
+        let localHitBall = false;
 
-          remotePlayers.forEach((pMesh) => {
-            if (pMesh) {
-              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
-              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
-                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                ballVelocity.addScaledVector(pushDir, 13.0);
-                playTone(600, 'triangle', 0.08, 0.1);
-              }
-            }
-          });
+        if (distToBall < 0.78) {
+          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+          ballVelocity.addScaledVector(pushDir, 13.0);
+          playTone(600, 'triangle', 0.08, 0.1);
+          localHitBall = true;
+        }
 
-          ballPos.addScaledVector(ballVelocity, delta);
-          ballVelocity.multiplyScalar(0.96);
-
-          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-
-          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-            redScore++;
-            renderPitchScoreboard(blueScore, redScore);
-            playTone(200, 'sawtooth', 0.3, 0.15);
-            ballMesh.position.set(34.0, 0.82, 0.0);
-            ballVelocity.set(0, 0, 0);
-            if (socket && socket.connected) {
-              socket.emit('score_update', { blue: blueScore, red: redScore });
-            }
-          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-            blueScore++;
-            renderPitchScoreboard(blueScore, redScore);
-            playTone(800, 'sine', 0.3, 0.15);
-            ballMesh.position.set(34.0, 0.82, 0.0);
-            ballVelocity.set(0, 0, 0);
-            if (socket && socket.connected) {
-              socket.emit('score_update', { blue: blueScore, red: redScore });
+        remotePlayers.forEach((pMesh) => {
+          if (pMesh) {
+            const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
+            if (remoteXZ.distanceTo(ballXZ) < 0.78) {
+              const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
+              ballVelocity.addScaledVector(pushDir, 13.0);
+              playTone(600, 'triangle', 0.08, 0.1);
             }
           }
+        });
 
-          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+        ballPos.addScaledVector(ballVelocity, delta);
+        ballVelocity.multiplyScalar(0.96);
 
-          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
-            lastBallSyncTime = time;
-            socket.emit('ball_move', {
-              x: ballPos.x,
-              y: ballPos.y,
-              z: ballPos.z,
-              vx: ballVelocity.x,
-              vy: ballVelocity.y,
-              vz: ballVelocity.vz
-            });
+        if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+        if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+
+        if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+          redScore++;
+          renderPitchScoreboard(blueScore, redScore);
+          playTone(200, 'sawtooth', 0.3, 0.15);
+          ballMesh.position.set(34.0, 0.82, 0.0);
+          ballVelocity.set(0, 0, 0);
+          if (socket && socket.connected) {
+            socket.emit('score_update', { blue: blueScore, red: redScore });
           }
-        } else {
-          if (hasRemoteBallUpdate) {
-            ballMesh.position.lerp(remoteBallTarget, 0.35);
+        } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+          blueScore++;
+          renderPitchScoreboard(blueScore, redScore);
+          playTone(800, 'sine', 0.3, 0.15);
+          ballMesh.position.set(34.0, 0.82, 0.0);
+          ballVelocity.set(0, 0, 0);
+          if (socket && socket.connected) {
+            socket.emit('score_update', { blue: blueScore, red: redScore });
           }
         }
+
+        ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+
+        if (socket && socket.connected && (localHitBall || isBallPhysicsHost || (time - lastBallSyncTime > 40))) {
+          lastBallSyncTime = time;
+          socket.emit('ball_move', {
+            x: ballPos.x,
+            y: ballPos.y,
+            z: ballPos.z,
+            vx: ballVelocity.x,
+            vy: ballVelocity.y,
+            vz: ballVelocity.vz
+          });
+        }
       } else {
-        ballMesh.position.set(34.0, 0.82, 0.0);
-        ballVelocity.set(0, 0, 0);
-        hasRemoteBallUpdate = false;
+        if (hasRemoteBallUpdate) {
+          ballMesh.position.lerp(remoteBallTarget, 0.35);
+        } else {
+          ballMesh.position.set(34.0, 0.82, 0.0);
+          ballVelocity.set(0, 0, 0);
+        }
       }
 
       if (socket && socket.connected) {
