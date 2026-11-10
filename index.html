@@ -380,7 +380,6 @@
           isBallPhysicsHost = data.isHost;
         });
 
-        // Listen for kick requests forwarded from non-hosts to the host
         socket.on('apply_ball_kick', (data) => {
           if (isBallPhysicsHost) {
             const kickVector = new THREE.Vector3(data.vx, data.vy, data.vz);
@@ -451,7 +450,6 @@
             });
           }
 
-          // Store targets for smooth interpolation inside animate loop
           pMesh.userData.targetPosition = new THREE.Vector3(data.x, data.y, data.z);
           pMesh.userData.targetYaw = data.yaw + Math.PI;
 
@@ -3633,7 +3631,7 @@
         if (distToBall < COLLISION_THRESHOLD) {
           const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
           const impactSpeed = plushieVelocity.length();
-          const impulseStrength = Math.max(13.0, impactSpeed * 15.0);
+          const impulseStrength = Math.max(12.0, impactSpeed * 12.0);
           const kickForce = pushDir.clone().multiplyScalar(impulseStrength);
 
           if (isBallPhysicsHost) {
@@ -3645,7 +3643,9 @@
               vy: kickForce.y,
               vz: kickForce.z
             });
-            ballVelocity.add(kickForce);
+            
+            // STRICT NON-HOST ISOLATION: Clamped visual feedback nudge only (preventing compound slingshots)
+            ballVelocity.copy(kickForce.clone().multiplyScalar(0.25));
             playTone(600, 'triangle', 0.08, 0.1);
           }
         }
@@ -3714,7 +3714,6 @@
         });
       }
 
-      // Smoothly interpolate remote players to eliminate jitter/ghosting
       remotePlayers.forEach((pMesh) => {
         if (pMesh.userData && pMesh.userData.targetPosition) {
           pMesh.position.lerp(pMesh.userData.targetPosition, 0.2);
