@@ -19,41 +19,37 @@ let guestCounter = 0; // Sequential counter for Guest names
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Inside your socket connection handler (server.js)
-connectionCount++;
-guestCounter++;
+  connectionCount++;
+  guestCounter++;
 
-const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
-const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
-const defaultName = `Guest ${guestCounter}`;
+  const assignedTeam = (connectionCount % 2 === 1) ? 'BLUE' : 'RED';
+  const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
+  const defaultName = `Guest ${guestCounter}`;
 
-// 1. Store the player in activePlayers map with their unique guest name
-activePlayers.set(socket.id, {
-  id: socket.id,
-  name: defaultName,
-  x: 32.0,
-  y: 0.44,
-  z: 2.5,
-  yaw: 0,
-  team: assignedTeam,
-  teamColor: teamColorHex
-});
+  // Store the player in activePlayers map with their unique guest name
+  activePlayers.set(socket.id, {
+    id: socket.id,
+    name: defaultName,
+    x: 32.0,
+    y: 0.44,
+    z: 2.5,
+    yaw: 0,
+    team: assignedTeam,
+    teamColor: teamColorHex
+  });
 
-// 2. INCLUDE 'name: defaultName' in the assignment payload sent to the client
-socket.emit('assign_team', {
-  team: assignedTeam,
-  teamColor: teamColorHex,
-  name: defaultName
-});
-
-  // Inform this client what team they have been assigned to
-  socket.emit('assign_team', { team: assignedTeam, teamColor: teamColorHex });
+  // Send the team assignment and guest name just once cleanly
+  socket.emit('assign_team', {
+    team: assignedTeam,
+    teamColor: teamColorHex,
+    name: defaultName
+  });
 
   // If this is the first connected player, make them the official ball physics host
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
   }
- 
+  
   // Inform this client whether they are the designated ball physics host
   socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
