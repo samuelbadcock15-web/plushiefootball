@@ -3644,7 +3644,7 @@
               vz: kickForce.z
             });
             
-            // STRICT NON-HOST ISOLATION: Clamped visual feedback nudge only (preventing compound slingshots)
+            // STRICT NON-HOST ISOLATION: Clamped visual feedback nudge only
             ballVelocity.copy(kickForce.clone().multiplyScalar(0.25));
             playTone(600, 'triangle', 0.08, 0.1);
           }
@@ -3654,10 +3654,19 @@
           ballPos.addScaledVector(ballVelocity, delta);
           ballVelocity.multiplyScalar(0.96);
 
+          // Arena wall bounces
           if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
           if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
 
-          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+          // ROBUST GOAL BOUNDARY CHECK (Requires valid height and goal mouth Z span)
+          const GOAL_MIN_Z = -2.5;
+          const GOAL_MAX_Z = 2.5;
+          const GOAL_MAX_Y = 3.0;
+
+          const isInsideGoalMouthY = ballPos.y <= GOAL_MAX_Y;
+          const isInsideGoalMouthZ = ballPos.z >= GOAL_MIN_Z && ballPos.z <= GOAL_MAX_Z;
+
+          if (ballPos.x < 16.2 && isInsideGoalMouthY && isInsideGoalMouthZ) {
             redScore++;
             renderPitchScoreboard(blueScore, redScore);
             playTone(200, 'sawtooth', 0.3, 0.15);
@@ -3666,7 +3675,7 @@
             if (socket && socket.connected) {
               socket.emit('score_update', { blue: blueScore, red: redScore });
             }
-          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+          } else if (ballPos.x > 51.8 && isInsideGoalMouthY && isInsideGoalMouthZ) {
             blueScore++;
             renderPitchScoreboard(blueScore, redScore);
             playTone(800, 'sine', 0.3, 0.15);
@@ -3675,9 +3684,13 @@
             if (socket && socket.connected) {
               socket.emit('score_update', { blue: blueScore, red: redScore });
             }
+          } else {
+            // Side netting / outer walls bounce cleanly instead of resetting
+            if (ballPos.x < 16.2) { ballPos.x = 16.2; ballVelocity.x *= -0.7; playTone(400, 'sine', 0.05, 0.05); }
+            if (ballPos.x > 51.8) { ballPos.x = 51.8; ballVelocity.x *= -0.7; playTone(400, 'sine', 0.05, 0.05); }
           }
 
-          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+          ballPos.x = Math.max(15.5, Math.min(52.5, ballPos.x));
 
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
             lastBallSyncTime = time;
@@ -3715,7 +3728,7 @@
       }
 
       remotePlayers.forEach((pMesh) => {
-        if (pMesh.userData && pMesh.userData.targetPosition) {
+        if (pMesh) {
           pMesh.position.lerp(pMesh.userData.targetPosition, 0.2);
           pMesh.rotation.y += (pMesh.userData.targetYaw - pMesh.rotation.y) * 0.2;
         }
