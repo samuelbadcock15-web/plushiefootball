@@ -519,17 +519,6 @@
         speakGoody(speech, () => {
           beginTenSecondDiceDuel();
         });
-      } else if (modeType === "TWOPLAYER") {
-        isSoloMode = false;
-        isVsGoodyMode = false;
-        pawn1.visible = true;
-        pawn2.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
-        bootStudio();
-        const speech = `Welcome to The Goody Tonight Show! We are running full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
-        speakGoody(speech, () => {
-          beginTenSecondDiceDuel();
-        });
       }
     }
 
@@ -1232,8 +1221,6 @@
                 triggerOnePlayerMode();
               } else if (data.choice === "GOODY") {
                 triggerVsGoodyMode();
-              } else if (data.choice === "TWOPLAYER") {
-                chooseHostGameMode("TWOPLAYER");
               }
             } else if (data.type === "PLAYER_ROLLED_DICE") {
               handlePlayerRoll(data.contestant, data.name, data.roll);
@@ -2671,29 +2658,32 @@
         } else {
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = '14px sans-serif';
-          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-3):", 256, 85);
+          qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-2):", 256, 85);
 
+          // 1-PLAYER SOLO RACE (Active)
           qBoardCtx.fillStyle = '#3498db';
           qBoardCtx.fillRect(40, 102, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 134);
 
+          // 1-PLAYER VS GOODY (Active)
           qBoardCtx.fillStyle = '#e74c3c';
           qBoardCtx.fillRect(40, 168, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 200);
 
-          qBoardCtx.fillStyle = '#9b59b6';
+          // 2-PLAYER MODE (Greyed Out / Disabled)
+          qBoardCtx.fillStyle = '#2d2d3d';
           qBoardCtx.fillRect(40, 234, 432, 55);
-          qBoardCtx.fillStyle = '#ffffff';
+          qBoardCtx.fillStyle = '#7f8c8d';
           qBoardCtx.font = 'bold 16px monospace';
-          qBoardCtx.fillText("[3] 2-PLAYER MODE", 256, 266);
+          qBoardCtx.fillText("[3] 2-PLAYER MODE [DISABLED]", 256, 266);
 
           qBoardCtx.fillStyle = '#39ff14';
           qBoardCtx.font = 'bold 13px monospace';
-          qBoardCtx.fillText("TAP ANY OPTION OR USE 1, 2, 3", 256, 325);
+          qBoardCtx.fillText("TAP ANY ACTIVE OPTION OR USE 1, 2", 256, 325);
         }
       } else if (gameState === "OPENING_DUEL") {
         qBoardCtx.fillStyle = '#ffda66';
@@ -3013,9 +3003,8 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            if (uv.y >= 0.15 && uv.y < 0.35) {
-              chooseHostGameMode("TWOPLAYER");
-            } else if (uv.y >= 0.35 && uv.y < 0.58) {
+            // Updated to only allow selection for Solo (top) or vs Goody (middle), ignoring clicks on the disabled 2-player option (bottom)
+            if (uv.y >= 0.35 && uv.y < 0.58) {
               chooseHostGameMode("GOODY");
             } else if (uv.y >= 0.58 && uv.y <= 0.82) {
               chooseHostGameMode("SOLO");
@@ -3024,7 +3013,6 @@
           return;
         }
 
-        // Trivia Answer Guard: Must have active question AND the 30s question timer must be active
         if (activeQuestion) {
           if (activePlayer === goodyPlayerSlot) return;
           if (!isQuestionTimerActive) return;
@@ -3055,7 +3043,6 @@
           }
         }
 
-        // Dice Roll Guard: Must be actively in a roll phase and timer active
         const isOpeningRollReady = (gameState === "OPENING_DUEL" && isDiceTimerActive);
         const isTurnRollReady = (gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && isDiceTimerActive);
 
@@ -3219,7 +3206,6 @@
       if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
         if (e.key === '1') chooseHostGameMode("SOLO");
         if (e.key === '2') chooseHostGameMode("GOODY");
-        if (e.key === '3') chooseHostGameMode("TWOPLAYER");
       }
     });
 
@@ -3706,9 +3692,6 @@
       if ((isLocalOnPodium1 !== prevPodium1) || (isLocalOnPodium2 !== prevPodium2)) {
         if (!studioPower && gameState === "MODE_PROMPT") {
           renderStageQuestionBoard();
-        }
-        if (gameState === "IDLE" && isLocalOnPodium1 && isLocalOnPodium2 && !studioPower) {
-          chooseHostGameMode("TWOPLAYER");
         }
       }
 
