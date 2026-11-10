@@ -592,6 +592,12 @@
       pawn1.visible = true;
       pawn2.visible = true;
       if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
+
+      if (isLocalOnPodium2 && !isP2Connected) {
+        contestantNames["goody-contestant-2"] = localMyGuestName || "Player 2";
+        updatePawnNameBadge(pawn2, contestantNames["goody-contestant-2"]);
+      }
+
       bootStudio();
       const speech = `Both players are in position! Welcome to full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
       speakGoody(speech, () => {
@@ -661,7 +667,6 @@
       pawn1.visible = true;
       if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
-      // Ensure studio screens and lighting are booted & calibrated correctly!
       bootStudio();
       countdownPill.innerHTML = `STATUS: <span style="color:#39ff14;">SOLO RACE ACTIVE!</span>`;
       gameState = "IN_PLAY";
@@ -728,38 +733,17 @@
       }
 
       const humanId = goodyPlayerSlot === "goody-contestant-1" ? "goody-contestant-2" : "goody-contestant-1";
-      const humanName = contestantNames[humanId];
+      const humanName = contestantNames[humanId] || "Player 1";
 
-      // Ensure studio screens and lighting are booted & calibrated correctly!
       bootStudio();
       countdownPill.innerHTML = `STATUS: <span style="color:#00f0ff;">GOODY VS ${humanName.toUpperCase()}!</span>`;
 
-      if (gameState === "MODE_PROMPT" || gameState === "CONTESTANT_CHOOSING" || savedGameState === "INTRO_SPEECH" || savedGameState === "OPENING_DUEL" || savedGameState === "IDLE") {
-        gameState = "OPENING_DUEL";
-        renderStageQuestionBoard();
-        renderBackstageScreens();
-        const speech = `A bold choice! You have chosen to battle me, Goody! I am taking over the board! Let's roll our dice to determine who goes first! You have 10 seconds to roll your dice!`;
-        speakGoody(speech, () => {
-          beginTenSecondDiceDuel();
-        });
-        return;
-      }
-
-      gameState = "IN_PLAY";
+      gameState = "OPENING_DUEL";
       renderStageQuestionBoard();
       renderBackstageScreens();
-      startTwentyMinuteMatchTimer();
-      broadcastBoardState();
-
-      const speech = `A bold choice! You have chosen to battle me, Goody! I am hopping into the hot seat! Let's resume!`;
+      const speech = `A bold choice! You have chosen to battle me, Goody! I am taking over the board! Let's roll our dice to determine who goes first! You have 10 seconds to roll your dice!`;
       speakGoody(speech, () => {
-        if (savedActiveCountry) {
-          const countryToAsk = savedActiveCountry;
-          savedActiveCountry = null;
-          resumeWithFreshQuestion(savedTurnPlayer, countryToAsk);
-        } else {
-          startTurnCleanly(savedTurnPlayer);
-        }
+        beginTenSecondDiceDuel();
       });
     }
 
@@ -3806,12 +3790,9 @@
         if (!studioPower && gameState === "MODE_PROMPT") {
           renderStageQuestionBoard();
         }
-        if (gameState === "IDLE" && isLocalOnPodium1 && isLocalOnPodium2 && !studioPower) {
-          chooseHostGameMode("TWOPLAYER");
-        }
       }
 
-      function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
+      function updatePlushieVisibility(plushieMesh) {
         if (!plushieMesh) return;
         const pos = plushieMesh.position;
         const dP1 = pos.distanceTo(p1Pos);
@@ -3825,8 +3806,8 @@
           return;
         }
 
-        const podium1Occupied = isP1Connected || isLocalOnPodium1;
-        const shouldBeSolid = onPodium1 || (onPodium2 && podium1Occupied);
+        // FIXED: Either podium makes the plushie standing on it solid immediately!
+        const shouldBeSolid = onPodium1 || onPodium2;
 
         if (shouldBeSolid) {
           setPlushieVisualMode(plushieMesh, 'opaque');
@@ -3835,23 +3816,17 @@
         }
       }
 
-      const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
-
-      updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
+      updatePlushieVisibility(localPlushie);
 
       if (playerPlushie1) {
-        const isP1InGame = studioPower && isP1Connected;
-        updatePlushieVisibility(playerPlushie1, isP1InGame, false);
+        updatePlushieVisibility(playerPlushie1);
       }
       if (playerPlushie2) {
-        const isP2InGame = studioPower && isP2Connected && !isVsGoodyMode;
-        updatePlushieVisibility(playerPlushie2, false, isP2InGame);
+        updatePlushieVisibility(playerPlushie2);
       }
 
       spectatorPlushies.forEach(sp => {
-        updatePlushieVisibility(sp, false, false);
+        updatePlushieVisibility(sp);
       });
 
       const camRot = camera.quaternion;
