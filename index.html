@@ -344,7 +344,7 @@
     };
 
     const contestantCities = {
-      "goody-contestant-1": "London",
+      "goody-contestant-1": "",
       "goody-contestant-2": "Nottingham"
     };
 
@@ -500,6 +500,12 @@
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
+        
+        // FIX: Ensure the 20-minute match clock and IN_PLAY state are fully kicked off for Solo mode!
+        gameState = "IN_PLAY";
+        startTwentyMinuteMatchTimer();
+        broadcastBoardState();
+
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
           startTurnCleanly(soloPlayerId);
@@ -1155,7 +1161,7 @@
             }
 
             const clientName = (conn.metadata && conn.metadata.name) ? conn.metadata.name.trim() : (cId === "goody-contestant-2" ? "Player 2" : "Player 1");
-            const clientCity = (conn.metadata && conn.metadata.city) ? conn.metadata.city.trim() : (cId === "goody-contestant-2" ? "Nottingham" : "London");
+            const clientCity = (conn.metadata && conn.metadata.city) ? conn.metadata.city.trim() : (cId === "goody-contestant-2" ? "Nottingham" : "");
             const clientToken = conn.metadata ? conn.metadata.sessionToken : null;
             const cId = conn.metadata ? conn.metadata.contestant : null;
 
@@ -2660,21 +2666,18 @@
           qBoardCtx.font = '14px sans-serif';
           qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-2):", 256, 85);
 
-          // 1-PLAYER SOLO RACE (Active)
           qBoardCtx.fillStyle = '#3498db';
           qBoardCtx.fillRect(40, 102, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 134);
 
-          // 1-PLAYER VS GOODY (Active)
           qBoardCtx.fillStyle = '#e74c3c';
           qBoardCtx.fillRect(40, 168, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 200);
 
-          // 2-PLAYER MODE (Greyed Out / Disabled)
           qBoardCtx.fillStyle = '#2d2d3d';
           qBoardCtx.fillRect(40, 234, 432, 55);
           qBoardCtx.fillStyle = '#7f8c8d';
@@ -3003,7 +3006,6 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
-            // Updated to only allow selection for Solo (top) or vs Goody (middle), ignoring clicks on the disabled 2-player option (bottom)
             if (uv.y >= 0.35 && uv.y < 0.58) {
               chooseHostGameMode("GOODY");
             } else if (uv.y >= 0.58 && uv.y <= 0.82) {
@@ -3131,7 +3133,7 @@
       ctx.fillStyle = teamColor;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
+      ctx.fillText((displayName || "PLAYER 1").toUpperCase(), w / 2, h / 2 + 2);
 
       if (pGroup.userData.badgeTexture) {
         pGroup.userData.badgeTexture.needsUpdate = true;
@@ -3356,7 +3358,7 @@
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
      
-let tag = "";
+      let tag = "";
       if (isGoodyHostSlot) {
         tag = `[AI HOST: GOODY]`;
       } else if (city === "") {
@@ -3390,8 +3392,7 @@ let tag = "";
           sScreenCtx.font = 'bold 12px monospace';
           sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
         } else {
-          // Changed contestantCities["goody-contestant-1"] to "" below:
-          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], "", hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
+          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], contestantCities["goody-contestant-1"], hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
         }
 
         if (isSoloMode) {
