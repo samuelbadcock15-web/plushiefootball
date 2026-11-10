@@ -547,12 +547,6 @@
       pawn2.visible = true;
       if (window.p2PodiumGroup) window.p2PodiumGroup.visible = true;
 
-      // Ensure exact guest name is assigned to P2 if they are connected
-      if (isLocalOnPodium2 && !isP2Connected && localMyGuestName) {
-        contestantNames["goody-contestant-2"] = localMyGuestName;
-        updatePawnNameBadge(pawn2, contestantNames["goody-contestant-2"]);
-      }
-
       bootStudio();
       const speech = `Both players are in position! Welcome to full 2-Player mode with ${contestantNames["goody-contestant-1"]} and ${contestantNames["goody-contestant-2"]}! Let's determine who goes first with our opening dice roll!`;
       speakGoody(speech, () => {
@@ -569,7 +563,10 @@
             p1Name: contestantNames["goody-contestant-1"] || "Player 1",
             p2Name: contestantNames["goody-contestant-2"] || "Player 2",
             p1Index: p1Index,
-            p2Index: p2Index
+            p2Index: p2Index,
+            gameState: gameState,
+            activeQuestion: activeQuestion,
+            activePlayer: activePlayer
           });
         }
       });
@@ -1087,7 +1084,10 @@
                 p1Name: contestantNames["goody-contestant-1"] || "Player 1",
                 p2Name: contestantNames["goody-contestant-2"] || "Player 2",
                 p1Index: p1Index,
-                p2Index: p2Index
+                p2Index: p2Index,
+                gameState: gameState,
+                activeQuestion: activeQuestion,
+                activePlayer: activePlayer
               });
 
               if (activeQuestion) {
