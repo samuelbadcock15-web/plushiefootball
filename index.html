@@ -380,6 +380,27 @@
           isBallPhysicsHost = data.isHost;
         });
 
+        socket.on('current_players', (players) => {
+          players.forEach((data) => {
+            if (data.id === socket.id) return;
+            let pMesh = remotePlayers.get(data.id);
+            const remoteTeam = data.team || 'BLUE';
+            const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+            const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+            const playerName = data.name || "Guest";
+
+            if (!pMesh) {
+              pMesh = createCutePlushie(remotePlushieHex, playerName);
+              pMesh.userData.team = remoteTeam;
+              updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+              miniDiorama.add(pMesh);
+              remotePlayers.set(data.id, pMesh);
+            }
+            pMesh.position.set(data.x, data.y, data.z);
+            pMesh.rotation.y = data.yaw + Math.PI;
+          });
+        });
+
         socket.on('assign_team', (data) => {
           assignedTeam = data.team;
           teamColorHex = data.teamColor;
@@ -420,14 +441,14 @@
               }
             });
           }
-         
+
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-         
+
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-         
+
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -494,7 +515,7 @@
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-       
+
         pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
@@ -1332,7 +1353,7 @@
         if (onComplete) onComplete();
         return;
       }
-     
+
       window.speechSynthesis.cancel();
       goodyUtterance = new SpeechSynthesisUtterance(text);
       goodyUtterance.rate = 0.95;
@@ -1424,7 +1445,7 @@
         stopDiceCountdown();
         hasPlayerRolledThisTurn = true;
         isPawnMoving = true;
-       
+
         if (contestant === "goody-contestant-2") {
           p2RollVal = roll; isDiceRollingP2 = false;
         } else {
@@ -1455,7 +1476,7 @@
         const mins = Math.max(0, Math.floor(matchTimerSeconds / 60)).toString().padStart(2, '0');
         const secs = Math.max(0, (matchTimerSeconds % 60)).toString().padStart(2, '0');
         const timeStr = `${mins}:${secs}`;
-       
+
         gameClockValEl.textContent = timeStr;
         renderWallClockTexture(timeStr);
 
@@ -1599,7 +1620,7 @@
         const landedCountry = boardTileCoords[currentTileIdx].country;
         const qPool = COUNTRY_QUESTIONS[landedCountry] || COUNTRY_QUESTIONS["UK"];
         const rawQ = qPool[Math.floor(Math.random() * qPool.length)];
-       
+
         activeQuestion = {
           country: landedCountry,
           text: rawQ.q,
@@ -1885,7 +1906,7 @@
       speakGoody(speech);
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
-   
+
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -2217,7 +2238,7 @@
     function createVibrantGoal(isLeft) {
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
-     
+
       const goalSpan = 5.0;
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
@@ -2497,7 +2518,7 @@
       let fontSize = 48;
       if (cleanName.length > 8) fontSize = 36;
       if (cleanName.length > 12) fontSize = 28;
-     
+
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillText(cleanName, w / 2, h / 2 + 2);
 
@@ -2859,7 +2880,7 @@
           qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
         } else {
           const isCurrentPlayerTurn = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
-         
+
           if (gameState === "IN_PLAY" && (!hasPlayerRolledThisTurn || (hasPlayerRolledThisTurn && isPawnMoving && (p1RollVal !== null || p2RollVal !== null))) && isCurrentPlayerTurn) {
             const pName = contestantNames[activePlayer];
             const currentRolled = activePlayer === "goody-contestant-2" ? p2RollVal : p1RollVal;
@@ -3103,7 +3124,7 @@
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
-     
+
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -3191,7 +3212,7 @@
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-   
+
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -3355,7 +3376,7 @@
       ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(x, y + height - 26, width, 26);
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-     
+
       let tag = "";
       if (isGoodyHostSlot) {
         tag = `[AI HOST: GOODY]`;
@@ -3560,7 +3581,7 @@
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
-     
+
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
@@ -3572,8 +3593,7 @@
       }
 
       const inPitchArena = plushiePosition.x > 10.0;
-     
-      // Decentralized physics collision: any client who touches the ball takes immediate local control and broadcasts sync
+
       if (inPitchArena) {
         const radius = 0.45;
         remotePlayers.forEach((pMesh) => {
@@ -3598,72 +3618,72 @@
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        let localHitBall = false;
+        if (isBallPhysicsHost) {
+          if (distToBall < 0.78) {
+            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+            ballVelocity.addScaledVector(pushDir, 13.0);
+            playTone(600, 'triangle', 0.08, 0.1);
+          }
 
-        if (distToBall < 0.78) {
-          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-          ballVelocity.addScaledVector(pushDir, 13.0);
-          playTone(600, 'triangle', 0.08, 0.1);
-          localHitBall = true;
-        }
+          remotePlayers.forEach((pMesh) => {
+            if (pMesh) {
+              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
+              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
+                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
+                ballVelocity.addScaledVector(pushDir, 13.0);
+                playTone(600, 'triangle', 0.08, 0.1);
+              }
+            }
+          });
 
-        remotePlayers.forEach((pMesh) => {
-          if (pMesh) {
-            const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
-            if (remoteXZ.distanceTo(ballXZ) < 0.78) {
-              const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-              ballVelocity.addScaledVector(pushDir, 13.0);
-              playTone(600, 'triangle', 0.08, 0.1);
+          ballPos.addScaledVector(ballVelocity, delta);
+          ballVelocity.multiplyScalar(0.96);
+
+          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+
+          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            redScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(200, 'sawtooth', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
+          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            blueScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(800, 'sine', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
             }
           }
-        });
 
-        ballPos.addScaledVector(ballVelocity, delta);
-        ballVelocity.multiplyScalar(0.96);
+          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
-        if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-        if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-
-        if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-          redScore++;
-          renderPitchScoreboard(blueScore, redScore);
-          playTone(200, 'sawtooth', 0.3, 0.15);
-          ballMesh.position.set(34.0, 0.82, 0.0);
-          ballVelocity.set(0, 0, 0);
-          if (socket && socket.connected) {
-            socket.emit('score_update', { blue: blueScore, red: redScore });
+          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+            lastBallSyncTime = time;
+            socket.emit('ball_move', {
+              x: ballPos.x,
+              y: ballPos.y,
+              z: ballPos.z,
+              vx: ballVelocity.x,
+              vy: ballVelocity.y,
+              vz: ballVelocity.z
+            });
           }
-        } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-          blueScore++;
-          renderPitchScoreboard(blueScore, redScore);
-          playTone(800, 'sine', 0.3, 0.15);
-          ballMesh.position.set(34.0, 0.82, 0.0);
-          ballVelocity.set(0, 0, 0);
-          if (socket && socket.connected) {
-            socket.emit('score_update', { blue: blueScore, red: redScore });
+        } else {
+          if (hasRemoteBallUpdate) {
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
           }
-        }
-
-        ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
-
-        if (socket && socket.connected && (localHitBall || isBallPhysicsHost || (time - lastBallSyncTime > 40))) {
-          lastBallSyncTime = time;
-          socket.emit('ball_move', {
-            x: ballPos.x,
-            y: ballPos.y,
-            z: ballPos.z,
-            vx: ballVelocity.x,
-            vy: ballVelocity.y,
-            vz: ballVelocity.vz
-          });
         }
       } else {
-        if (hasRemoteBallUpdate) {
-          ballMesh.position.lerp(remoteBallTarget, 0.35);
-        } else {
-          ballMesh.position.set(34.0, 0.82, 0.0);
-          ballVelocity.set(0, 0, 0);
-        }
+        ballMesh.position.set(34.0, 0.82, 0.0);
+        ballVelocity.set(0, 0, 0);
+        hasRemoteBallUpdate = false;
       }
 
       if (socket && socket.connected) {
@@ -3770,8 +3790,9 @@
         }
       });
 
+      camera.updateMatrixWorld();
       const camRot = camera.quaternion;
-     
+
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
