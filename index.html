@@ -559,14 +559,19 @@
       });
     }
 
+    // MASTER SYNC BROADCAST FUNCTION FOR ALL MODES
     function broadcastGameStateUpdate(extraData = {}) {
       connectedDataConns.forEach(c => {
         if (c.open) {
           c.send({
             type: "SYNC_STUDIO_STATE",
             gameState: gameState,
+            studioPower: studioPower,
+            isLocalOnPodium1: isLocalOnPodium1,
+            isLocalOnPodium2: isLocalOnPodium2,
             activePlayer: activePlayer,
             activeQuestion: activeQuestion,
+            activeRecap: activeRecap,
             p1Name: contestantNames["goody-contestant-1"] || "Player 1",
             p2Name: contestantNames["goody-contestant-2"] || "Player 2",
             p1Index: p1Index,
@@ -581,7 +586,12 @@
             isDiceTimerActive: isDiceTimerActive,
             p2WaitSecondsLeft: p2WaitSecondsLeft,
             areChoiceButtonsEnabled: areChoiceButtonsEnabled,
-            studioPower: studioPower,
+            isSoloMode: isSoloMode,
+            isVsGoodyMode: isVsGoodyMode,
+            goodyPlayerSlot: goodyPlayerSlot,
+            questionTimer: questionTimer,
+            isQuestionTimerActive: isQuestionTimerActive,
+            matchTimerSeconds: matchTimerSeconds,
             ...extraData
           });
         }
@@ -1139,7 +1149,44 @@
             broadcastGameStateUpdate();
           });
 
+          // CLIENT-TO-HOST DATA HANDLER & STATE SYNC LISTENER
           conn.on('data', (data) => {
+            // CLIENT RECEIVER FOR MASTER HOST SYNC PACKETS
+            if (data.type === "SYNC_STUDIO_STATE") {
+              gameState = data.gameState;
+              studioPower = data.studioPower;
+              isLocalOnPodium1 = data.isLocalOnPodium1;
+              isLocalOnPodium2 = data.isLocalOnPodium2;
+              activePlayer = data.activePlayer;
+              activeQuestion = data.activeQuestion;
+              activeRecap = data.activeRecap;
+              contestantNames["goody-contestant-1"] = data.p1Name;
+              contestantNames["goody-contestant-2"] = data.p2Name;
+              p1Index = data.p1Index;
+              p2Index = data.p2Index;
+              p1RollVal = data.p1RollVal;
+              p2RollVal = data.p2RollVal;
+              isDiceRollingP1 = data.isDiceRollingP1;
+              isDiceRollingP2 = data.isDiceRollingP2;
+              stageSelectedOption = data.stageSelectedOption;
+              stageOptionStatus = data.stageOptionStatus;
+              diceCountdown = data.diceCountdown;
+              isDiceTimerActive = data.isDiceTimerActive;
+              p2WaitSecondsLeft = data.p2WaitSecondsLeft;
+              areChoiceButtonsEnabled = data.areChoiceButtonsEnabled;
+              isSoloMode = data.isSoloMode;
+              isVsGoodyMode = data.isVsGoodyMode;
+              goodyPlayerSlot = data.goodyPlayerSlot;
+              questionTimer = data.questionTimer;
+              isQuestionTimerActive = data.isQuestionTimerActive;
+              matchTimerSeconds = data.matchTimerSeconds;
+
+              // Immediately redraw canvas on client side to match host
+              renderStageQuestionBoard();
+              renderBackstageScreens();
+              return;
+            }
+
             if (data.type === "SPECTATOR_MOVE") {
               let p = spectatorPlushies.get(data.peerId);
               if (!p) {
@@ -1423,9 +1470,7 @@
         gameClockValEl.textContent = timeStr;
         renderWallClockTexture(timeStr);
 
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({ type: "SYNC_MATCH_TIMER", timeStr: timeStr, secondsLeft: matchTimerSeconds });
-        });
+        broadcastGameStateUpdate();
 
         if (matchTimerSeconds <= 0) {
           clearInterval(matchTimerInterval);
@@ -1582,14 +1627,6 @@
 
         const activeName = contestantNames[activePlayer];
 
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({
-            type: "SHOW_QUESTION_LOCKED",
-            question: activeQuestion,
-            activeContestantId: activePlayer,
-            activeContestantName: activeName
-          });
-        });
         renderStageQuestionBoard();
         renderBackstageScreens();
         broadcastGameStateUpdate();
@@ -1663,17 +1700,6 @@
       renderBackstageScreens();
       broadcastGameStateUpdate();
 
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "EVALUATION_RESULT",
-          forContestant: contestant,
-          chosenAnswer: chosen,
-          isCorrect: isCorrect,
-          recap: activeQuestion.recap,
-          country: activeQuestion.country
-        });
-      });
-
       activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect };
       activeQuestion = null;
       renderStageQuestionBoard();
@@ -1717,17 +1743,6 @@
       renderStageQuestionBoard();
       renderBackstageScreens();
       broadcastGameStateUpdate();
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "EVALUATION_RESULT",
-          forContestant: contestant,
-          chosenAnswer: null,
-          isCorrect: false,
-          recap: activeQuestion.recap,
-          country: activeQuestion.country
-        });
-      });
 
       activeRecap = { country: activeQuestion.country, text: activeQuestion.recap, isCorrect: false };
       activeQuestion = null;
@@ -1891,13 +1906,6 @@
       broadcastGameStateUpdate();
 
       speakGoody("We have a dead heat draw! Both contestants finished on the exact same tile! We are going to a sudden death tie-breaker question!", () => {
-        connectedDataConns.forEach(c => {
-          if (c.open) c.send({
-            type: "START_TIE_BREAKER",
-            question: activeQuestion
-          });
-        });
-
         if (isVsGoodyMode) {
           setTimeout(() => {
             if (!tieBreakerAnswered) {
@@ -1928,17 +1936,6 @@
 
       const winner = isCorrect ? answeringName : opponentName;
       const loser = isCorrect ? opponentName : answeringName;
-
-      connectedDataConns.forEach(c => {
-        if (c.open) c.send({
-          type: "TIE_BREAKER_RESULT",
-          winner: winner,
-          loser: loser,
-          isCorrect: isCorrect,
-          chosenAnswer: chosen,
-          ans: activeQuestion.ans
-        });
-      });
 
       const speech = isCorrect
         ? `That is correct! Well done to our winner ${winner}! Goodnight!`
