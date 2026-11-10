@@ -49,7 +49,7 @@ io.on('connection', (socket) => {
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
   }
-  
+
   // Inform this client whether they are the designated ball physics host
   socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
@@ -73,15 +73,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Non-host kicks relay to the ball physics host
+  socket.on('request_ball_kick', (kickData) => {
+    if (ballPhysicsHostId && ballPhysicsHostId !== socket.id) {
+      io.to(ballPhysicsHostId).emit('apply_ball_kick', kickData);
+    }
+  });
+
   // Handle real-time ball movement and physics synchronization from the host
   socket.on('ball_move', (bData) => {
-    // Broadcast ball coordinates and velocity to all other connected clients
     socket.broadcast.emit('ball_sync', bData);
   });
 
   // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
-    // Broadcast updated score to all clients (including sender)
     io.emit('score_sync', sData);
   });
 
