@@ -380,6 +380,15 @@
           isBallPhysicsHost = data.isHost;
         });
 
+        // Listen for kick requests forwarded from non-hosts to the host
+        socket.on('apply_ball_kick', (data) => {
+          if (isBallPhysicsHost) {
+            const kickVector = new THREE.Vector3(data.vx, data.vy, data.vz);
+            ballVelocity.add(kickVector);
+            playTone(600, 'triangle', 0.08, 0.1);
+          }
+        });
+
         socket.on('current_players', (players) => {
           players.forEach((data) => {
             if (data.id === socket.id) return;
@@ -442,8 +451,9 @@
             });
           }
 
-          pMesh.position.set(data.x, data.y, data.z);
-          pMesh.rotation.y = data.yaw + Math.PI;
+          // Store targets for smooth interpolation inside animate loop
+          pMesh.userData.targetPosition = new THREE.Vector3(data.x, data.y, data.z);
+          pMesh.userData.targetYaw = data.yaw + Math.PI;
 
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
@@ -3618,24 +3628,29 @@
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        if (isBallPhysicsHost) {
-          if (distToBall < 0.78) {
-            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-            ballVelocity.addScaledVector(pushDir, 13.0);
+        const COLLISION_THRESHOLD = 0.78;
+
+        if (distToBall < COLLISION_THRESHOLD) {
+          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+          const impactSpeed = plushieVelocity.length();
+          const impulseStrength = Math.max(13.0, impactSpeed * 15.0);
+          const kickForce = pushDir.clone().multiplyScalar(impulseStrength);
+
+          if (isBallPhysicsHost) {
+            ballVelocity.add(kickForce);
+            playTone(600, 'triangle', 0.08, 0.1);
+          } else {
+            socket.emit('request_ball_kick', {
+              vx: kickForce.x,
+              vy: kickForce.y,
+              vz: kickForce.z
+            });
+            ballVelocity.add(kickForce);
             playTone(600, 'triangle', 0.08, 0.1);
           }
+        }
 
-          remotePlayers.forEach((pMesh) => {
-            if (pMesh) {
-              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
-              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
-                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                ballVelocity.addScaledVector(pushDir, 13.0);
-                playTone(600, 'triangle', 0.08, 0.1);
-              }
-            }
-          });
-
+        if (isBallPhysicsHost) {
           ballPos.addScaledVector(ballVelocity, delta);
           ballVelocity.multiplyScalar(0.96);
 
@@ -3698,6 +3713,14 @@
           isSolid: plushiePosition.x > 10.0
         });
       }
+
+      // Smoothly interpolate remote players to eliminate jitter/ghosting
+      remotePlayers.forEach((pMesh) => {
+        if (pMesh.userData && pMesh.userData.targetPosition) {
+          pMesh.position.lerp(pMesh.userData.targetPosition, 0.2);
+          pMesh.rotation.y += (pMesh.userData.targetYaw - pMesh.rotation.y) * 0.2;
+        }
+      });
 
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
       const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
