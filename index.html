@@ -2660,18 +2660,21 @@
           qBoardCtx.font = '14px sans-serif';
           qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-2):", 256, 85);
 
+          // 1-PLAYER SOLO RACE (Active)
           qBoardCtx.fillStyle = '#3498db';
           qBoardCtx.fillRect(40, 102, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 134);
 
+          // 1-PLAYER VS GOODY (Active)
           qBoardCtx.fillStyle = '#e74c3c';
           qBoardCtx.fillRect(40, 168, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 200);
 
+          // 2-PLAYER MODE (Greyed Out / Disabled)
           qBoardCtx.fillStyle = '#2d2d3d';
           qBoardCtx.fillRect(40, 234, 432, 55);
           qBoardCtx.fillStyle = '#7f8c8d';
@@ -3000,6 +3003,7 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
+            // Updated to only allow selection for Solo (top) or vs Goody (middle), ignoring clicks on the disabled 2-player option (bottom)
             if (uv.y >= 0.35 && uv.y < 0.58) {
               chooseHostGameMode("GOODY");
             } else if (uv.y >= 0.58 && uv.y <= 0.82) {
@@ -3053,12 +3057,8 @@
     });
 
     const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
-
-    // Team-based spawn positions behind goals: Blue (Left Goal @ x=16.3) spawns behind Blue goal, Red (Right Goal @ x=51.7) spawns behind Red goal
-    const spawnX = Math.random() > 0.5 ? 14.5 : 53.5;
-    const spawnZ = (Math.random() - 0.5) * 8.0;
-    const plushiePosition = new THREE.Vector3(spawnX, 0.44, spawnZ);
-    const plushieRotation = { yaw: spawnX < 30 ? 0 : Math.PI };
+    const plushiePosition = new THREE.Vector3(32.0, 0.44, 2.5);
+    const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
     function createCutePlushie(color, initialName = "") {
@@ -3356,7 +3356,7 @@
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
      
-      let tag = "";
+let tag = "";
       if (isGoodyHostSlot) {
         tag = `[AI HOST: GOODY]`;
       } else if (city === "") {
@@ -3390,6 +3390,7 @@
           sScreenCtx.font = 'bold 12px monospace';
           sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
         } else {
+          // Changed contestantCities["goody-contestant-1"] to "" below:
           drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], "", hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
         }
 
@@ -3572,27 +3573,7 @@
       }
 
       const inPitchArena = plushiePosition.x > 10.0;
-      
-      // Momentum-based player-to-player collision on the pitch arena
       if (inPitchArena) {
-        const radius = 0.45;
-        remotePlayers.forEach((pMesh) => {
-          if (pMesh && pMesh.position.x > 10.0) {
-            const dx = plushiePosition.x - pMesh.position.x;
-            const dz = plushiePosition.z - pMesh.position.z;
-            const d = Math.hypot(dx, dz);
-            if (d < radius * 2 && d > 0.0001) {
-              const overlap = (radius * 2) - d;
-              const nx = dx / d;
-              const nz = dz / d;
-              plushiePosition.x += nx * (overlap * 0.5);
-              plushiePosition.z += nz * (overlap * 0.5);
-              plushieVelocity.x += nx * 2.5;
-              plushieVelocity.z += nz * 2.5;
-            }
-          }
-        });
-
         const ballPos = ballMesh.position;
         const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
@@ -3674,8 +3655,7 @@
           z: plushiePosition.z,
           yaw: plushieRotation.yaw,
           team: assignedTeam,
-          teamColor: teamColorHex,
-          isSolid: plushiePosition.x > 10.0
+          teamColor: teamColorHex
         });
       }
 
@@ -3762,12 +3742,6 @@
 
       spectatorPlushies.forEach(sp => {
         updatePlushieVisibility(sp, false, false);
-      });
-
-      remotePlayers.forEach((pMesh) => {
-        if (pMesh) {
-          updatePlushieVisibility(pMesh, false, false);
-        }
       });
 
       const camRot = camera.quaternion;
