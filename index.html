@@ -502,6 +502,7 @@
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
+          startTwentyMinuteMatchTimer();
           startTurnCleanly(soloPlayerId);
         });
       } else if (modeType === "GOODY") {
