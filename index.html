@@ -33,13 +33,13 @@
 
     #mobile-dpad {
       position: absolute;
-      bottom: 30px;
-      left: 30px;
+      bottom: 25px;
+      left: 25px;
       display: none;
       grid-template-areas:
         ". up ."
         "left down right";
-      gap: 20px;
+      gap: 15px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
@@ -50,18 +50,18 @@
     }
 
     .dpad-btn {
-      width: 105px;
-      height: 105px;
-      background: rgba(22, 9, 44, 0.88);
+      width: 120px;
+      height: 120px;
+      background: rgba(22, 9, 44, 0.9);
       border: 4px solid #00f0ff;
-      border-radius: 26px;
+      border-radius: 30px;
       color: #00f0ff;
-      font-size: 42px;
+      font-size: 50px;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
       transition: background 0.08s, box-shadow 0.08s, border-color 0.08s;
     }
 
@@ -69,17 +69,17 @@
       background: rgba(0, 240, 255, 0.5);
       border-color: #39ff14;
       color: #39ff14;
-      box-shadow: 0 0 28px #39ff14;
+      box-shadow: 0 0 35px #39ff14;
     }
 
     #look-pad {
       position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 180px;
-      height: 180px;
-      background: rgba(22, 9, 44, 0.7);
-      border: 3px solid rgba(0, 240, 255, 0.7);
+      bottom: 25px;
+      right: 25px;
+      width: 210px;
+      height: 210px;
+      background: rgba(22, 9, 44, 0.75);
+      border: 4px solid rgba(0, 240, 255, 0.8);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
@@ -87,7 +87,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.35);
       user-select: none;
       cursor: grab;
     }
@@ -97,14 +97,14 @@
     }
 
     #look-pad-thumb {
-      width: 70px;
-      height: 70px;
-      background: rgba(0, 240, 255, 0.35);
+      width: 85px;
+      height: 85px;
+      background: rgba(0, 240, 255, 0.4);
       border: 3px solid #39ff14;
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: bold;
       display: flex;
       align-items: center;
@@ -119,9 +119,9 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(0, 240, 255, 0.8);
+      width: 28px;
+      height: 28px;
+      border: 2px solid rgba(0, 240, 255, 0.85);
       border-radius: 50%;
       pointer-events: none;
       display: none;
@@ -205,13 +205,13 @@
 
       const deltaX = clientX - lookStartX;
       const deltaY = clientY - lookStartY;
-      const lookSensitivity = 0.003; // Reduced sensitivity for smoother mobile turning
+      const lookSensitivity = 0.0035; // Calibrated for smooth turning
 
       if (typeof plushieRotation !== 'undefined') {
         plushieRotation.yaw -= deltaX * lookSensitivity;
       }
 
-      const maxThumbOffset = 55;
+      const maxThumbOffset = 65;
       const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
       const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
       lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
@@ -3541,7 +3541,6 @@
       if (moveState.turnLeft) plushieRotation.yaw += 2.5 * delta;
       if (moveState.turnRight) plushieRotation.yaw -= 2.5 * delta;
 
-      // INSTANT RESPONSIVE MOVEMENT (NO SLIDING INERTIA LAG)
       const directMoveSpeed = 5.2 * delta;
       let moveDir = new THREE.Vector3(0, 0, 0);
 
@@ -3559,10 +3558,12 @@
         moveDir.z -= fwdZ;
       }
       if (moveState.turnLeft) {
-        // Handled by rotation
+        moveDir.x -= rightX;
+        moveDir.z -= rightZ;
       }
       if (moveState.turnRight) {
-        // Handled by rotation
+        moveDir.x += rightX;
+        moveDir.z += rightZ;
       }
 
       if (moveDir.lengthSq() > 0) {
@@ -3830,74 +3831,6 @@
     bindTouchButton(btnDown, 'backward', btnDown);
     bindTouchButton(btnLeft, 'turnLeft', btnLeft);
     bindTouchButton(btnRight, 'turnRight', btnRight);
-
-    let touchStartX = null;
-    let touchStartY = null;
-    let isSwipingScreen = false;
-
-    window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-      if (e.touches.length > 0) {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        isSwipingScreen = true;
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
-      if (e.touches.length > 0) {
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-
-        const deltaX = currentX - touchStartX;
-        const deltaY = currentY - touchStartY;
-
-        const turnSensitivity = 0.006;
-        plushieRotation.yaw -= deltaX * turnSensitivity;
-
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
-
-        const moveThreshold = 4;
-
-        if (deltaY < -moveThreshold) {
-          moveState.forward = true;
-          moveState.backward = false;
-          btnUp.classList.add('active');
-          btnDown.classList.remove('active');
-        } else if (deltaY > moveThreshold) {
-          moveState.backward = true;
-          moveState.forward = false;
-          btnDown.classList.add('active');
-          btnUp.classList.remove('active');
-        }
-
-        touchStartX = currentX;
-        touchStartY = currentY;
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-      isSwipingScreen = false;
-      touchStartX = null;
-      touchStartY = null;
-
-      moveState.forward = false;
-      moveState.backward = false;
-      moveState.turnLeft = false;
-      moveState.turnRight = false;
-
-      btnLeft.classList.remove('active');
-      btnRight.classList.remove('active');
-      btnUp.classList.remove('active');
-      btnDown.classList.remove('active');
-    });
 
     animate();
   </script>
