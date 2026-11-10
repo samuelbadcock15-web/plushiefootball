@@ -646,7 +646,9 @@
       gameState = "IN_PLAY";
       renderStageQuestionBoard();
 
+      // 👉 ADD THIS LINE TO START THE 20-MINUTE TIMER IN SOLO MODE!
       startTwentyMinuteMatchTimer();
+
       broadcastBoardState();
 
       const speech = `Welcome back to the show! ${soloName} will now race the board alone to see if they can reach the end before the 20-minute show clock expires! Let's play!`;
