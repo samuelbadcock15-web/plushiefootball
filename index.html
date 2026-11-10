@@ -502,7 +502,6 @@
         bootStudio();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
-          startTwentyMinuteMatchTimer();
           startTurnCleanly(soloPlayerId);
         });
       } else if (modeType === "GOODY") {
@@ -647,9 +646,7 @@
       gameState = "IN_PLAY";
       renderStageQuestionBoard();
 
-      // 👉 ADD THIS LINE TO START THE 20-MINUTE TIMER IN SOLO MODE!
       startTwentyMinuteMatchTimer();
-
       broadcastBoardState();
 
       const speech = `Welcome back to the show! ${soloName} will now race the board alone to see if they can reach the end before the 20-minute show clock expires! Let's play!`;
@@ -1228,7 +1225,7 @@
             } else if (data.type === "PLAYER_ROLLED_DICE") {
               handlePlayerRoll(data.contestant, data.name, data.roll);
             } else if (data.type === "PLAYER_ANSWERED") {
-              if (data.contestant === goodyPlayerSlot || (activePlayer === goodyPlayerSlot)) return; 
+              if (data.contestant === goodyPlayerSlot || (activePlayer === goodyPlayerSlot)) return;
               broadcastMicState(data.contestant, false);
 
               if (isTieBreakerActive) {
@@ -1446,6 +1443,7 @@
           });
         }, 1200);
       }
+    }
 
     function startTwentyMinuteMatchTimer() {
       if (matchTimerInterval) clearInterval(matchTimerInterval);
@@ -3093,10 +3091,10 @@
         bCanvas.width = 256; bCanvas.height = 96;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex, 
-          transparent: true, 
+          map: bTex,
+          transparent: true,
           opacity: 0.3,
-          side: THREE.DoubleSide, 
+          side: THREE.DoubleSide,
           depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
