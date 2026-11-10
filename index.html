@@ -3385,7 +3385,8 @@
           sScreenCtx.font = 'bold 12px monospace';
           sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
         } else {
-          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], contestantCities["goody-contestant-1"], hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
+          // Changed contestantCities["goody-contestant-1"] to "" below:
+          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], "", hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
         }
 
         if (isSoloMode) {
