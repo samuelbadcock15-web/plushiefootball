@@ -30,33 +30,49 @@
     #match-clock-hud { margin-top: 4px; font-weight: bold; color: #00f0ff; font-size: 0.95rem; }
     #audience-pill { margin-top: 4px; font-weight: bold; color: #39ff14; }
 
-/* GIANT D-PAD (Moved Up & Right out of bottom-left corner) */
-    #mobile-dpad {
+    /* PERMANENTLY HIDE CROSSHAIR & OLD LOOK-PAD */
+    #mobile-crosshair, #look-pad {
+      display: none !important;
+    }
+
+    /* LEFT CONTROLS (UP & DOWN) - Moved up and inward from bottom-left */
+    #mobile-controls-left {
       position: absolute;
-      bottom: 70px;   /* Raised higher up */
-      left: 70px;     /* Moved further right */
+      bottom: 80px;
+      left: 60px;
       display: none;
-      grid-template-areas:
-        ". up ."
-        "left down right";
-      gap: 18px;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    /* RIGHT CONTROLS (LEFT & RIGHT) - Moved up and inward from bottom-right */
+    #mobile-controls-right {
+      position: absolute;
+      bottom: 80px;
+      right: 60px;
+      display: none;
+      flex-direction: row;
+      gap: 20px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
-      #mobile-dpad { display: grid; }
+      #mobile-controls-left, #mobile-controls-right { display: flex; }
     }
 
     .dpad-btn {
-      width: 110px;  /* Much larger width */
-      height: 110px; /* Much larger height */
+      width: 110px;
+      height: 110px;
       background: rgba(22, 9, 44, 0.92);
       border: 4px solid #00f0ff;
       border-radius: 26px;
       color: #00f0ff;
-      font-size: 48px; /* Giant arrow symbols */
+      font-size: 48px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -69,53 +85,6 @@
       border-color: #39ff14;
       color: #39ff14;
       box-shadow: 0 0 26px #39ff14;
-    }
-
-  /* GIANT LOOK-PAD / JOYSTICK (Moved Up & Right out of bottom-right corner) */
-    #look-pad {
-      position: absolute;
-      bottom: 70px;   /* Raised higher up */
-      right: 70px;    /* Moved further left */
-      width: 220px;   /* Huge outer circle */
-      height: 220px;  /* Huge outer circle */
-      background: rgba(22, 9, 44, 0.85);
-      border: 4px solid rgba(0, 240, 255, 0.9);
-      border-radius: 50%;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
-      user-select: none;
-    }
-
-    @media (pointer: coarse), (max-width: 900px) {
-      #look-pad { display: flex; }
-    }
-
-    #look-pad-thumb {
-      width: 90px;    /* Big movable inner puck */
-      height: 90px;   /* Big movable inner puck */
-      background: rgba(0, 240, 255, 0.4);
-      border: 4px solid #39ff14;
-      border-radius: 50%;
-      color: #39ff14;
-      font-family: monospace;
-      font-size: 14px;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      pointer-events: none;
-      will-change: transform;
-    }
-
-    /* PERMANENTLY DESTROY / HIDE THE CROSSHAIR */
-    #mobile-crosshair {
-      display: none !important;
     }
   </style>
 </head>
@@ -131,15 +100,16 @@
 
   <canvas id="canvas3d"></canvas>
 
-  <div id="mobile-dpad">
-    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
-    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
-    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
-    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+  <!-- UP & DOWN BUTTONS (LEFT SIDE) -->
+  <div id="mobile-controls-left">
+    <div class="dpad-btn" id="btn-up">▲</div>
+    <div class="dpad-btn" id="btn-down">▼</div>
   </div>
 
-  <div id="look-pad">
-    <div id="look-pad-thumb">LOOK / AIM</div>
+  <!-- LEFT & RIGHT BUTTONS (RIGHT SIDE) -->
+  <div id="mobile-controls-right">
+    <div class="dpad-btn" id="btn-left">◄</div>
+    <div class="dpad-btn" id="btn-right">►</div>
   </div>
 
   <div id="mobile-crosshair"></div>
@@ -165,91 +135,6 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
-    });
-
-    const lookPad = document.getElementById('look-pad');
-    const lookPadThumb = document.getElementById('look-pad-thumb');
-
-    let isLooking = false;
-    let lookTouchId = null;
-    let lookStartX = 0;
-    let lookStartY = 0;
-
-    function handleLookStart(clientX, clientY, identifier = null) {
-      isLooking = true;
-      lookTouchId = identifier;
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
-
-    function handleLookMove(clientX, clientY) {
-      if (!isLooking) return;
-
-      const deltaX = clientX - lookStartX;
-      const deltaY = clientY - lookStartY;
-      const lookSensitivity = 0.005;
-
-      if (typeof plushieRotation !== 'undefined') {
-        plushieRotation.yaw -= deltaX * lookSensitivity;
-      }
-
-      const maxThumbOffset = 40;
-      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
-      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
-      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
-
-      lookStartX = clientX;
-      lookStartY = clientY;
-    }
-
-    function handleLookEnd() {
-      isLooking = false;
-      lookTouchId = null;
-      lookPadThumb.style.transform = `translate(0px, 0px)`;
-    }
-
-    lookPad.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      const touch = e.changedTouches[0];
-      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
-    }, { passive: false });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!isLooking) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === lookTouchId) {
-          handleLookMove(touch.clientX, touch.clientY);
-          break;
-        }
-      }
-    }, { passive: false });
-
-    window.addEventListener('touchend', (e) => {
-      if (!isLooking) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === lookTouchId) {
-          handleLookEnd();
-          break;
-        }
-      }
-    });
-
-    lookPad.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      handleLookStart(e.clientX, e.clientY);
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (isLooking && lookTouchId === null) {
-        handleLookMove(e.clientX, e.clientY);
-      }
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (isLooking && lookTouchId === null) {
-        handleLookEnd();
-      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -467,7 +352,7 @@
       renderStageQuestionBoard();
     }
 
-function chooseHostGameMode(modeType) {
+    function chooseHostGameMode(modeType) {
       if (studioPower) return;
       if (modeType === "SOLO") {
         isSoloMode = true;
@@ -488,16 +373,11 @@ function chooseHostGameMode(modeType) {
         startTwentyMinuteMatchTimer();
         broadcastBoardState();
 
-const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
+        const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
-          // 1. Explicitly reset the turn roll flags so the player can roll
           hasPlayerRolledThisTurn = false;
           isDiceRollingP1 = false;
-          
-          // 2. Start the turn cleanly
           startTurnCleanly(soloPlayerId);
-          
-          // 3. Immediately trigger the dice prompt so the screen arms the roll mechanic
           if (typeof startTurnDicePrompt === "function") {
             startTurnDicePrompt(soloPlayerId, soloName);
           }
@@ -956,8 +836,6 @@ const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player S
       });
     }
 
-    let currentSubtitle = "STUDIO STANDBY - POWER OFF";
-
     const COUNTRY_QUESTIONS = {
       "UK": [
         { q: "In the UK, before the 2019 stake reduction, what was the maximum stake per spin on a Fixed-Odds-Betting-Terminal?", options: ["£2", "£50", "£100", "£500"], ans: "£100", recap: "In April 2019, the UK reduced the maximum FOBT stake per spin from £100 down to £2 to combat severe harms." },
@@ -1289,6 +1167,40 @@ const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player S
 
       } catch(e) { console.error(e); }
     }
+
+    // Independent multi-touch handlers for the split buttons
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    function bindIndependentTouchButton(elem, stateKey, btnElement) {
+      if (!elem) return;
+
+      const activate = (e) => {
+        e.preventDefault();
+        if (typeof moveState !== 'undefined') moveState[stateKey] = true;
+        btnElement.classList.add('active');
+      };
+
+      const deactivate = (e) => {
+        e.preventDefault();
+        if (typeof moveState !== 'undefined') moveState[stateKey] = false;
+        btnElement.classList.remove('active');
+      };
+
+      elem.addEventListener('touchstart', activate, { passive: false });
+      elem.addEventListener('touchend', deactivate, { passive: false });
+      elem.addEventListener('touchcancel', deactivate, { passive: false });
+      elem.addEventListener('mousedown', activate);
+      elem.addEventListener('mouseup', deactivate);
+      elem.addEventListener('mouseleave', deactivate);
+    }
+
+    bindIndependentTouchButton(btnUp, 'forward', btnUp);
+    bindIndependentTouchButton(btnDown, 'backward', btnDown);
+    bindIndependentTouchButton(btnLeft, 'turnLeft', btnLeft);
+    bindIndependentTouchButton(btnRight, 'turnRight', btnRight);
 
     function broadcastAudienceCount() {
       audienceCount = Math.max(1, connectedAudiencePeers.size + 1);
