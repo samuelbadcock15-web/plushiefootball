@@ -487,6 +487,17 @@ startBtn.addEventListener('click', () => {
           }
         });
 
+        socket.on('apply_ball_kick', (kData) => {
+          if (ballVelocity) {
+            ballVelocity.x = kData.vx;
+            ballVelocity.z = kData.vz;
+          }
+          if (!isBallPhysicsHost && ballMesh && kData.ballX !== undefined) {
+            ballMesh.position.x = kData.ballX;
+            ballMesh.position.z = kData.ballZ;
+          }
+        });
+
         socket.on('score_sync', (sData) => {
           blueScore = sData.blue;
           redScore = sData.red;
@@ -507,6 +518,7 @@ startBtn.addEventListener('click', () => {
         socket.on('cancel_podium_countdown', () => {
           countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WALK WAY OUT EAST TO THE GIANT FOOTBALL PITCH!</span>`;
         });
+
       } catch (e) {
         console.warn("Socket.io offline or unavailable:", e);
       }
@@ -3612,7 +3624,7 @@ const inPitchArena = plushiePosition.x > 10.0;
         // 2. Kicking Contact
         if (distToBall < minDistance && (nowMs - lastKickTime > 400)) {
           lastKickTime = nowMs;
-          ignoreRemoteBallUntil = nowMs + 220;
+          ignoreRemoteBallUntil = nowMs + 350; // Give non-hosts a slightly longer grace period to push the ball
 
           let pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
           if (plushieVelocity.lengthSq() > 0.05) {
@@ -3623,9 +3635,9 @@ const inPitchArena = plushiePosition.x > 10.0;
           const kickStrength = 11.5;
           const impulse = pushDir.clone().multiplyScalar(kickStrength);
 
+          // Apply velocity locally immediately on any client that kicks it
           ballVelocity.copy(impulse);
-          ballPos.x += pushDir.x * 0.35;
-          ballPos.z += pushDir.z * 0.35;
+          ballPos.addScaledVector(pushDir, 0.5); // Immediate visual separation
 
           playTone(600, 'triangle', 0.08, 0.1);
 
@@ -3639,7 +3651,6 @@ const inPitchArena = plushiePosition.x > 10.0;
             });
           }
         }
-
 // 3. Physics Simulation vs Sync
         if (isBallPhysicsHost) {
           if (ballVelocity) {
