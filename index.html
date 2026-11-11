@@ -4,13 +4,6 @@
   <meta charset="UTF-8">
   <title>The Goody Tonight Show - Plushie Foosball & Rugby Arena</title>
   <style>
-    * {
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
     body, html {
       margin: 0; padding: 0; width: 100%; height: 100%;
       overflow: hidden; background-color: #05020a;
@@ -30,61 +23,112 @@
     #match-clock-hud { margin-top: 4px; font-weight: bold; color: #00f0ff; font-size: 0.95rem; }
     #audience-pill { margin-top: 4px; font-weight: bold; color: #39ff14; }
 
-    /* PERMANENTLY HIDE CROSSHAIR & OLD LOOK-PAD */
-    #mobile-crosshair, #look-pad {
-      display: none !important;
+    #mode-banner {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(22, 9, 44, 0.92); border: 2px solid #00f0ff; border-radius: 10px;
+      padding: 10px 20px; color: #ffda66; font-family: monospace; font-size: 0.9rem;
+      z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+      pointer-events: none;
     }
 
-    /* LEFT CONTROLS (UP & DOWN) - Moved up and inward from bottom-left */
-    #mobile-controls-left {
+    #mobile-dpad {
       position: absolute;
-      bottom: 80px;
-      left: 60px;
+      bottom: 40px;
+      left: 40px;
       display: none;
-      flex-direction: column;
-      gap: 20px;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-    }
-
-    /* RIGHT CONTROLS (LEFT & RIGHT) - Moved up and inward from bottom-right */
-    #mobile-controls-right {
-      position: absolute;
-      bottom: 80px;
-      right: 60px;
-      display: none;
-      flex-direction: row;
-      gap: 20px;
+      grid-template-areas:
+        ". up ."
+        "left down right";
+      gap: 16px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
-      #mobile-controls-left, #mobile-controls-right { display: flex; }
+      #mobile-dpad { display: grid; }
     }
 
     .dpad-btn {
-      width: 110px;
-      height: 110px;
-      background: rgba(22, 9, 44, 0.92);
-      border: 4px solid #00f0ff;
-      border-radius: 26px;
+      width: 80px;
+      height: 80px;
+      background: rgba(22, 9, 44, 0.85);
+      border: 3px solid #00f0ff;
+      border-radius: 18px;
       color: #00f0ff;
-      font-size: 48px;
+      font-size: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
     }
 
     .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.6);
+      background: rgba(0, 240, 255, 0.45);
       border-color: #39ff14;
       color: #39ff14;
-      box-shadow: 0 0 26px #39ff14;
+      box-shadow: 0 0 22px #39ff14;
+    }
+
+    #look-pad {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      width: 140px;
+      height: 140px;
+      background: rgba(22, 9, 44, 0.65);
+      border: 2px solid rgba(0, 240, 255, 0.6);
+      border-radius: 50%;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      user-select: none;
+      cursor: grab;
+    }
+
+    #look-pad:active {
+      cursor: grabbing;
+    }
+
+    #look-pad-thumb {
+      width: 50px;
+      height: 50px;
+      background: rgba(0, 240, 255, 0.3);
+      border: 2px solid #39ff14;
+      border-radius: 50%;
+      color: #39ff14;
+      font-family: monospace;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      pointer-events: none;
+      transition: transform 0.05s linear;
+    }
+
+    #mobile-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border: 2px solid rgba(0, 240, 255, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+      display: none;
+      z-index: 15;
+    }
+
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-crosshair { display: block; }
     }
   </style>
 </head>
@@ -98,18 +142,21 @@
     <div id="audience-pill">AUDIENCE WATCHING: <span id="audience-count" style="color:#39ff14;">1</span></div>
   </div>
 
-  <canvas id="canvas3d"></canvas>
-
-  <!-- UP & DOWN BUTTONS (LEFT SIDE) -->
-  <div id="mobile-controls-left">
-    <div class="dpad-btn" id="btn-up">▲</div>
-    <div class="dpad-btn" id="btn-down">▼</div>
+  <div id="mode-banner">
+    Move with <span style="color:#39ff14;">W, A, S, D</span> • Walk far out East to the expanded <span style="color:#00f0ff;">Plushie Bumper Arena</span>!
   </div>
 
-  <!-- LEFT & RIGHT BUTTONS (RIGHT SIDE) -->
-  <div id="mobile-controls-right">
-    <div class="dpad-btn" id="btn-left">◄</div>
-    <div class="dpad-btn" id="btn-right">►</div>
+  <canvas id="canvas3d"></canvas>
+
+  <div id="mobile-dpad">
+    <div class="dpad-btn" id="btn-up" style="grid-area: up;">▲</div>
+    <div class="dpad-btn" id="btn-left" style="grid-area: left;">◄</div>
+    <div class="dpad-btn" id="btn-down" style="grid-area: down;">▼</div>
+    <div class="dpad-btn" id="btn-right" style="grid-area: right;">►</div>
+  </div>
+
+  <div id="look-pad">
+    <div id="look-pad-thumb">LOOK / AIM</div>
   </div>
 
   <div id="mobile-crosshair"></div>
@@ -135,6 +182,91 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       unlockHostEnvironment();
+    });
+
+    const lookPad = document.getElementById('look-pad');
+    const lookPadThumb = document.getElementById('look-pad-thumb');
+
+    let isLooking = false;
+    let lookTouchId = null;
+    let lookStartX = 0;
+    let lookStartY = 0;
+
+    function handleLookStart(clientX, clientY, identifier = null) {
+      isLooking = true;
+      lookTouchId = identifier;
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookMove(clientX, clientY) {
+      if (!isLooking) return;
+
+      const deltaX = clientX - lookStartX;
+      const deltaY = clientY - lookStartY;
+      const lookSensitivity = 0.005;
+
+      if (typeof plushieRotation !== 'undefined') {
+        plushieRotation.yaw -= deltaX * lookSensitivity;
+      }
+
+      const maxThumbOffset = 40;
+      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+      lookStartX = clientX;
+      lookStartY = clientY;
+    }
+
+    function handleLookEnd() {
+      isLooking = false;
+      lookTouchId = null;
+      lookPadThumb.style.transform = `translate(0px, 0px)`;
+    }
+
+    lookPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === lookTouchId) {
+          handleLookMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+          handleLookEnd();
+          break;
+        }
+      }
+    });
+
+    lookPad.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handleLookStart(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isLooking && lookTouchId === null) {
+        handleLookMove(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isLooking && lookTouchId === null) {
+        handleLookEnd();
+      }
     });
 
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -368,19 +500,15 @@
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        
+       
+        // FIX: Ensure the 20-minute match clock and IN_PLAY state are fully kicked off for Solo mode!
         gameState = "IN_PLAY";
         startTwentyMinuteMatchTimer();
         broadcastBoardState();
 
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
-          hasPlayerRolledThisTurn = false;
-          isDiceRollingP1 = false;
           startTurnCleanly(soloPlayerId);
-          if (typeof startTurnDicePrompt === "function") {
-            startTurnDicePrompt(soloPlayerId, soloName);
-          }
         });
       } else if (modeType === "GOODY") {
         isSoloMode = false;
@@ -836,6 +964,8 @@
       });
     }
 
+    let currentSubtitle = "STUDIO STANDBY - POWER OFF";
+
     const COUNTRY_QUESTIONS = {
       "UK": [
         { q: "In the UK, before the 2019 stake reduction, what was the maximum stake per spin on a Fixed-Odds-Betting-Terminal?", options: ["£2", "£50", "£100", "£500"], ans: "£100", recap: "In April 2019, the UK reduced the maximum FOBT stake per spin from £100 down to £2 to combat severe harms." },
@@ -1167,40 +1297,6 @@
 
       } catch(e) { console.error(e); }
     }
-
-    // Independent multi-touch handlers for the split buttons
-    const btnUp = document.getElementById('btn-up');
-    const btnDown = document.getElementById('btn-down');
-    const btnLeft = document.getElementById('btn-left');
-    const btnRight = document.getElementById('btn-right');
-
-    function bindIndependentTouchButton(elem, stateKey, btnElement) {
-      if (!elem) return;
-
-      const activate = (e) => {
-        e.preventDefault();
-        if (typeof moveState !== 'undefined') moveState[stateKey] = true;
-        btnElement.classList.add('active');
-      };
-
-      const deactivate = (e) => {
-        e.preventDefault();
-        if (typeof moveState !== 'undefined') moveState[stateKey] = false;
-        btnElement.classList.remove('active');
-      };
-
-      elem.addEventListener('touchstart', activate, { passive: false });
-      elem.addEventListener('touchend', deactivate, { passive: false });
-      elem.addEventListener('touchcancel', deactivate, { passive: false });
-      elem.addEventListener('mousedown', activate);
-      elem.addEventListener('mouseup', deactivate);
-      elem.addEventListener('mouseleave', deactivate);
-    }
-
-    bindIndependentTouchButton(btnUp, 'forward', btnUp);
-    bindIndependentTouchButton(btnDown, 'backward', btnDown);
-    bindIndependentTouchButton(btnLeft, 'turnLeft', btnLeft);
-    bindIndependentTouchButton(btnRight, 'turnRight', btnRight);
 
     function broadcastAudienceCount() {
       audienceCount = Math.max(1, connectedAudiencePeers.size + 1);
@@ -2022,6 +2118,157 @@
     partitionGroup.add(gateGroup);
 
     miniDiorama.add(partitionGroup);
+
+    const pitchSbCanvas = document.createElement('canvas');
+    pitchSbCanvas.width = 1024;
+    pitchSbCanvas.height = 512;
+    const pitchSbCtx = pitchSbCanvas.getContext('2d');
+    const pitchSbTexture = new THREE.CanvasTexture(pitchSbCanvas);
+    pitchSbTexture.minFilter = THREE.LinearFilter;
+
+    const pitchBoardGeo = new THREE.PlaneGeometry(12, 6);
+    const pitchBoardMat = new THREE.MeshBasicMaterial({
+      map: pitchSbTexture,
+      side: THREE.DoubleSide
+    });
+
+    const pitchScoreboardMesh = new THREE.Mesh(pitchBoardGeo, pitchBoardMat);
+    pitchScoreboardMesh.position.set(34.0, 3.5, 14.0);
+    pitchScoreboardMesh.rotation.y = Math.PI;
+    miniDiorama.add(pitchScoreboardMesh);
+
+    function renderPitchScoreboard(blue, red) {
+      pitchSbCtx.fillStyle = '#05020a';
+      pitchSbCtx.fillRect(0, 0, 1024, 512);
+
+      pitchSbCtx.strokeStyle = '#00f0ff';
+      pitchSbCtx.lineWidth = 10;
+      pitchSbCtx.strokeRect(10, 10, 1004, 492);
+
+      pitchSbCtx.fillStyle = '#ffda66';
+      pitchSbCtx.font = 'bold 44px monospace';
+      pitchSbCtx.textAlign = 'center';
+      pitchSbCtx.fillText('★ PLUSHIE RUGBY-FOOTIE ARENA ★', 512, 85);
+
+      pitchSbCtx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+      pitchSbCtx.fillRect(80, 140, 400, 300);
+      pitchSbCtx.strokeStyle = '#00f0ff';
+      pitchSbCtx.lineWidth = 4;
+      pitchSbCtx.strokeRect(80, 140, 400, 300);
+
+      pitchSbCtx.fillStyle = '#00f0ff';
+      pitchSbCtx.font = 'bold 36px monospace';
+      pitchSbCtx.fillText('BLUE TEAM', 280, 195);
+
+      pitchSbCtx.fillStyle = '#ffffff';
+      pitchSbCtx.font = 'bold 96px monospace';
+      pitchSbCtx.fillText(blue, 280, 330);
+
+      pitchSbCtx.fillStyle = 'rgba(255, 56, 56, 0.15)';
+      pitchSbCtx.fillRect(544, 140, 400, 300);
+      pitchSbCtx.strokeStyle = '#ff3838';
+      pitchSbCtx.lineWidth = 4;
+      pitchSbCtx.strokeRect(544, 140, 400, 300);
+
+      pitchSbCtx.fillStyle = '#ff3838';
+      pitchSbCtx.font = 'bold 36px monospace';
+      pitchSbCtx.fillText('RED TEAM', 744, 195);
+
+      pitchSbCtx.fillStyle = '#ffffff';
+      pitchSbCtx.font = 'bold 96px monospace';
+      pitchSbCtx.fillText(red, 744, 330);
+
+      pitchSbTexture.needsUpdate = true;
+    }
+
+    renderPitchScoreboard(0, 0);
+
+    const foosballGroup = new THREE.Group();
+    foosballGroup.position.set(34.0, 0.44, 0.0);
+
+    const arenaLength = 36.0;
+    const arenaWidth = 24.0;
+
+    const turfMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(arenaLength, 0.06, arenaWidth),
+      new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.8 })
+    );
+    turfMesh.position.y = 0.03;
+    foosballGroup.add(turfMesh);
+
+    const pitchLinesMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const centerLine = new THREE.Mesh(new THREE.PlaneGeometry(0.08, arenaWidth - 0.2), pitchLinesMat);
+    centerLine.rotation.x = -Math.PI / 2;
+    centerLine.position.y = 0.065;
+    foosballGroup.add(centerLine);
+
+    const centerCircle = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.1, 32), pitchLinesMat);
+    centerCircle.rotation.x = -Math.PI / 2;
+    centerCircle.position.y = 0.066;
+    foosballGroup.add(centerCircle);
+
+    const arenaWallMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x004466, metalness: 0.8, roughness: 0.2 });
+    const halfLen = arenaLength / 2;
+    const halfWid = arenaWidth / 2;
+
+    const wallNorth = new THREE.Mesh(new THREE.BoxGeometry(arenaLength + 0.4, 0.6, 0.3), arenaWallMat);
+    wallNorth.position.set(0, 0.3, halfWid + 0.15);
+    foosballGroup.add(wallNorth);
+
+    const wallSouth = new THREE.Mesh(new THREE.BoxGeometry(arenaLength + 0.4, 0.6, 0.3), arenaWallMat);
+    wallSouth.position.set(0, 0.3, -(halfWid + 0.15));
+    foosballGroup.add(wallSouth);
+
+    function createVibrantGoal(isLeft) {
+      const goalGroup = new THREE.Group();
+      const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
+     
+      const goalSpan = 5.0;
+      const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
+      post1.position.set(0, 1.5, goalSpan / 2);
+      goalGroup.add(post1);
+
+      const post2 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
+      post2.position.set(0, 1.5, -goalSpan / 2);
+      goalGroup.add(post2);
+
+      const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, goalSpan, 16), postMat);
+      crossbar.rotation.z = Math.PI / 2;
+      crossbar.position.set(0, 3.0, 0);
+      goalGroup.add(crossbar);
+
+      const up1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.5, 16), postMat);
+      up1.position.set(0, 5.25, goalSpan / 2);
+      goalGroup.add(up1);
+
+      const up2 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.5, 16), postMat);
+      up2.position.set(0, 5.25, -goalSpan / 2);
+      goalGroup.add(up2);
+
+      const netMat = new THREE.MeshBasicMaterial({ color: isLeft ? 0x00ffff : 0xff79b0, wireframe: true, transparent: true, opacity: 0.7 });
+      const netBox = new THREE.Mesh(new THREE.BoxGeometry(1.6, 3.0, goalSpan), netMat);
+      netBox.position.set(-0.8, 1.5, 0);
+      goalGroup.add(netBox);
+
+      goalGroup.position.set(isLeft ? -halfLen : halfLen, 0, 0);
+      if (!isLeft) goalGroup.rotation.y = Math.PI;
+      return goalGroup;
+    }
+
+    foosballGroup.add(createVibrantGoal(true));
+    foosballGroup.add(createVibrantGoal(false));
+    miniDiorama.add(foosballGroup);
+
+    const ballMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.38, 24, 24),
+      new THREE.MeshStandardMaterial({ color: 0xffda66, emissive: 0x443300, roughness: 0.3, metalness: 0.5 })
+    );
+    ballMesh.position.set(34.0, 0.82, 0.0);
+    miniDiorama.add(ballMesh);
+
+    let ballVelocity = new THREE.Vector3(0, 0, 0);
+    const remoteBallTarget = new THREE.Vector3(34.0, 0.82, 0.0);
+    let hasRemoteBallUpdate = false;
 
     const p1PodiumGroup = new THREE.Group();
     const p1PodiumBase = new THREE.Mesh(
@@ -3324,6 +3571,90 @@
             plushiePosition.x = 10.4;
           }
         }
+      }
+      
+const inPitchArena = plushiePosition.x > 10.0;
+      if (inPitchArena) {
+        const ballPos = ballMesh.position;
+        const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
+
+        if (isBallPhysicsHost) {
+          let collided = false;
+
+          // 1. Check local player collision
+          const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
+          if (plushXZ.distanceTo(ballXZ) < 0.78) {
+            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+            ballVelocity.addScaledVector(pushDir, 13.0);
+            collided = true;
+          }
+
+          // 2. Check remote players collision (only if local hasn't already collided this frame)
+          if (!collided) {
+            remotePlayers.forEach((pMesh) => {
+              if (!collided && pMesh) {
+                const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
+                if (remoteXZ.distanceTo(ballXZ) < 0.78) {
+                  const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
+                  ballVelocity.addScaledVector(pushDir, 13.0);
+                  collided = true;
+                }
+              }
+            });
+          }
+
+          if (collided) {
+            playTone(600, 'triangle', 0.08, 0.1);
+          }
+
+          ballPos.addScaledVector(ballVelocity, delta);
+          ballVelocity.multiplyScalar(0.96);
+
+          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+
+          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            redScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(200, 'sawtooth', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
+          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            blueScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(800, 'sine', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
+          }
+
+          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+
+          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+            lastBallSyncTime = time;
+            socket.emit('ball_move', {
+              x: ballPos.x,
+              y: ballPos.y,
+              z: ballPos.z,
+              vx: ballVelocity.x,
+              vy: ballVelocity.y,
+              vz: ballVelocity.vz
+            });
+          }
+        } else {
+          if (hasRemoteBallUpdate) {
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
+          }
+        }
+      } else {
+        ballMesh.position.set(34.0, 0.82, 0.0);
+        ballVelocity.set(0, 0, 0);
+        hasRemoteBallUpdate = false;
       }
 
       if (socket && socket.connected) {
