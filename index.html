@@ -3815,13 +3815,25 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
 
     function bindTouchButton(elem, stateKey, btnElement) {
       if (!elem) return;
+      let activeTouchId = null;
+
       const activate = (e) => {
         e.preventDefault();
+        // Use changedTouches to support multi-touch alongside the joystick
+        const touch = e.changedTouches ? e.changedTouches[0] : null;
+        if (touch) activeTouchId = touch.identifier;
+
         moveState[stateKey] = true;
         btnElement.classList.add('active');
       };
+
       const deactivate = (e) => {
         e.preventDefault();
+        if (e.changedTouches && activeTouchId !== null) {
+          const released = Array.from(e.changedTouches).find(t => t.identifier === activeTouchId);
+          if (!released && e.type !== 'touchcancel') return;
+        }
+        activeTouchId = null;
         moveState[stateKey] = false;
         btnElement.classList.remove('active');
       };
