@@ -26,8 +26,7 @@ io.on('connection', (socket) => {
   const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
   const defaultName = `Guest ${guestCounter}`;
 
-  // Store the player in activePlayers map with their unique guest name
-  activePlayers.set(socket.id, {
+  const newPlayerData = {
     id: socket.id,
     name: defaultName,
     x: 32.0,
@@ -36,9 +35,12 @@ io.on('connection', (socket) => {
     yaw: 0,
     team: assignedTeam,
     teamColor: teamColorHex
-  });
+  };
 
-  // Send the team assignment and guest name just once cleanly
+  // Store the player in activePlayers map
+  activePlayers.set(socket.id, newPlayerData);
+
+  // Send the team assignment and guest name to the new user
   socket.emit('assign_team', {
     team: assignedTeam,
     teamColor: teamColorHex,
@@ -49,12 +51,15 @@ io.on('connection', (socket) => {
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
   }
- 
+  
   // Inform this client whether they are the designated ball physics host
   socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
   // Send current players list to the newly connected client
   socket.emit('current_players', Array.from(activePlayers.values()));
+
+  // 🌟 ADDED: Broadcast the new player to all existing clients immediately so they pop into view
+  socket.broadcast.emit('update_player', newPlayerData);
 
   // Handle player avatar movement, rotation, & team updates
   socket.on('player_move', (data) => {
@@ -75,13 +80,11 @@ io.on('connection', (socket) => {
 
   // Handle real-time ball movement and physics synchronization from the host
   socket.on('ball_move', (bData) => {
-    // Broadcast ball coordinates and velocity to all other connected clients
     socket.broadcast.emit('ball_sync', bData);
   });
 
   // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
-    // Broadcast updated score to all clients (including sender)
     io.emit('score_sync', sData);
   });
 
