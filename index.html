@@ -3577,26 +3577,37 @@ const inPitchArena = plushiePosition.x > 10.0;
       if (inPitchArena) {
         const ballPos = ballMesh.position;
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
+        const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
+
+        // --- SOLID PLAYER-TO-BALL COLLISION (Prevents ghosting) ---
+        const playerDist = plushXZ.distanceTo(ballXZ);
+        const minCollisionDist = 0.65; // Radius threshold
+        if (playerDist < minCollisionDist) {
+          // Push player back slightly so they can't walk straight through it
+          const overlap = minCollisionDist - playerDist;
+          const pushBackDir = new THREE.Vector3().subVectors(plushXZ, ballXZ).normalize();
+          plushiePosition.x += pushBackDir.x * overlap;
+          plushiePosition.z += pushBackDir.z * overlap;
+        }
 
         if (isBallPhysicsHost) {
           let collided = false;
 
-          // 1. Check local player collision
-          const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
-          if (plushXZ.distanceTo(ballXZ) < 0.78) {
+          // 1. Check local player impact force
+          if (playerDist < 0.78) {
             const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-            ballVelocity.addScaledVector(pushDir, 13.0);
+            ballVelocity.addScaledVector(pushDir, 14.0);
             collided = true;
           }
 
-          // 2. Check remote players collision
+          // 2. Check remote players impact force
           if (!collided) {
             remotePlayers.forEach((pMesh) => {
               if (!collided && pMesh) {
                 const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
                 if (remoteXZ.distanceTo(ballXZ) < 0.78) {
                   const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                  ballVelocity.addScaledVector(pushDir, 13.0);
+                  ballVelocity.addScaledVector(pushDir, 14.0);
                   collided = true;
                 }
               }
@@ -3607,13 +3618,15 @@ const inPitchArena = plushiePosition.x > 10.0;
             playTone(600, 'triangle', 0.08, 0.1);
           }
 
+          // Physics integration
           ballPos.addScaledVector(ballVelocity, delta);
-          ballVelocity.multiplyScalar(0.96);
+          ballVelocity.multiplyScalar(0.95); // Friction damping
 
+          // Wall bounces
           if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
           if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
 
-          // Goal scoring checks
+          // Goal scoring logic
           if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
             redScore++;
             renderPitchScoreboard(blueScore, redScore);
@@ -3636,8 +3649,8 @@ const inPitchArena = plushiePosition.x > 10.0;
 
           ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
-          // Broadcast ball movement correctly (Fixed .vz to .z)
-          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+          // Real-time server broadcast (Fixed `.vz` property mapping)
+          if (socket && socket.connected && (time - lastBallSyncTime > 20)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
               x: ballPos.x,
@@ -3645,19 +3658,19 @@ const inPitchArena = plushiePosition.x > 10.0;
               z: ballPos.z,
               vx: ballVelocity.x,
               vy: ballVelocity.y,
-              vz: ballVelocity.z  // <--- FIXED HERE
+              vz: ballVelocity.z
             });
           }
         } else {
-          // Non-host screens smoothly interpolate to the host's ball position
+          // Smooth interpolation for remote/non-host screens
           if (hasRemoteBallUpdate) {
-            ballMesh.position.lerp(remoteBallTarget, 0.35);
+            ballMesh.position.lerp(remoteBallTarget, 0.4);
           }
         }
       } else {
         ballMesh.position.set(34.0, 0.82, 0.0);
         ballVelocity.set(0, 0, 0);
-        hasRemoteBallUpdate = false;
+        hasRemoteBallValueUpdate = false;
       }
 
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
