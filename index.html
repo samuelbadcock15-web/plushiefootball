@@ -9,6 +9,14 @@
       overflow: hidden; background-color: #05020a;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       touch-action: manipulation;
+      
+      /* Prevents text selection, touch callout menus, and the blue flash */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #canvas3d { width: 100%; height: 100%; display: block; cursor: pointer; }
 
