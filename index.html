@@ -542,13 +542,13 @@ startBtn.addEventListener('click', () => {
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-        
+
         pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        
+
         gameState = "IN_PLAY";
         startTwentyMinuteMatchTimer();
         broadcastBoardState();
