@@ -84,7 +84,19 @@ io.on('connection', (socket) => {
     // Broadcast updated score to all clients (including sender)
     io.emit('score_sync', sData);
   });
+socket.on('player_hit_ball', (hitData) => {
+    // If the sender is the physics host, ignore (host handles it locally)
+    if (socket.id === ballPhysicsHostId) return;
 
+    // Relay the hit force to the designated ball physics host so they apply it
+    if (ballPhysicsHostId) {
+      io.to(ballPhysicsHostId).emit('apply_remote_hit', {
+        playerId: socket.id,
+        pushX: hitData.pushX,
+        pushZ: hitData.pushZ
+      });
+    }
+  });
   // Handle disconnects
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
