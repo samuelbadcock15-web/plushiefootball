@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('ball_sync', bData);
   });
 
-  // Handle kick impulses from ANY player
+// Handle kick impulses from ANY player
   socket.on('ball_kick', (kData) => {
     if (kData.ballX !== undefined) {
       currentBallState.x = kData.ballX;
@@ -109,8 +109,8 @@ io.on('connection', (socket) => {
       currentBallState.vx = kData.vx;
       currentBallState.vz = kData.vz;
     }
-    // Forward to everyone (including host) to update velocity and adopted position
-    io.emit('apply_ball_kick', kData);
+    // Broadcast ONLY to other players (do not echo back to the person who kicked it)
+    socket.broadcast.emit('apply_ball_kick', kData);
   });
 
   // Handle goal scores
