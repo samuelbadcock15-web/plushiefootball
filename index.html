@@ -384,7 +384,7 @@ startBtn.addEventListener('click', () => {
 
     const spectatorPlushies = new Map();
 
-    function initSocketConnection() {
+   function initSocketConnection() {
       try {
         socket = io();
 
@@ -411,6 +411,26 @@ startBtn.addEventListener('click', () => {
           }
         });
 
+        // 1. Instantly spawn all players who were already in the room
+        socket.on('current_players', (playersList) => {
+          playersList.forEach((pData) => {
+            if (pData.id !== socket.id && !remotePlayers.has(pData.id)) {
+              const remoteTeam = pData.team || 'BLUE';
+              const remoteTeamColor = pData.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+              const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+              const playerName = pData.name || "Guest";
+
+              const pMesh = createCutePlushie(remotePlushieHex, playerName);
+              pMesh.userData.team = remoteTeam;
+              updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+              pMesh.position.set(pData.x, pData.y, pData.z);
+              pMesh.rotation.y = (pData.yaw || 0) + Math.PI;
+              miniDiorama.add(pMesh);
+              remotePlayers.set(pData.id, pMesh);
+            }
+          });
+        });
+
         socket.on('update_player', (data) => {
           let pMesh = remotePlayers.get(data.id);
           const remoteTeam = data.team || 'BLUE';
@@ -432,14 +452,14 @@ startBtn.addEventListener('click', () => {
               }
             });
           }
-         
+          
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-         
+          
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-         
+          
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -454,6 +474,7 @@ startBtn.addEventListener('click', () => {
           }
         });
 
+        // 2. Authoritative ball sync with instant snap for new arrivals
         socket.on('ball_sync', (bData) => {
           if (ballMesh) {
             remoteBallTarget.set(bData.x, bData.y, bData.z);
@@ -461,19 +482,24 @@ startBtn.addEventListener('click', () => {
               ballVelocity.set(bData.vx, bData.vy, bData.vz);
             }
             hasRemoteBallUpdate = true;
+            if (ballMesh.position.distanceTo(remoteBallTarget) > 3.0 && performance.now() > ignoreRemoteBallUntil) {
+              ballMesh.position.copy(remoteBallTarget);
+            }
           }
         });
-socket.on('apply_ball_kick', (kData) => {
+
+        // 3. Kick impulse & host position adoption
+        socket.on('apply_ball_kick', (kData) => {
           if (ballVelocity) {
             ballVelocity.x = kData.vx;
             ballVelocity.z = kData.vz;
           }
           if (isBallPhysicsHost && ballMesh && kData.ballX !== undefined) {
-            // Adopt the position from the player who made physical contact
             ballMesh.position.x = kData.ballX;
             ballMesh.position.z = kData.ballZ;
           }
         });
+
         socket.on('score_sync', (sData) => {
           blueScore = sData.blue;
           redScore = sData.red;
@@ -498,30 +524,6 @@ socket.on('apply_ball_kick', (kData) => {
         console.warn("Socket.io offline or unavailable:", e);
       }
     }
-
-    function triggerImmediateModePrompt() {
-      if (studioPower) return;
-      gameState = "MODE_PROMPT";
-      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">SELECT GAME MODE (STEP ON PODIUM 1)</span>`;
-      renderStageQuestionBoard();
-    }
-
-    function chooseHostGameMode(modeType) {
-      if (studioPower) return;
-      if (modeType === "SOLO") {
-        isSoloMode = true;
-        isVsGoodyMode = false;
-        soloPlayerId = "goody-contestant-1";
-        const soloName = contestantNames[soloPlayerId];
-        activePlayer = soloPlayerId;
-        p2RollVal = null;
-        isDiceRollingP2 = false;
-       
-        pawn2.visible = false;
-        pawn1.visible = true;
-        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
-
-        bootStudio();
        
         // FIX: Ensure the 20-minute match clock and IN_PLAY state are fully kicked off for Solo mode!
         gameState = "IN_PLAY";
@@ -3587,14 +3589,20 @@ const inPitchArena = plushiePosition.x > 10.0;
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
         const minDistance = 0.82;
-
         const nowMs = performance.now();
 
-        // Contact / Kick Detection
-        if (distToBall < minDistance && (nowMs - lastKickTime > 350)) {
+        // 1. Solid Body Pushback (never walk through ball)
+        if (distToBall < 0.64 && distToBall > 0.001) {
+          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+          const overlap = 0.64 - distToBall;
+          plushiePosition.x -= pushDir.x * overlap;
+          plushiePosition.z -= pushDir.z * overlap;
+        }
+
+        // 2. Kicking Contact
+        if (distToBall < minDistance && (nowMs - lastKickTime > 400)) {
           lastKickTime = nowMs;
-          // Temporarily ignore host sync snaps for 200ms so the ball rolls away cleanly on non-host
-          ignoreRemoteBallUntil = nowMs + 200;
+          ignoreRemoteBallUntil = nowMs + 220; // 220ms prediction grace period
 
           let pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
           if (plushieVelocity.lengthSq() > 0.05) {
@@ -3605,10 +3613,9 @@ const inPitchArena = plushiePosition.x > 10.0;
           const kickStrength = 11.5;
           const impulse = pushDir.clone().multiplyScalar(kickStrength);
 
-          // Apply instant response on current screen
           ballVelocity.copy(impulse);
-          ballPos.x += pushDir.x * 0.4;
-          ballPos.z += pushDir.z * 0.4;
+          ballPos.x += pushDir.x * 0.35;
+          ballPos.z += pushDir.z * 0.35;
 
           playTone(600, 'triangle', 0.08, 0.1);
 
@@ -3623,29 +3630,9 @@ const inPitchArena = plushiePosition.x > 10.0;
           }
         }
 
-        // Solid body pushback (prevents walking through ball)
-        if (distToBall < 0.62 && distToBall > 0.001) {
-          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-          const overlap = 0.62 - distToBall;
-          plushiePosition.x -= pushDir.x * overlap;
-          plushiePosition.z -= pushDir.z * overlap;
-        }
-
-        // Host ball physics calculations
+        // 3. Physics Simulation vs Sync
         if (isBallPhysicsHost) {
-          if (remotePlayers && remotePlayers.size > 0) {
-            remotePlayers.forEach((pMesh) => {
-              if (pMesh && pMesh.position) {
-                const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
-                if (remoteXZ.distanceTo(ballXZ) < minDistance) {
-                  const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                  ballVelocity.copy(pushDir.multiplyScalar(10.0));
-                  playTone(600, 'triangle', 0.08, 0.1);
-                }
-              }
-            });
-          }
-
+          // Host owns physics calculation
           if (ballVelocity) {
             ballPos.addScaledVector(ballVelocity, delta);
             ballVelocity.multiplyScalar(0.96);
@@ -3676,6 +3663,7 @@ const inPitchArena = plushiePosition.x > 10.0;
 
           ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
+          // Host broadcasts authoritative coordinates
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
@@ -3688,11 +3676,12 @@ const inPitchArena = plushiePosition.x > 10.0;
             });
           }
         } else {
-          // Non-host: smoothly interpolate towards host target UNLESS we just kicked it locally
-          if (hasRemoteBallUpdate && nowMs > ignoreRemoteBallUntil) {
-            ballMesh.position.lerp(remoteBallTarget, 0.45);
-          } else if (ballVelocity && nowMs <= ignoreRemoteBallUntil) {
-            // Locally simulate momentum during the kick window
+          // Non-host: Follow the host unless we just kicked it locally
+          if (nowMs > ignoreRemoteBallUntil) {
+            if (hasRemoteBallUpdate) {
+              ballMesh.position.lerp(remoteBallTarget, 0.40);
+            }
+          } else if (ballVelocity) {
             ballPos.addScaledVector(ballVelocity, delta);
             ballVelocity.multiplyScalar(0.96);
           }
@@ -3782,8 +3771,8 @@ const inPitchArena = plushiePosition.x > 10.0;
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3801,14 +3790,14 @@ const inPitchArena = plushiePosition.x > 10.0;
       });
 
       const camRot = camera.quaternion;
-     
+      
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
         badge.quaternion.copy(camRot);
       }
 
-if (remotePlayers && remotePlayers.size > 0) {
+      if (remotePlayers && remotePlayers.size > 0) {
         remotePlayers.forEach((pMesh, id) => {
           if (pMesh && pMesh.userData && pMesh.userData.badgeMesh && camera) {
             const badge = pMesh.userData.badgeMesh;
@@ -3845,7 +3834,6 @@ if (remotePlayers && remotePlayers.size > 0) {
 
       renderer.render(scene, camera);
     }
-
     const btnUp = document.getElementById('btn-up');
     const btnDown = document.getElementById('btn-down');
     const btnLeft = document.getElementById('btn-left');
