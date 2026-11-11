@@ -372,132 +372,110 @@
 
     const spectatorPlushies = new Map();
 
-    function initSocketConnection() {
-      try {
-        socket = io();
+function initSocketConnection() {
+  try {
+    socket = io();
 
-        socket.on('ball_host_assignment', (data) => {
-          isBallPhysicsHost = data.isHost;
-        });
-        socket.on('player_tagged', (data) => {
-        if (data.victimId === socket.id) {
-          setLocalIsIt(true);
-          playTone(150, 'sawtooth', 0.3, 0.2);
-        } else if (data.taggerId === socket.id && data.victimId !== socket.id) {
-          setLocalIsIt(false);
-          playTone(800, 'sine', 0.2, 0.15);
-        }
+    // 1. Receive the initial list of all players already in the room
+    socket.on('current_players', (players) => {
+      players.forEach((data) => {
+        if (data.id !== socket.id && !remotePlayers.has(data.id)) {
+          const remoteTeam = data.team || 'BLUE';
+          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+          const playerName = data.name || "Guest";
 
-        if (remotePlayers.has(data.taggerId)) {
-          updateRemoteTagColor(remotePlayers.get(data.taggerId), false);
-        }
-        if (remotePlayers.has(data.victimId)) {
-          updateRemoteTagColor(remotePlayers.get(data.victimId), true);
+          const pMesh = createCutePlushie(remotePlushieHex, playerName);
+          pMesh.userData.team = remoteTeam;
+          updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+          miniDiorama.add(pMesh);
+          remotePlayers.set(data.id, pMesh);
         }
       });
-socket.on('apply_remote_hit', (data) => {
+    });
+
+    // 2. Update remote player positions and states when they move
+    socket.on('update_player', (data) => {
+      if (data.id === socket.id) return; // Ignore our own updates
+
+      let pMesh = remotePlayers.get(data.id);
+      const remoteTeam = data.team || 'BLUE';
+      const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
+      const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+      const playerName = data.name || "Guest";
+
+      if (!pMesh) {
+        pMesh = createCutePlushie(remotePlushieHex, playerName);
+        pMesh.userData.team = remoteTeam;
+        updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
+        miniDiorama.add(pMesh);
+        remotePlayers.set(data.id, pMesh);
+      }
+
+      // Smoothly update position and rotation
+      pMesh.position.set(data.x, data.y, data.z);
+      pMesh.rotation.y = data.yaw + Math.PI;
+
+      if (data.name) {
+        updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
+      }
+    });
+
+    // 3. Remove players when they disconnect
+    socket.on('remove_player', (id) => {
+      const pMesh = remotePlayers.get(id);
+      if (pMesh) {
+        if (pMesh.userData && pMesh.userData.badgeMesh) {
+          miniDiorama.remove(pMesh.userData.badgeMesh);
+        }
+        miniDiorama.remove(pMesh);
+        remotePlayers.delete(id);
+      }
+    });
+    // ----------------------------------
+
+    socket.on('ball_host_assignment', (data) => {
+      isBallPhysicsHost = data.isHost;
+    });
+
+    socket.on('player_tagged', (data) => {
+      if (data.victimId === socket.id) {
+        setLocalIsIt(true);
+        playTone(150, 'sawtooth', 0.3, 0.2);
+      } else if (data.taggerId === socket.id && data.victimId !== socket.id) {
+        setLocalIsIt(false);
+        playTone(800, 'sine', 0.2, 0.15);
+      }
+
+      if (remotePlayers.has(data.taggerId)) {
+        updateRemoteTagColor(remotePlayers.get(data.taggerId), false);
+      }
+      if (remotePlayers.has(data.victimId)) {
+        updateRemoteTagColor(remotePlayers.get(data.victimId), true);
+      }
+    });
+
+    socket.on('apply_remote_hit', (data) => {
       if (isBallPhysicsHost) {
         const pushDir = new THREE.Vector3(data.pushX, 0, data.pushZ);
         ballVelocity.addScaledVector(pushDir, 13.0);
         playTone(600, 'triangle', 0.08, 0.1);
       }
     });
-        socket.on('assign_team', (data) => {
-          assignedTeam = data.team;
-          teamColorHex = data.teamColor;
-          plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          if (data.name) {
-            localMyGuestName = data.name;
-          }
 
-          if (localPlushie) {
-            localPlushie.userData.team = assignedTeam;
-            localPlushie.traverse(child => {
-              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-                child.material.color.setHex(plushieColorHex);
-              }
-            });
-            updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-          }
-        });
-
-        socket.on('update_player', (data) => {
-          let pMesh = remotePlayers.get(data.id);
-          const remoteTeam = data.team || 'BLUE';
-          const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
-          const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          const playerName = data.name || "Guest";
-
-          if (!pMesh) {
-            pMesh = createCutePlushie(remotePlushieHex, playerName);
-            pMesh.userData.team = remoteTeam;
-            updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
-            miniDiorama.add(pMesh);
-            remotePlayers.set(data.id, pMesh);
-          } else {
-            pMesh.userData.team = remoteTeam;
-            pMesh.traverse(child => {
-              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-                child.material.color.setHex(remotePlushieHex);
-              }
-            });
-          }
-         
-          pMesh.position.set(data.x, data.y, data.z);
-          pMesh.rotation.y = data.yaw + Math.PI;
-         
-          if (data.name) {
-            updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
-          }
-         
-          setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
-        });
-
-        socket.on('remove_player', (id) => {
-          const pMesh = remotePlayers.get(id);
-          if (pMesh) {
-            if (pMesh.userData && pMesh.userData.badgeMesh) {
-              miniDiorama.remove(pMesh.userData.badgeMesh);
-            }
-            miniDiorama.remove(pMesh);
-            remotePlayers.delete(id);
-          }
-        });
-
-        socket.on('ball_sync', (bData) => {
-          if (ballMesh) {
-            remoteBallTarget.set(bData.x, bData.y, bData.z);
-            if (bData.vx !== undefined) {
-              ballVelocity.set(bData.vx, bData.vy, bData.vz);
-            }
-            hasRemoteBallUpdate = true;
-          }
-        });
-
-        socket.on('score_sync', (sData) => {
-          blueScore = sData.blue;
-          redScore = sData.red;
-          renderPitchScoreboard(blueScore, redScore);
-        });
-
-        socket.on('start_podium_countdown', (data) => {
-          countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">PODIUM 1 SECURED! 10S PRIORITY COUNTDOWN ACTIVE</span>`;
-        });
-
-        socket.on('unlock_mode_options', () => {
-          if (gameState === "MODE_PROMPT") {
-            isLocalOnPodium1 = true;
-            renderStageQuestionBoard();
-          }
-        });
-
-        socket.on('cancel_podium_countdown', () => {
-          countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">WALK WAY OUT EAST TO THE GIANT FOOTBALL PITCH!</span>`;
-        });
-      } catch (e) {
-        console.warn("Socket.io offline or unavailable:", e);
+    socket.on('assign_team', (data) => {
+      assignedTeam = data.team;
+      teamColorHex = data.teamColor;
+      plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+      if (data.name) {
+        localMyGuestName = data.name;
       }
-    }
+    });
+
+  } catch (e) {
+    console.error("Socket initialization error:", e);
+  }
+}
 
     function triggerImmediateModePrompt() {
       if (studioPower) return;
