@@ -82,7 +82,11 @@ io.on('connection', (socket) => {
   socket.on('ball_move', (bData) => {
     socket.broadcast.emit('ball_sync', bData);
   });
-
+// Handle kick impulses from ANY player who bumps the ball
+  socket.on('ball_kick', (kData) => {
+    // Send this kick impulse to everyone so all screens react together
+    io.emit('apply_ball_kick', kData);
+  });
   // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
     io.emit('score_sync', sData);
