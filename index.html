@@ -474,31 +474,79 @@ startBtn.addEventListener('click', () => {
           }
         });
 
-        // 2. Authoritative ball sync with instant snap for new arrivals
+        // 2. Authoritative ball sync
         socket.on('ball_sync', (bData) => {
-          if (ballMesh) {
+          if (ballMesh && !isBallPhysicsHost) {
             remoteBallTarget.set(bData.x, bData.y, bData.z);
             if (bData.vx !== undefined) {
               ballVelocity.set(bData.vx, bData.vy, bData.vz);
             }
             hasRemoteBallUpdate = true;
-            if (ballMesh.position.distanceTo(remoteBallTarget) > 3.0 && performance.now() > ignoreRemoteBallUntil) {
+
+            // Only snap if massive distance (e.g. goal reset to center 34.0)
+            if (ballMesh.position.distanceTo(remoteBallTarget) > 8.0) {
               ballMesh.position.copy(remoteBallTarget);
             }
           }
         });
 
-        // 3. Kick impulse & host position adoption
-        socket.on('apply_ball_kick', (kData) => {
+        // 3. Physics Simulation vs Sync
+        if (isBallPhysicsHost) {
+          // Host runs the single real physics simulation
           if (ballVelocity) {
-            ballVelocity.x = kData.vx;
-            ballVelocity.z = kData.vz;
+            ballPos.addScaledVector(ballVelocity, delta);
+            ballVelocity.multiplyScalar(0.96);
           }
-          if (isBallPhysicsHost && ballMesh && kData.ballX !== undefined) {
-            ballMesh.position.x = kData.ballX;
-            ballMesh.position.z = kData.ballZ;
+
+          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+
+          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            redScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(200, 'sawtooth', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
+          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            blueScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(800, 'sine', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
           }
-        });
+
+          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+
+          // Host broadcasts authoritative coordinates every 30ms
+          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+            lastBallSyncTime = time;
+            socket.emit('ball_move', {
+              x: ballPos.x,
+              y: ballPos.y,
+              z: ballPos.z,
+              vx: ballVelocity.x,
+              vy: ballVelocity.y,
+              vz: ballVelocity.z
+            });
+          }
+        } else {
+          // Non-host: Follow the host cleanly
+          if (hasRemoteBallUpdate) {
+            // Smoothly track host coordinates
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
+          }
+        }
+      } else {
+        ballMesh.position.set(34.0, 0.82, 0.0);
+        ballVelocity.set(0, 0, 0);
+        hasRemoteBallUpdate = false;
+      }
 
         socket.on('score_sync', (sData) => {
           blueScore = sData.blue;
