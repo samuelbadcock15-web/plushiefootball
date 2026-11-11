@@ -3557,8 +3557,9 @@
         plushieVelocity.z -= -Math.cos(plushieRotation.yaw) * moveSpeed * 5.0;
       }
 
-      plushieVelocity.multiplyScalar(0.90);
-      plushiePosition.addScaledVector(plushieVelocity, delta);
+const friction = 10.0; // Higher = stops faster
+plushieVelocity.multiplyScalar(Math.exp(-friction * delta));
+plushiePosition.addScaledVector(plushieVelocity, delta);
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
