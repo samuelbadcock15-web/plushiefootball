@@ -62,13 +62,13 @@
     }
 
     .dpad-btn {
-      width: 100px;
-      height: 100px;
+      width: 110px;   /* Increased from 100px */
+      height: 110px;  /* Increased from 100px */
       background: rgba(22, 9, 44, 0.85);
       border: 3px solid #00f0ff;
       border-radius: 18px;
       color: #00f0ff;
-      font-size: 40px;
+      font-size: 46px; /* Increased font size for bigger arrows */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -88,15 +88,15 @@
       position: absolute;
       bottom: 80px;
       right: 80px;
-      width: 180px;
-      height: 180px;
+      width: 200px;   /* Increased from 180px */
+      height: 200px;  /* Increased from 180px */
       background: rgba(22, 9, 44, 0.65);
       border: 2px solid rgba(0, 240, 255, 0.6);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
-      display: none; /* Hidden on PC by default */
+      display: none;
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
@@ -104,19 +104,15 @@
       cursor: grab;
     }
 
-    #look-pad:active {
-      cursor: grabbing;
-    }
-
     #look-pad-thumb {
-      width: 65px;
-      height: 65px;
+      width: 75px;    /* Increased from 65px */
+      height: 75px;   /* Increased from 65px */
       background: rgba(0, 240, 255, 0.3);
       border: 2px solid #39ff14;
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 11px;
+      font-size: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
