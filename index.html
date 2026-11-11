@@ -495,7 +495,7 @@
       renderStageQuestionBoard();
     }
 
-    function chooseHostGameMode(modeType) {
+function chooseHostGameMode(modeType) {
       if (studioPower) return;
       if (modeType === "SOLO") {
         isSoloMode = true;
@@ -512,14 +512,23 @@
 
         bootStudio();
         
-        // FIX: Ensure the 20-minute match clock and IN_PLAY state are fully kicked off for Solo mode!
         gameState = "IN_PLAY";
         startTwentyMinuteMatchTimer();
         broadcastBoardState();
 
-        const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
+const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
+          // 1. Explicitly reset the turn roll flags so the player can roll
+          hasPlayerRolledThisTurn = false;
+          isDiceRollingP1 = false;
+          
+          // 2. Start the turn cleanly
           startTurnCleanly(soloPlayerId);
+          
+          // 3. Immediately trigger the dice prompt so the screen arms the roll mechanic
+          if (typeof startTurnDicePrompt === "function") {
+            startTurnDicePrompt(soloPlayerId, soloName);
+          }
         });
       } else if (modeType === "GOODY") {
         isSoloMode = false;
