@@ -112,7 +112,7 @@
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 12px;
+      font-size: 11px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -169,7 +169,7 @@
   </div>
 
   <div id="look-pad">
-    <div id="look-pad-thumb">LOOK / AIM</div>
+    <div id="look-pad-thumb">GEARBOX</div>
   </div>
 
   <div id="mobile-crosshair"></div>
@@ -202,55 +202,84 @@
 
     let isLooking = false;
     let lookTouchId = null;
-    let lookStartX = 0;
-    let lookStartY = 0;
+    let padCenterX = 0;
+    let padCenterY = 0;
 
     function handleLookStart(clientX, clientY, identifier = null) {
       isLooking = true;
       lookTouchId = identifier;
-      lookStartX = clientX;
-      lookStartY = clientY;
+
+      const rect = lookPad.getBoundingClientRect();
+      padCenterX = rect.left + rect.width / 2;
+      padCenterY = rect.top + rect.height / 2;
+
+      handleLookMove(clientX, clientY);
     }
 
     function handleLookMove(clientX, clientY) {
       if (!isLooking) return;
 
-      const deltaX = clientX - lookStartX;
-      const deltaY = clientY - lookStartY;
-      const lookSensitivity = 0.005;
-
-      if (typeof plushieRotation !== 'undefined') {
-        plushieRotation.yaw -= deltaX * lookSensitivity;
-      }
+      const deltaX = clientX - padCenterX;
+      const deltaY = clientY - padCenterY;
 
       const maxThumbOffset = 40;
-      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
-      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      const angle = Math.atan2(deltaY, deltaX);
+
+      const clampedDist = Math.min(maxThumbOffset, distance);
+      const clampedX = Math.cos(angle) * clampedDist;
+      const clampedY = Math.sin(angle) * clampedDist;
+
       lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 
-      lookStartX = clientX;
-      lookStartY = clientY;
+      // Reset directional gear states
+      moveState.forward = false;
+      moveState.backward = false;
+      moveState.turnLeft = false;
+      moveState.turnRight = false;
+
+      const threshold = 15;
+
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        if (deltaY < -threshold) {
+          moveState.forward = true; // Drive Forward
+        } else if (deltaY > threshold) {
+          moveState.backward = true; // Reverse
+        }
+      } else {
+        if (deltaX < -threshold) {
+          moveState.turnLeft = true; // Pivot Left
+        } else if (deltaX > threshold) {
+          moveState.turnRight = true; // Pivot Right
+        }
+      }
     }
 
     function handleLookEnd() {
       isLooking = false;
       lookTouchId = null;
       lookPadThumb.style.transform = `translate(0px, 0px)`;
+
+      // Return to neutral gear when released
+      moveState.forward = false;
+      moveState.backward = false;
+      moveState.turnLeft = false;
+      moveState.turnRight = false;
     }
 
-window.addEventListener('touchstart', (e) => {
-  if (e.target.closest('#mobile-dpad') || e.target.closest('#look-pad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
-  e.preventDefault(); // Stops the screen from triggering text selection highlights
-  if (e.touches.length > 0) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    isSwipingScreen = true;
-  }
-}, { passive: false }); // Must be false to allow preventDefault()
+    window.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#look-pad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      e.preventDefault(); 
+      if (e.touches.length > 0) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isSwipingScreen = true;
+      }
+    }, { passive: false });
 
-window.addEventListener('touchmove', (e) => {
+    window.addEventListener('touchmove', (e) => {
       if (!isLooking) return;
-      e.preventDefault(); // <-- Add this to stop joystick dragging from highlighting text
+      e.preventDefault(); 
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
         if (touch.identifier === lookTouchId) {
@@ -258,7 +287,34 @@ window.addEventListener('touchmove', (e) => {
           break;
         }
       }
-    }, { passive: false }); // <-- Make sure this is false!
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === lookTouchId) {
+          handleLookEnd();
+          break;
+        }
+      }
+    });
+
+    lookPad.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      handleLookStart(touch.clientX, touch.clientY, touch.identifier);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isLooking) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === lookTouchId) {
+          handleLookMove(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
 
     window.addEventListener('touchend', (e) => {
       if (!isLooking) return;
