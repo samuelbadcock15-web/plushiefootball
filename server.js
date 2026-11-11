@@ -1,11 +1,19 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const { ExpressPeerServer } = require('peer');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+// Host your own private PeerJS broker on /peerjs
+const peerServer = ExpressPeerServer(server, {
+  debug: true,
+  path: '/'
+});
+app.use('/peerjs', peerServer);
 
 // Serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
@@ -51,14 +59,14 @@ io.on('connection', (socket) => {
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
   }
-  
+
   // Inform this client whether they are the designated ball physics host
   socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
   // Send current players list to the newly connected client
   socket.emit('current_players', Array.from(activePlayers.values()));
 
-  // 🌟 ADDED: Broadcast the new player to all existing clients immediately so they pop into view
+  // Broadcast the new player to all existing clients immediately so they pop into view
   socket.broadcast.emit('update_player', newPlayerData);
 
   // Handle player avatar movement, rotation, & team updates
@@ -82,11 +90,13 @@ io.on('connection', (socket) => {
   socket.on('ball_move', (bData) => {
     socket.broadcast.emit('ball_sync', bData);
   });
-// Handle kick impulses from ANY player who bumps the ball
+
+  // Handle kick impulses from ANY player who bumps the ball
   socket.on('ball_kick', (kData) => {
     // Send this kick impulse to everyone so all screens react together
     io.emit('apply_ball_kick', kData);
   });
+
   // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
     io.emit('score_sync', sData);
