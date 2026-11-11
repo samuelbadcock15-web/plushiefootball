@@ -3746,8 +3746,8 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
       }
 
       const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
-                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
-                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
+                                (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                                (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
       updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
 
@@ -3819,7 +3819,6 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
 
       const activate = (e) => {
         e.preventDefault();
-        // Use changedTouches to support multi-touch alongside the joystick
         const touch = e.changedTouches ? e.changedTouches[0] : null;
         if (touch) activeTouchId = touch.identifier;
 
@@ -3856,7 +3855,7 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#look-pad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -3868,38 +3867,13 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
       if (!isSwipingScreen || touchStartX === null || touchStartY === null) return;
       if (e.touches.length > 0) {
         const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-
         const deltaX = currentX - touchStartX;
-        const deltaY = currentY - touchStartY;
 
         const turnSensitivity = 0.008;
         plushieRotation.yaw -= deltaX * turnSensitivity;
 
-        if (deltaX > 5) {
-          btnRight.classList.add('active');
-          btnLeft.classList.remove('active');
-        } else if (deltaX < -5) {
-          btnLeft.classList.add('active');
-          btnRight.classList.remove('active');
-        }
-
-        const moveThreshold = 4;
-
-        if (deltaY < -moveThreshold) {
-          moveState.forward = true;
-          moveState.backward = false;
-          btnUp.classList.add('active');
-          btnDown.classList.remove('active');
-        } else if (deltaY > moveThreshold) {
-          moveState.backward = true;
-          moveState.forward = false;
-          btnDown.classList.add('active');
-          btnUp.classList.remove('active');
-        }
-
         touchStartX = currentX;
-        touchStartY = currentY;
+        touchStartY = e.touches[0].clientY;
       }
     }, { passive: true });
 
@@ -3907,16 +3881,6 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
       isSwipingScreen = false;
       touchStartX = null;
       touchStartY = null;
-
-      moveState.forward = false;
-      moveState.backward = false;
-      moveState.turnLeft = false;
-      moveState.turnRight = false;
-
-      btnLeft.classList.remove('active');
-      btnRight.classList.remove('active');
-      btnUp.classList.remove('active');
-      btnDown.classList.remove('active');
     });
 
     animate();
