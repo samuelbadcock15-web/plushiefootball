@@ -4,30 +4,20 @@
   <meta charset="UTF-8">
   <title>The Goody Tonight Show - Plushie Foosball & Rugby Arena</title>
 <style>
-   <style>
     body, html {
       margin: 0; padding: 0; width: 100%; height: 100%;
       overflow: hidden; background-color: #05020a;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      touch-action: none; /* <--- CHANGED FROM 'manipulation' TO 'none' */
-      
-      /* Prevents text selection, touch callout menus, and the blue flash */
+      touch-action: none;
       -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
     }
     
     #canvas3d { 
-      width: 100%; 
-      height: 100%; 
-      display: block; 
-      cursor: pointer; 
-      -webkit-user-select: none;
-      user-select: none;
-      -webkit-touch-callout: none;
+      width: 100%; height: 100%; display: block; cursor: pointer; 
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
     }
 
     #hud {
@@ -75,6 +65,9 @@
       align-items: center;
       justify-content: center;
       user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
       box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
       transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
     }
@@ -103,6 +96,7 @@
       justify-content: center;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
       user-select: none;
+      -webkit-user-select: none;
       cursor: grab;
     }
 
@@ -124,7 +118,7 @@
       justify-content: center;
       text-align: center;
       pointer-events: none;
-      transition: transform 0.05s linear;
+      user-select: none;
     }
 
     #mobile-crosshair {
