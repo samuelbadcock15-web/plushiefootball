@@ -205,6 +205,9 @@
     let padCenterX = 0;
     let padCenterY = 0;
 
+    // Latched gear state (stays locked until shifted back to center)
+    let currentLockedGear = 'NEUTRAL';
+
     function handleLookStart(clientX, clientY, identifier = null) {
       isLooking = true;
       lookTouchId = identifier;
@@ -232,39 +235,55 @@
 
       lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 
-      // Reset directional gear states
-      moveState.forward = false;
-      moveState.backward = false;
-      moveState.turnLeft = false;
-      moveState.turnRight = false;
+      const threshold = 12;
+      const neutralZone = 10;
+      let requestedGear = 'NEUTRAL';
 
-      const threshold = 15;
-
-      if (Math.abs(deltaY) > Math.abs(deltaX)) {
-        if (deltaY < -threshold) {
-          moveState.forward = true; // Drive Forward
-        } else if (deltaY > threshold) {
-          moveState.backward = true; // Reverse
+      if (distance > neutralZone) {
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+          if (deltaY < -threshold) requestedGear = 'FORWARD';
+          else if (deltaY > threshold) requestedGear = 'BACKWARD';
+        } else {
+          if (deltaX < -threshold) requestedGear = 'TURN_LEFT';
+          else if (deltaX > threshold) requestedGear = 'TURN_RIGHT';
         }
       } else {
-        if (deltaX < -threshold) {
-          moveState.turnLeft = true; // Pivot Left
-        } else if (deltaX > threshold) {
-          moveState.turnRight = true; // Pivot Right
-        }
+        requestedGear = 'NEUTRAL';
       }
+
+      // Lock in the new gear selection
+      currentLockedGear = requestedGear;
+      applyGearboxStates();
     }
 
     function handleLookEnd() {
       isLooking = false;
       lookTouchId = null;
-      lookPadThumb.style.transform = `translate(0px, 0px)`;
 
-      // Return to neutral gear when released
-      moveState.forward = false;
-      moveState.backward = false;
-      moveState.turnLeft = false;
-      moveState.turnRight = false;
+      // Notice we DO NOT reset the thumb or gear here! 
+      // It stays latched in gear until you shift it back to the center neutral zone.
+    }
+
+    function applyGearboxStates() {
+      let stickForward = currentLockedGear === 'FORWARD';
+      let stickBackward = currentLockedGear === 'BACKWARD';
+      let stickLeft = currentLockedGear === 'TURN_LEFT';
+      let stickRight = currentLockedGear === 'TURN_RIGHT';
+
+      // Combine latched gearbox stick with D-pad button states
+      moveState.forward = stickForward || (btnUp && btnUp.classList.contains('active'));
+      moveState.backward = stickBackward || (btnDown && btnDown.classList.contains('active'));
+      moveState.turnLeft = stickLeft || (btnLeft && btnLeft.classList.contains('active'));
+      moveState.turnRight = stickRight || (btnRight && btnRight.classList.contains('active'));
+
+      // Update thumbnail indicator text
+      if (lookPadThumb) {
+        if (currentLockedGear === 'FORWARD') lookPadThumb.textContent = "GEAR: 1";
+        else if (currentLockedGear === 'BACKWARD') lookPadThumb.textContent = "GEAR: R";
+        else if (currentLockedGear === 'TURN_LEFT') lookPadThumb.textContent = "PIVOT ◄";
+        else if (currentLockedGear === 'TURN_RIGHT') lookPadThumb.textContent = "PIVOT ►";
+        else lookPadThumb.textContent = "NEUTRAL";
+      }
     }
 
     window.addEventListener('touchstart', (e) => {
