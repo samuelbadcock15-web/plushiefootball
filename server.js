@@ -12,6 +12,7 @@ app.use(express.static(path.join(__dirname)));
 
 // Track active players connected to the studio
 const activePlayers = new Map();
+let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
 let connectionCount = 0;
 let guestCounter = 0; // Sequential counter for Guest names
 
@@ -44,6 +45,14 @@ io.on('connection', (socket) => {
     name: defaultName
   });
 
+  // If this is the first connected player, make them the official ball physics host
+  if (!ballPhysicsHostId) {
+    ballPhysicsHostId = socket.id;
+  }
+ 
+  // Inform this client whether they are the designated ball physics host
+  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
+
   // Send current players list to the newly connected client
   socket.emit('current_players', Array.from(activePlayers.values()));
 
@@ -64,11 +73,33 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle real-time ball movement and physics synchronization from the host
+  socket.on('ball_move', (bData) => {
+    // Broadcast ball coordinates and velocity to all other connected clients
+    socket.broadcast.emit('ball_sync', bData);
+  });
+
+  // Handle goal scores and reset triggers
+  socket.on('score_update', (sData) => {
+    // Broadcast updated score to all clients (including sender)
+    io.emit('score_sync', sData);
+  });
+
   // Handle disconnects
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     activePlayers.delete(socket.id);
     io.emit('remove_player', socket.id);
+
+    // If the current ball physics host disconnects, reassign to the next available player
+    if (socket.id === ballPhysicsHostId) {
+      const remainingIds = Array.from(activePlayers.keys());
+      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
+      if (ballPhysicsHostId) {
+        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
+        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
+      }
+    }
   });
 });
 
