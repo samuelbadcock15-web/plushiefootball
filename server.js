@@ -5,20 +5,105 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
 
-// Serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
 
-// Track active players connected to the studio
-const activePlayers = new Map();
-let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
+const players = new Map();
+let guestCounter = 0;
 let connectionCount = 0;
-let guestCounter = 0; // Sequential counter for Guest names
+
+// Authoritative Server-Side Ball State & Physics
+let ballState = {
+  x: 34.0,
+  y: 0.82,
+  z: 0.0,
+  vx: 0,
+  vy: 0,
+  vz: 0
+};
+
+let currentScores = { blue: 0, red: 0 };
+
+// Fixed Server Physics Tick (30 FPS)
+const TICK_RATE = 30;
+const ARENA_LENGTH = 36.0;
+const ARENA_WIDTH = 24.0;
+const HALF_LEN = ARENA_LENGTH / 2;
+const HALF_WID = ARENA_WIDTH / 2;
+
+setInterval(() => {
+  // Update Ball Physics
+  ballState.x += ballState.vx * (1 / TICK_RATE);
+  ballState.z += ballState.vz * (1 / TICK_RATE);
+
+  // Friction / Damping
+  ballState.vx *= 0.95;
+  ballState.vz *= 0.95;
+
+  // Boundary Collisions (North/South Walls)
+  if (ballState.z > HALF_WID - 0.5) {
+    ballState.z = HALF_WID - 0.5;
+    ballState.vz *= -0.8;
+  }
+  if (ballState.z < -(HALF_WID - 0.5)) {
+    ballState.z = -(HALF_WID - 0.5);
+    ballState.vz *= -0.8;
+  }
+
+  // Goal Detection & Scoring
+  const goalSpan = 5.0;
+  if (ballState.x < 16.3 && ballState.z > -goalSpan / 2 && ballState.z < goalSpan / 2) {
+    // Red Team Scores!
+    currentScores.red++;
+    resetBall();
+    io.emit('score_sync', currentScores);
+  } else if (ballState.x > 51.7 && ballState.z > -goalSpan / 2 && ballState.z < goalSpan / 2) {
+    // Blue Team Scores!
+    currentScores.blue++;
+    resetBall();
+    io.emit('score_sync', currentScores);
+  }
+
+  // East/West Field Boundaries
+  if (ballState.x < 16.3) { ballState.x = 16.3; ballState.vx *= -0.8; }
+  if (ballState.x > 51.7) { ballState.x = 51.7; ballState.vx *= -0.8; }
+
+  // Check Player-to-Ball Collisions on the Server
+  players.forEach((player) => {
+    if (player.x > 10.0) { // Only inside the pitch arena
+      const dx = ballState.x - player.x;
+      const dz = ballState.z - player.z;
+      const dist = Math.hypot(dx, dz);
+      
+      if (dist < 0.85) {
+        // High-speed impact calculation
+        const angle = Math.atan2(dz, dx);
+        const pushForce = 12.0;
+        ballState.vx = Math.cos(angle) * pushForce;
+        ballState.vz = Math.sin(angle) * pushForce;
+      }
+    }
+  });
+
+  // Broadcast authoritative ball state to all clients
+  io.emit('ball_sync', ballState);
+
+}, 1000 / TICK_RATE);
+
+function resetBall() {
+  ballState.x = 34.0;
+  ballState.y = 0.82;
+  ballState.z = 0.0;
+  ballState.vx = 0;
+  ballState.vy = 0;
+  ballState.vz = 0;
+}
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
-
+  console.log(`Player connected: ${socket.id}`);
   connectionCount++;
   guestCounter++;
 
@@ -26,39 +111,29 @@ io.on('connection', (socket) => {
   const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
   const defaultName = `Guest ${guestCounter}`;
 
-  // Store the player in activePlayers map with their unique guest name
-  activePlayers.set(socket.id, {
+  players.set(socket.id, {
     id: socket.id,
     name: defaultName,
-    x: 32.0,
+    x: 14.5,
     y: 0.44,
-    z: 2.5,
+    z: 0.0,
     yaw: 0,
     team: assignedTeam,
-    teamColor: teamColorHex
+    teamColor: teamColorHex,
+    isSolid: false
   });
 
-  // Send the team assignment and guest name just once cleanly
   socket.emit('assign_team', {
     team: assignedTeam,
     teamColor: teamColorHex,
     name: defaultName
   });
 
-  // If this is the first connected player, make them the official ball physics host
-  if (!ballPhysicsHostId) {
-    ballPhysicsHostId = socket.id;
-  }
+  socket.emit('current_players', Array.from(players.values()));
+  socket.emit('score_sync', currentScores);
 
-  // Inform this client whether they are the designated ball physics host
-  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
-
-  // Send current players list to the newly connected client
-  socket.emit('current_players', Array.from(activePlayers.values()));
-
-  // Handle player avatar movement, rotation, & team updates
   socket.on('player_move', (data) => {
-    const player = activePlayers.get(socket.id);
+    const player = players.get(socket.id);
     if (player) {
       player.name = data.name || player.name;
       player.x = data.x;
@@ -67,44 +142,29 @@ io.on('connection', (socket) => {
       player.yaw = data.yaw;
       player.team = data.team || player.team;
       player.teamColor = data.teamColor || player.teamColor;
+      player.isSolid = data.isSolid;
 
-      // Broadcast updated player position and team data to everyone else
       socket.broadcast.emit('update_player', player);
     }
   });
 
-  // Non-host kicks relay to the ball physics host
-  socket.on('request_ball_kick', (kickData) => {
-    if (ballPhysicsHostId && ballPhysicsHostId !== socket.id) {
-      io.to(ballPhysicsHostId).emit('apply_ball_kick', kickData);
+  // Direct kick impulse request from any client going full speed
+  socket.on('player_kick_ball', (kickData) => {
+    if (kickData && typeof kickData.vx === 'number' && typeof kickData.vz === 'number') {
+      ballState.vx = kickData.vx;
+      ballState.vz = kickData.vz;
     }
   });
 
-  // Handle real-time ball movement and physics synchronization from the host
-  socket.on('ball_move', (bData) => {
-    socket.broadcast.emit('ball_sync', bData);
-  });
-
-  // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
-    io.emit('score_sync', sData);
+    currentScores = sData;
+    io.emit('score_sync', currentScores);
   });
 
-  // Handle disconnects
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
-    activePlayers.delete(socket.id);
+    console.log(`Player disconnected: ${socket.id}`);
+    players.delete(socket.id);
     io.emit('remove_player', socket.id);
-
-    // If the current ball physics host disconnects, reassign to the next available player
-    if (socket.id === ballPhysicsHostId) {
-      const remainingIds = Array.from(activePlayers.keys());
-      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
-      if (ballPhysicsHostId) {
-        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
-        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
-      }
-    }
   });
 });
 
