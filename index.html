@@ -179,7 +179,7 @@
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
     let lastKickTime = 0;
-
+let ignoreRemoteBallUntil = 0;
     function unlockHostEnvironment() {
       isHostAuthorized = true;
       initAudio();
@@ -467,6 +467,11 @@ socket.on('apply_ball_kick', (kData) => {
           if (ballVelocity) {
             ballVelocity.x = kData.vx;
             ballVelocity.z = kData.vz;
+          }
+          if (isBallPhysicsHost && ballMesh && kData.ballX !== undefined) {
+            // Adopt the position from the player who made physical contact
+            ballMesh.position.x = kData.ballX;
+            ballMesh.position.z = kData.ballZ;
           }
         });
         socket.on('score_sync', (sData) => {
@@ -3581,29 +3586,29 @@ const inPitchArena = plushiePosition.x > 10.0;
         const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
-        const minDistance = 0.78;
+        const minDistance = 0.82;
 
         const nowMs = performance.now();
 
-        // 1. Kick triggers only once every 450ms (hard cooldown to kill machine-gun beeps)
-        if (distToBall < minDistance && (nowMs - lastKickTime > 450)) {
+        // Contact / Kick Detection
+        if (distToBall < minDistance && (nowMs - lastKickTime > 350)) {
           lastKickTime = nowMs;
+          // Temporarily ignore host sync snaps for 200ms so the ball rolls away cleanly on non-host
+          ignoreRemoteBallUntil = nowMs + 200;
 
           let pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-          
-          // If moving, steer kick towards running direction so glancing hits work
           if (plushieVelocity.lengthSq() > 0.05) {
             const moveDir = plushieVelocity.clone().normalize();
-            pushDir.lerp(moveDir, 0.5).normalize();
+            pushDir.lerp(moveDir, 0.55).normalize();
           }
 
-          const kickStrength = 11.0;
+          const kickStrength = 11.5;
           const impulse = pushDir.clone().multiplyScalar(kickStrength);
 
-          // Apply immediately on local screen so there is zero visual lag
+          // Apply instant response on current screen
           ballVelocity.copy(impulse);
-          ballPos.x += pushDir.x * 0.35;
-          ballPos.z += pushDir.z * 0.35;
+          ballPos.x += pushDir.x * 0.4;
+          ballPos.z += pushDir.z * 0.4;
 
           playTone(600, 'triangle', 0.08, 0.1);
 
@@ -3611,15 +3616,17 @@ const inPitchArena = plushiePosition.x > 10.0;
             socket.emit('ball_kick', {
               vx: impulse.x,
               vy: impulse.y,
-              vz: impulse.z
+              vz: impulse.z,
+              ballX: ballPos.x,
+              ballZ: ballPos.z
             });
           }
         }
 
-        // 2. Solid pushback so plushie cannot walk through the ball
-        if (distToBall < 0.65 && distToBall > 0.001) {
+        // Solid body pushback (prevents walking through ball)
+        if (distToBall < 0.62 && distToBall > 0.001) {
           const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-          const overlap = 0.65 - distToBall;
+          const overlap = 0.62 - distToBall;
           plushiePosition.x -= pushDir.x * overlap;
           plushiePosition.z -= pushDir.z * overlap;
         }
@@ -3632,7 +3639,7 @@ const inPitchArena = plushiePosition.x > 10.0;
                 const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
                 if (remoteXZ.distanceTo(ballXZ) < minDistance) {
                   const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                  ballVelocity.copy(pushDir.multiplyScalar(9.0));
+                  ballVelocity.copy(pushDir.multiplyScalar(10.0));
                   playTone(600, 'triangle', 0.08, 0.1);
                 }
               }
@@ -3668,6 +3675,7 @@ const inPitchArena = plushiePosition.x > 10.0;
           }
 
           ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
@@ -3680,8 +3688,13 @@ const inPitchArena = plushiePosition.x > 10.0;
             });
           }
         } else {
-          if (hasRemoteBallUpdate) {
-            ballMesh.position.lerp(remoteBallTarget, 0.35);
+          // Non-host: smoothly interpolate towards host target UNLESS we just kicked it locally
+          if (hasRemoteBallUpdate && nowMs > ignoreRemoteBallUntil) {
+            ballMesh.position.lerp(remoteBallTarget, 0.45);
+          } else if (ballVelocity && nowMs <= ignoreRemoteBallUntil) {
+            // Locally simulate momentum during the kick window
+            ballPos.addScaledVector(ballVelocity, delta);
+            ballVelocity.multiplyScalar(0.96);
           }
         }
       } else {
