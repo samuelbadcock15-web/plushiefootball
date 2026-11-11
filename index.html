@@ -85,16 +85,15 @@
       right: 80px;
       width: 140px;
       height: 140px;
-      /* Forces the element to scale outward toward the top and left */
       transform-origin: bottom right;
-      transform: scale(2); /* Doubles the size (twice as big) */
+      transform: scale(2);
       background: rgba(22, 9, 44, 0.65);
       border: 2px solid rgba(0, 240, 255, 0.6);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
-      display: flex;
+      display: none; /* Hidden by default on PC */
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
@@ -104,6 +103,11 @@
 
     #look-pad:active {
       cursor: grabbing;
+    }
+
+    /* Shows the look-pad ONLY on touch devices */
+    @media (pointer: coarse), (max-width: 900px) {
+      #look-pad { display: flex; }
     }
 
     #look-pad-thumb {
