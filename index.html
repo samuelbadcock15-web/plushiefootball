@@ -3613,10 +3613,9 @@
               const overlap = (radius * 2) - d;
               const nx = dx / d;
               const nz = dz / d;
+              // Pure position separation only — NO velocity injection to prevent slingshots!
               plushiePosition.x += nx * (overlap * 0.5);
               plushiePosition.z += nz * (overlap * 0.5);
-              plushieVelocity.x += nx * 2.5;
-              plushieVelocity.z += nz * 2.5;
             }
           }
         });
