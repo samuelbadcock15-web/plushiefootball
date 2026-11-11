@@ -2182,20 +2182,20 @@
       side: THREE.DoubleSide
     });
 
-    // Sky-high walls to completely block the game show area from view
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 25.0, 8.0), wallMaterial);
-    leftWall.position.set(0, 12.5, -9.0);
+    // Kept original positions and widths, just made them tall (height 25.0, centered at y = 12.5)
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 25.0, 4.5), wallMaterial);
+    leftWall.position.set(0, 12.5, -7.75);
     partitionGroup.add(leftWall);
 
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 25.0, 18.0), wallMaterial);
-    rightWall.position.set(0, 12.5, 8.0);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 25.0, 12.5), wallMaterial);
+    rightWall.position.set(0, 12.5, 3.75);
     partitionGroup.add(rightWall);
 
     const gateGroup = new THREE.Group();
     gateGroup.position.set(0, 0, -4.0);
 
     const gateMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 25.0, 4.0),
+      new THREE.BoxGeometry(0.3, 25.0, 3.0),
       new THREE.MeshStandardMaterial({
         color: 0x050505,
         roughness: 0.1,
