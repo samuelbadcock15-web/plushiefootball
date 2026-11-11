@@ -12,7 +12,6 @@ app.use(express.static(path.join(__dirname)));
 
 // Track active players connected to the studio
 const activePlayers = new Map();
-let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
 let connectionCount = 0;
 let guestCounter = 0; // Sequential counter for Guest names
 
@@ -30,9 +29,9 @@ io.on('connection', (socket) => {
   activePlayers.set(socket.id, {
     id: socket.id,
     name: defaultName,
-    x: 32.0,
+    x: 0.0,
     y: 0.44,
-    z: 2.5,
+    z: 0.0,
     yaw: 0,
     team: assignedTeam,
     teamColor: teamColorHex
@@ -45,16 +44,11 @@ io.on('connection', (socket) => {
     name: defaultName
   });
 
-  // If this is the first connected player, make them the official ball physics host
-  if (!ballPhysicsHostId) {
-    ballPhysicsHostId = socket.id;
-  }
- 
-  // Inform this client whether they are the designated ball physics host
-  socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
-
   // Send current players list to the newly connected client
   socket.emit('current_players', Array.from(activePlayers.values()));
+
+  // Broadcast new player to everyone else
+  socket.broadcast.emit('new_player', activePlayers.get(socket.id));
 
   // Handle player avatar movement, rotation, & team updates
   socket.on('player_move', (data) => {
@@ -64,58 +58,39 @@ io.on('connection', (socket) => {
       player.x = data.x;
       player.y = data.y;
       player.z = data.z;
-      player.yaw = data.yaw;
+      player.yaw = data.rotY !== undefined ? data.rotY : player.yaw;
       player.team = data.team || player.team;
       player.teamColor = data.teamColor || player.teamColor;
 
-      // Broadcast updated player position and team data to everyone else
-      socket.broadcast.emit('update_player', player);
-    }
-  });
-
-  // Handle real-time ball movement and physics synchronization from the host
-  socket.on('ball_move', (bData) => {
-    // Broadcast ball coordinates and velocity to all other connected clients
-    socket.broadcast.emit('ball_sync', bData);
-  });
-
-  // Handle goal scores and reset triggers
-  socket.on('score_update', (sData) => {
-    // Broadcast updated score to all clients (including sender)
-    io.emit('score_sync', sData);
-  });
-socket.on('player_hit_ball', (hitData) => {
-    // If the sender is the physics host, ignore (host handles it locally)
-    if (socket.id === ballPhysicsHostId) return;
-
-    // Relay the hit force to the designated ball physics host so they apply it
-    if (ballPhysicsHostId) {
-      io.to(ballPhysicsHostId).emit('apply_remote_hit', {
-        playerId: socket.id,
-        pushX: hitData.pushX,
-        pushZ: hitData.pushZ
+      // Broadcast updated player position to everyone else
+      socket.broadcast.emit('player_moved', {
+        id: socket.id,
+        x: player.x,
+        y: player.y,
+        z: player.z,
+        rotY: player.yaw
       });
     }
   });
+
+  // Handle Tag / Infection event between players
+  socket.on('tag_player', (data) => {
+    // data contains { victimId: '...' }
+    io.emit('player_tagged', {
+      taggerId: socket.id,
+      victimId: data.victimId
+    });
+  });
+
   // Handle disconnects
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
     activePlayers.delete(socket.id);
-    io.emit('remove_player', socket.id);
-
-    // If the current ball physics host disconnects, reassign to the next available player
-    if (socket.id === ballPhysicsHostId) {
-      const remainingIds = Array.from(activePlayers.keys());
-      ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
-      if (ballPhysicsHostId) {
-        io.to(ballPhysicsHostId).emit('ball_host_assignment', { isHost: true });
-        console.log(`Reassigned ball physics host to: ${ballPhysicsHostId}`);
-      }
-    }
+    io.emit('player_disconnected', socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`The Goody Tonight Show server running on http://localhost:${PORT}`);
+  console.log(`Plushie Tag Arena server running on http://localhost:${PORT}`);
 });
