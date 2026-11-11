@@ -474,7 +474,7 @@ startBtn.addEventListener('click', () => {
           }
         });
 
-        // 2. Authoritative ball sync
+        // Authoritative ball sync listener (Registered ONLY ONCE here)
         socket.on('ball_sync', (bData) => {
           if (ballMesh && !isBallPhysicsHost) {
             remoteBallTarget.set(bData.x, bData.y, bData.z);
@@ -484,7 +484,7 @@ startBtn.addEventListener('click', () => {
             hasRemoteBallUpdate = true;
 
             // Only snap if massive distance (e.g. goal reset to center 34.0)
-            if (ballMesh.position.distanceTo(remoteBallTarget) > 8.0) {
+            if (ballMesh.position.distanceTo(remoteBallTarget) > 3.0 && performance.now() > ignoreRemoteBallUntil) {
               ballMesh.position.copy(remoteBallTarget);
             }
           }
@@ -3673,7 +3673,7 @@ const inPitchArena = plushiePosition.x > 10.0;
         // 2. Kicking Contact
         if (distToBall < minDistance && (nowMs - lastKickTime > 400)) {
           lastKickTime = nowMs;
-          ignoreRemoteBallUntil = nowMs + 220; // 220ms prediction grace period
+          ignoreRemoteBallUntil = nowMs + 220;
 
           let pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
           if (plushieVelocity.lengthSq() > 0.05) {
@@ -3701,9 +3701,8 @@ const inPitchArena = plushiePosition.x > 10.0;
           }
         }
 
-        // 3. Physics Simulation vs Sync
+// 3. Physics Simulation vs Sync
         if (isBallPhysicsHost) {
-          // Host owns physics calculation
           if (ballVelocity) {
             ballPos.addScaledVector(ballVelocity, delta);
             ballVelocity.multiplyScalar(0.96);
@@ -3734,7 +3733,6 @@ const inPitchArena = plushiePosition.x > 10.0;
 
           ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
-          // Host broadcasts authoritative coordinates
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
@@ -3747,14 +3745,9 @@ const inPitchArena = plushiePosition.x > 10.0;
             });
           }
         } else {
-          // Non-host: Follow the host unless we just kicked it locally
-          if (nowMs > ignoreRemoteBallUntil) {
-            if (hasRemoteBallUpdate) {
-              ballMesh.position.lerp(remoteBallTarget, 0.40);
-            }
-          } else if (ballVelocity) {
-            ballPos.addScaledVector(ballVelocity, delta);
-            ballVelocity.multiplyScalar(0.96);
+          // Non-host tracking sync target
+          if (hasRemoteBallUpdate) {
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
           }
         }
       } else {
