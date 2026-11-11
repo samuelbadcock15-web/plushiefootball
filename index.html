@@ -32,17 +32,9 @@
     }
 
     #mobile-dpad {
-      position: absolute;
-      bottom: 40px;
-      left: 40px;
-      display: none;
-      grid-template-areas:
-        ". up ."
-        "left down right";
-      gap: 16px;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
+      position: absolute; bottom: 40px; left: 40px; display: none;
+      grid-template-areas: ". up ." "left down right";
+      gap: 16px; z-index: 30; pointer-events: auto; touch-action: none;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
@@ -50,81 +42,39 @@
     }
 
     .dpad-btn {
-      width: 80px;
-      height: 80px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 3px solid #00f0ff;
-      border-radius: 18px;
-      color: #00f0ff;
-      font-size: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+      width: 80px; height: 80px; background: rgba(22, 9, 44, 0.85);
+      border: 3px solid #00f0ff; border-radius: 18px; color: #00f0ff;
+      font-size: 32px; display: flex; align-items: center; justify-content: center;
+      user-select: none; box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
       transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
     }
 
     .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
-      border-color: #39ff14;
-      color: #39ff14;
-      box-shadow: 0 0 22px #39ff14;
+      background: rgba(0, 240, 255, 0.45); border-color: #39ff14;
+      color: #39ff14; box-shadow: 0 0 22px #39ff14;
     }
 
     #look-pad {
-      position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 140px;
-      height: 140px;
-      background: rgba(22, 9, 44, 0.65);
-      border: 2px solid rgba(0, 240, 255, 0.6);
-      border-radius: 50%;
-      z-index: 30;
-      pointer-events: auto;
-      touch-action: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
-      user-select: none;
-      cursor: grab;
+      position: absolute; bottom: 30px; right: 30px; width: 140px; height: 140px;
+      background: rgba(22, 9, 44, 0.65); border: 2px solid rgba(0, 240, 255, 0.6);
+      border-radius: 50%; z-index: 30; pointer-events: auto; touch-action: none;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2); user-select: none; cursor: grab;
     }
-
-    #look-pad:active {
-      cursor: grabbing;
-    }
+    #look-pad:active { cursor: grabbing; }
 
     #look-pad-thumb {
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.3);
-      border: 2px solid #39ff14;
-      border-radius: 50%;
-      color: #39ff14;
-      font-family: monospace;
-      font-size: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      pointer-events: none;
-      transition: transform 0.05s linear;
+      width: 50px; height: 50px; background: rgba(0, 240, 255, 0.3);
+      border: 2px solid #39ff14; border-radius: 50%; color: #39ff14;
+      font-family: monospace; font-size: 10px; display: flex;
+      align-items: center; justify-content: center; text-align: center;
+      pointer-events: none; transition: transform 0.05s linear;
     }
 
     #mobile-crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(0, 240, 255, 0.8);
-      border-radius: 50%;
-      pointer-events: none;
-      display: none;
-      z-index: 15;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 24px; height: 24px; border: 2px solid rgba(0, 240, 255, 0.8);
+      border-radius: 50%; pointer-events: none; display: none; z-index: 15;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
@@ -171,6 +121,10 @@
     const remotePlayers = new Map();
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
+    let assignedTeam = 'BLUE';
+    let teamColorHex = '#00f0ff';
+    let plushieColorHex = 0x00f0ff;
+    let localPlushie = null;
 
     function unlockHostEnvironment() {
       isHostAuthorized = true;
@@ -501,7 +455,6 @@
 
         bootStudio();
        
-        // FIX: Ensure the 20-minute match clock and IN_PLAY state are fully kicked off for Solo mode!
         gameState = "IN_PLAY";
         startTwentyMinuteMatchTimer();
         broadcastBoardState();
@@ -2056,11 +2009,7 @@
     enclosingWallsGroup.position.set(0, 0.44, 0.0);
 
     const studioWallMat = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      side: THREE.DoubleSide,
-      transparent: false
+      color: 0x1f113a, roughness: 0.3, metalness: 0.4, side: THREE.DoubleSide, transparent: false
     });
 
     const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.0, 14.0), studioWallMat);
@@ -2081,12 +2030,7 @@
     partitionGroup.position.set(10.0, 0.44, 0.0);
 
     const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0x1f113a,
-      roughness: 0.3,
-      metalness: 0.4,
-      transparent: false,
-      opacity: 1.0,
-      side: THREE.DoubleSide
+      color: 0x1f113a, roughness: 0.3, metalness: 0.4, transparent: false, opacity: 1.0, side: THREE.DoubleSide
     });
 
     const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 4.5), wallMaterial);
@@ -2103,14 +2047,7 @@
     const gateMesh = new THREE.Mesh(
       new THREE.BoxGeometry(0.3, 4.2, 3.0),
       new THREE.MeshStandardMaterial({
-        color: 0x050505,
-        roughness: 0.1,
-        metalness: 0.85,
-        emissive: 0x111115,
-        emissiveIntensity: 0.2,
-        transparent: false,
-        opacity: 1.0,
-        side: THREE.DoubleSide
+        color: 0x050505, roughness: 0.1, metalness: 0.85, emissive: 0x111115, emissiveIntensity: 0.2, transparent: false, opacity: 1.0, side: THREE.DoubleSide
       })
     );
     gateMesh.position.set(0, 2.1, 0);
@@ -3093,11 +3030,7 @@
         bCanvas.width = 256; bCanvas.height = 96;
         bTex = new THREE.CanvasTexture(bCanvas);
         const badgeMat = new THREE.MeshBasicMaterial({
-          map: bTex,
-          transparent: true,
-          opacity: 0.3,
-          side: THREE.DoubleSide,
-          depthWrite: false
+          map: bTex, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
@@ -3110,34 +3043,6 @@
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
       return pGroup;
-    }
-
-    function updatePlushieNameBadge(pGroup, displayName, teamColor = '#00f0ff') {
-      if (!pGroup || !pGroup.userData || !pGroup.userData.badgeCanvas) return;
-      const canvas = pGroup.userData.badgeCanvas;
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width; const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      ctx.fillStyle = 'rgba(22, 9, 44, 0.9)';
-      ctx.strokeStyle = teamColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(4, 4, w - 8, h - 8, 20);
-      } else {
-        ctx.rect(4, 4, w - 8, h - 8);
-      }
-      ctx.fill(); ctx.stroke();
-
-      ctx.fillStyle = teamColor;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "PLAYER 1").toUpperCase(), w / 2, h / 2 + 2);
-
-      if (pGroup.userData.badgeTexture) {
-        pGroup.userData.badgeTexture.needsUpdate = true;
-      }
     }
 
     function setPlushieVisualMode(group, mode) {
@@ -3163,29 +3068,6 @@
             }
             m.needsUpdate = true;
           });
-        }
-      });
-    }
-
-    let assignedTeam = 'BLUE';
-    let teamColorHex = '#00f0ff';
-    let plushieColorHex = 0x00f0ff;
-    let localPlushie = null;
-
-    if (socket) {
-      socket.on('assign_team', (data) => {
-        assignedTeam = data.team;
-        teamColorHex = data.teamColor;
-        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-
-        if (localPlushie) {
-          localPlushie.userData.team = assignedTeam;
-          localPlushie.traverse(child => {
-            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
-              child.material.color.setHex(plushieColorHex);
-            }
-          });
-          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
         }
       });
     }
