@@ -30,11 +30,13 @@
       z-index: 25; text-align: center; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
       pointer-events: none;
     }
-
-    #mobile-dpad {
+@media (pointer: coarse), (max-width: 900px) {
+  #mode-banner { display: none; }
+}
+#mobile-dpad {
       position: absolute;
-      bottom: 40px;
-      left: 40px;
+      bottom: 70px;
+      left: 70px;
       display: none;
       grid-template-areas:
         ". up ."
@@ -47,16 +49,18 @@
 
     @media (pointer: coarse), (max-width: 900px) {
       #mobile-dpad { display: grid; }
+      #look-pad { display: flex !important; }
+      #mode-banner { display: none; }
     }
 
     .dpad-btn {
-      width: 80px;
-      height: 80px;
+      width: 100px;
+      height: 100px;
       background: rgba(22, 9, 44, 0.85);
       border: 3px solid #00f0ff;
       border-radius: 18px;
       color: #00f0ff;
-      font-size: 32px;
+      font-size: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -74,17 +78,17 @@
 
     #look-pad {
       position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 140px;
-      height: 140px;
+      bottom: 80px;
+      right: 80px;
+      width: 180px;
+      height: 180px;
       background: rgba(22, 9, 44, 0.65);
       border: 2px solid rgba(0, 240, 255, 0.6);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
-      display: flex;
+      display: none; /* Hidden on PC by default */
       align-items: center;
       justify-content: center;
       box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
@@ -97,14 +101,14 @@
     }
 
     #look-pad-thumb {
-      width: 50px;
-      height: 50px;
+      width: 65px;
+      height: 65px;
       background: rgba(0, 240, 255, 0.3);
       border: 2px solid #39ff14;
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 10px;
+      font-size: 11px;
       display: flex;
       align-items: center;
       justify-content: center;
