@@ -5,10 +5,7 @@
   <title>The Goody Tonight Show - Plushie Foosball & Rugby Arena</title>
   <style>
     * {
-      /* Prevents the default blue highlight box when tapping/holding */
       -webkit-tap-highlight-color: transparent;
-      
-      /* Stops text selection and long-press copy menus globally */
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
@@ -33,23 +30,18 @@
     #match-clock-hud { margin-top: 4px; font-weight: bold; color: #00f0ff; font-size: 0.95rem; }
     #audience-pill { margin-top: 4px; font-weight: bold; color: #39ff14; }
 
-#mobile-dpad {
+    #mobile-dpad {
       position: absolute;
-      bottom: 80px;
-      left: 80px;
-      display: none; /* Hidden by default on PC */
+      bottom: 30px;
+      left: 30px;
+      display: none;
       grid-template-areas:
         ". up ."
         "left down right";
-      gap: 16px;
+      gap: 12px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
-    }
-
-    /* Shows the d-pad ONLY on touch devices */
-    @media (pointer: coarse), (max-width: 900px) {
-      #mobile-dpad { display: grid; }
     }
 
     @media (pointer: coarse), (max-width: 900px) {
@@ -57,90 +49,97 @@
     }
 
     .dpad-btn {
-      width: 80px;
-      height: 80px;
+      width: 68px;
+      height: 68px;
       background: rgba(22, 9, 44, 0.85);
       border: 3px solid #00f0ff;
-      border-radius: 18px;
+      border-radius: 16px;
       color: #00f0ff;
-      font-size: 32px;
+      font-size: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
-      transition: background 0.1s, box-shadow 0.1s, border-color 0.1s;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
     }
 
     .dpad-btn.active, .dpad-btn:active {
       background: rgba(0, 240, 255, 0.45);
       border-color: #39ff14;
       color: #39ff14;
-      box-shadow: 0 0 22px #39ff14;
+      box-shadow: 0 0 18px #39ff14;
     }
 
-#look-pad {
+    /* FIXED LOOK-PAD / JOYSTICK */
+    #look-pad {
       position: absolute;
-      bottom: 80px;
-      right: 80px;
-      width: 140px;
-      height: 140px;
-      transform-origin: bottom right;
-      transform: scale(2);
-      background: rgba(22, 9, 44, 0.65);
-      border: 2px solid rgba(0, 240, 255, 0.6);
+      bottom: 30px;
+      right: 30px;
+      width: 150px;
+      height: 150px;
+      background: rgba(22, 9, 44, 0.75);
+      border: 3px solid rgba(0, 240, 255, 0.8);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
-      display: none; /* Hidden by default on PC */
+      display: none;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
       user-select: none;
-      cursor: grab;
     }
 
-    #look-pad:active {
-      cursor: grabbing;
-    }
-
-    /* Shows the look-pad ONLY on touch devices */
     @media (pointer: coarse), (max-width: 900px) {
       #look-pad { display: flex; }
     }
 
     #look-pad-thumb {
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.3);
-      border: 2px solid #39ff14;
+      width: 60px;
+      height: 60px;
+      background: rgba(0, 240, 255, 0.35);
+      border: 3px solid #39ff14;
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 10px;
+      font-size: 11px;
+      font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
       pointer-events: none;
-      transition: transform 0.05s linear;
+      will-change: transform;
     }
 
-#mobile-crosshair {
+    /* FIXED GIANT CROSSHAIR */
+    #mobile-crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
-      /* Anchors the bottom-left corner so scaling expands entirely up and right */
-      transform-origin: bottom left;
-      transform: translate(-50%, -50%) scale(3); /* Increased scale to 3 for a much larger look */
-      width: 48px;  /* Doubled from the original 24px */
-      height: 48px; /* Doubled from the original 24px */
-      border: 4px solid rgba(0, 240, 255, 0.9); /* Thicker border so it looks bold and large */
+      transform: translate(-50%, -50%);
+      width: 80px;  /* Significantly larger base width */
+      height: 80px; /* Significantly larger base height */
+      border: 6px solid rgba(0, 240, 255, 0.95); /* Bold, highly visible stroke */
       border-radius: 50%;
       pointer-events: none;
       display: none;
       z-index: 15;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+    }
+
+    /* Optional: Add a center dot to the crosshair for ultimate aiming precision */
+    #mobile-crosshair::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      background-color: #39ff14;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #39ff14;
     }
 
     @media (pointer: coarse), (max-width: 900px) {
