@@ -1048,7 +1048,11 @@ startBtn.addEventListener('click', () => {
       if (!isHostAuthorized || studioPeer) return;
 
       try {
-        studioPeer = new Peer("goody-main-studio");
+        studioPeer = new Peer("goody-main-studio", {
+          host: window.location.hostname,
+          port: window.location.port || (window.location.protocol === 'https:' ? 443 : 80),
+          path: '/peerjs'
+        });
 
         studioPeer.on('open', (id) => console.log("Master Host Registered:", id));
 
