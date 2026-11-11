@@ -73,6 +73,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ==========================================
+  // ADDED: Handle Tag / Infection Mode Event
+  // ==========================================
+  socket.on('tag_player', (data) => {
+    // Broadcast to everyone (including the tagger and victim) who was tagged
+    io.emit('player_tagged', {
+      taggerId: socket.id,
+      victimId: data.victimId
+    });
+  });
+
   // Handle real-time ball movement and physics synchronization from the host
   socket.on('ball_move', (bData) => {
     // Broadcast ball coordinates and velocity to all other connected clients
