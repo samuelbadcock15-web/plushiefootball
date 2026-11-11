@@ -177,7 +177,8 @@
     const remotePlayers = new Map();
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
-
+let lastKickTime = 0;
+    
     function unlockHostEnvironment() {
       isHostAuthorized = true;
       initAudio();
@@ -3593,10 +3594,27 @@ if (inPitchArena) {
   const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
   const distToBall = plushXZ.distanceTo(ballXZ);
 
-  // Any player who bumps the ball kicks it instantly
-  if (distToBall < 0.78) {
+// Any player who bumps the ball kicks it instantly (with cooldown)
+  const nowMs = performance.now();
+  if (distToBall < 0.78 && (nowMs - lastKickTime > 400)) {
+    lastKickTime = nowMs;
     const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-    const kickStrength = 13.0;
+    const kickStrength = 8.5;
+
+    const impulse = pushDir.clone().multiplyScalar(kickStrength);
+    ballVelocity.add(impulse);
+    playTone(600, 'triangle', 0.08, 0.1);
+
+    if (socket && socket.connected) {
+      socket.emit('ball_kick', {
+        vx: impulse.x,
+        vy: impulse.y,
+        vz: impulse.z
+      });
+    }
+  }
+
+  if (isBallPhysicsHost) {
 
     if (socket && socket.connected) {
       const impulse = pushDir.clone().multiplyScalar(kickStrength);
