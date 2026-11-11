@@ -524,8 +524,31 @@ startBtn.addEventListener('click', () => {
         console.warn("Socket.io offline or unavailable:", e);
       }
     }
-       
-        // FIX: Ensure the 20-minute match clock and IN_PLAY state are fully kicked off for Solo mode!
+
+    function triggerImmediateModePrompt() {
+      if (studioPower) return;
+      gameState = "MODE_PROMPT";
+      countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">SELECT GAME MODE (STEP ON PODIUM 1)</span>`;
+      renderStageQuestionBoard();
+    }
+
+    function chooseHostGameMode(modeType) {
+      if (studioPower) return;
+      if (modeType === "SOLO") {
+        isSoloMode = true;
+        isVsGoodyMode = false;
+        soloPlayerId = "goody-contestant-1";
+        const soloName = contestantNames[soloPlayerId];
+        activePlayer = soloPlayerId;
+        p2RollVal = null;
+        isDiceRollingP2 = false;
+        
+        pawn2.visible = false;
+        pawn1.visible = true;
+        if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
+
+        bootStudio();
+        
         gameState = "IN_PLAY";
         startTwentyMinuteMatchTimer();
         broadcastBoardState();
