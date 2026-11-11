@@ -379,6 +379,22 @@
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
         });
+        socket.on('player_tagged', (data) => {
+        if (data.victimId === socket.id) {
+          setLocalIsIt(true);
+          playTone(150, 'sawtooth', 0.3, 0.2);
+        } else if (data.taggerId === socket.id && data.victimId !== socket.id) {
+          setLocalIsIt(false);
+          playTone(800, 'sine', 0.2, 0.15);
+        }
+
+        if (remotePlayers.has(data.taggerId)) {
+          updateRemoteTagColor(remotePlayers.get(data.taggerId), false);
+        }
+        if (remotePlayers.has(data.victimId)) {
+          updateRemoteTagColor(remotePlayers.get(data.victimId), true);
+        }
+      });
 socket.on('apply_remote_hit', (data) => {
       if (isBallPhysicsHost) {
         const pushDir = new THREE.Vector3(data.pushX, 0, data.pushZ);
@@ -3178,6 +3194,13 @@ socket.on('apply_remote_hit', (data) => {
     let plushieColorHex = 0x00f0ff;
     let localPlushie = null;
 
+    // --- ADD THESE NEW LINES HERE ---
+    let isIt = false; 
+    let tagCooldown = 0;
+    const tagSafeMat = new THREE.MeshStandardMaterial({ color: 0x4169e1, roughness: 0.5 }); // Safe / Blue
+    const tagItMat = new THREE.MeshStandardMaterial({ color: 0xff3333, roughness: 0.3, emissive: 0x550000 }); // IT! / Red
+    // --------------------------------
+
     if (socket) {
       socket.on('assign_team', (data) => {
         assignedTeam = data.team;
@@ -3568,7 +3591,19 @@ socket.on('apply_remote_hit', (data) => {
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
-     
+     if (tagCooldown > 0) tagCooldown -= delta;
+
+      if (isIt && tagCooldown <= 0 && socket) {
+        remotePlayers.forEach((pMesh, id) => {
+          if (pMesh) {
+            const dist = plushiePosition.distanceTo(pMesh.position);
+            if (dist < 1.0) {
+              tagCooldown = 1.5; // Cooldown to prevent packet spamming
+              socket.emit('tag_player', { victimId: id });
+            }
+          }
+        });
+      }
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
