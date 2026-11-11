@@ -3588,33 +3588,47 @@ startBtn.addEventListener('click', () => {
       }
 
 const inPitchArena = plushiePosition.x > 10.0;
-if (inPitchArena) {
-  const ballPos = ballMesh.position;
-  const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
-  const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
-  const distToBall = plushXZ.distanceTo(ballXZ);
+      if (inPitchArena) {
+        const ballPos = ballMesh.position;
+        const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
+        const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
+        const distToBall = plushXZ.distanceTo(ballXZ);
+        const minDistance = 0.72; // Combined radius of plushie + ball
 
-// Any player who bumps the ball kicks it instantly (with cooldown)
-  const nowMs = performance.now();
-  if (distToBall < 0.78 && (nowMs - lastKickTime > 400)) {
-    lastKickTime = nowMs;
-    const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-    const kickStrength = 8.5;
+        // 1. PHYSICAL SOLID COLLISION (Never ghost through)
+        if (distToBall < minDistance && distToBall > 0.001) {
+          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+          const overlap = minDistance - distToBall;
 
-    const impulse = pushDir.clone().multiplyScalar(kickStrength);
-    ballVelocity.add(impulse);
-    playTone(600, 'triangle', 0.08, 0.1);
+          // Push the ball forward out of your body immediately
+          ballPos.x += pushDir.x * (overlap * 0.6);
+          ballPos.z += pushDir.z * (overlap * 0.6);
 
-    if (socket && socket.connected) {
-      socket.emit('ball_kick', {
-        vx: impulse.x,
-        vy: impulse.y,
-        vz: impulse.z
-      });
-    }
-  }
+          // Push your plushie back slightly so you feel the solid impact
+          plushiePosition.x -= pushDir.x * (overlap * 0.4);
+          plushiePosition.z -= pushDir.z * (overlap * 0.4);
 
-  if (isBallPhysicsHost) {
+          // 2. KICK IMPULSE (With cooldown so it only kicks once per bump)
+          const nowMs = performance.now();
+          if (nowMs - (window.lastKickTime || 0) > 300) {
+            window.lastKickTime = nowMs;
+            const kickStrength = 9.0;
+            const impulse = pushDir.clone().multiplyScalar(kickStrength);
+
+            ballVelocity.copy(impulse);
+            playTone(600, 'triangle', 0.08, 0.1);
+
+            if (socket && socket.connected) {
+              socket.emit('ball_kick', {
+                vx: impulse.x,
+                vy: impulse.y,
+                vz: impulse.z
+              });
+            }
+          }
+        }
+
+        if (isBallPhysicsHost) {
 
     if (socket && socket.connected) {
       const impulse = pushDir.clone().multiplyScalar(kickStrength);
