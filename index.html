@@ -2182,31 +2182,30 @@
       side: THREE.DoubleSide
     });
 
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 4.5), wallMaterial);
-    leftWall.position.set(0, 2.25, -7.75);
+    // Sky-high walls to completely block the game show area from view
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 25.0, 8.0), wallMaterial);
+    leftWall.position.set(0, 12.5, -9.0);
     partitionGroup.add(leftWall);
 
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4.5, 12.5), wallMaterial);
-    rightWall.position.set(0, 2.25, 3.75);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 25.0, 18.0), wallMaterial);
+    rightWall.position.set(0, 12.5, 8.0);
     partitionGroup.add(rightWall);
 
     const gateGroup = new THREE.Group();
     gateGroup.position.set(0, 0, -4.0);
 
     const gateMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 4.2, 3.0),
+      new THREE.BoxGeometry(0.3, 25.0, 4.0),
       new THREE.MeshStandardMaterial({
         color: 0x050505,
         roughness: 0.1,
         metalness: 0.85,
         emissive: 0x111115,
         emissiveIntensity: 0.2,
-        transparent: false,
-        opacity: 1.0,
         side: THREE.DoubleSide
       })
     );
-    gateMesh.position.set(0, 2.1, 0);
+    gateMesh.position.set(0, 12.5, 0);
     gateGroup.add(gateMesh);
     partitionGroup.add(gateGroup);
 
