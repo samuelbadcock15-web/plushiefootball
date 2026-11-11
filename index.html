@@ -380,35 +380,6 @@
           isBallPhysicsHost = data.isHost;
         });
 
-        socket.on('apply_ball_kick', (data) => {
-          if (isBallPhysicsHost) {
-            const kickVector = new THREE.Vector3(data.vx, data.vy, data.vz);
-            ballVelocity.add(kickVector);
-            playTone(600, 'triangle', 0.08, 0.1);
-          }
-        });
-
-        socket.on('current_players', (players) => {
-          players.forEach((data) => {
-            if (data.id === socket.id) return;
-            let pMesh = remotePlayers.get(data.id);
-            const remoteTeam = data.team || 'BLUE';
-            const remoteTeamColor = data.teamColor || (remoteTeam === 'RED' ? '#ff3838' : '#00f0ff');
-            const remotePlushieHex = remoteTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-            const playerName = data.name || "Guest";
-
-            if (!pMesh) {
-              pMesh = createCutePlushie(remotePlushieHex, playerName);
-              pMesh.userData.team = remoteTeam;
-              updatePlushieNameBadge(pMesh, playerName, remoteTeamColor);
-              miniDiorama.add(pMesh);
-              remotePlayers.set(data.id, pMesh);
-            }
-            pMesh.position.set(data.x, data.y, data.z);
-            pMesh.rotation.y = data.yaw + Math.PI;
-          });
-        });
-
         socket.on('assign_team', (data) => {
           assignedTeam = data.team;
           teamColorHex = data.teamColor;
@@ -449,14 +420,14 @@
               }
             });
           }
-
-          pMesh.userData.targetPosition = new THREE.Vector3(data.x, data.y, data.z);
-          pMesh.userData.targetYaw = data.yaw + Math.PI;
-
+         
+          pMesh.position.set(data.x, data.y, data.z);
+          pMesh.rotation.y = data.yaw + Math.PI;
+         
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
-
+         
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -523,13 +494,12 @@
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-
+       
         pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        startTwentyMinuteMatchTimer();
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
           startTurnCleanly(soloPlayerId);
@@ -1361,7 +1331,7 @@
         if (onComplete) onComplete();
         return;
       }
-
+     
       window.speechSynthesis.cancel();
       goodyUtterance = new SpeechSynthesisUtterance(text);
       goodyUtterance.rate = 0.95;
@@ -1453,7 +1423,7 @@
         stopDiceCountdown();
         hasPlayerRolledThisTurn = true;
         isPawnMoving = true;
-
+       
         if (contestant === "goody-contestant-2") {
           p2RollVal = roll; isDiceRollingP2 = false;
         } else {
@@ -1484,7 +1454,7 @@
         const mins = Math.max(0, Math.floor(matchTimerSeconds / 60)).toString().padStart(2, '0');
         const secs = Math.max(0, (matchTimerSeconds % 60)).toString().padStart(2, '0');
         const timeStr = `${mins}:${secs}`;
-
+       
         gameClockValEl.textContent = timeStr;
         renderWallClockTexture(timeStr);
 
@@ -1628,7 +1598,7 @@
         const landedCountry = boardTileCoords[currentTileIdx].country;
         const qPool = COUNTRY_QUESTIONS[landedCountry] || COUNTRY_QUESTIONS["UK"];
         const rawQ = qPool[Math.floor(Math.random() * qPool.length)];
-
+       
         activeQuestion = {
           country: landedCountry,
           text: rawQ.q,
@@ -1914,7 +1884,7 @@
       speakGoody(speech);
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
-
+   
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -2246,7 +2216,7 @@
     function createVibrantGoal(isLeft) {
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
-
+     
       const goalSpan = 5.0;
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
@@ -2526,7 +2496,7 @@
       let fontSize = 48;
       if (cleanName.length > 8) fontSize = 36;
       if (cleanName.length > 12) fontSize = 28;
-
+     
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillText(cleanName, w / 2, h / 2 + 2);
 
@@ -2690,18 +2660,21 @@
           qBoardCtx.font = '14px sans-serif';
           qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-2):", 256, 85);
 
+          // 1-PLAYER SOLO RACE (Active)
           qBoardCtx.fillStyle = '#3498db';
           qBoardCtx.fillRect(40, 102, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 134);
 
+          // 1-PLAYER VS GOODY (Active)
           qBoardCtx.fillStyle = '#e74c3c';
           qBoardCtx.fillRect(40, 168, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 200);
 
+          // 2-PLAYER MODE (Greyed Out / Disabled)
           qBoardCtx.fillStyle = '#2d2d3d';
           qBoardCtx.fillRect(40, 234, 432, 55);
           qBoardCtx.fillStyle = '#7f8c8d';
@@ -2888,7 +2861,7 @@
           qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
         } else {
           const isCurrentPlayerTurn = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
-
+         
           if (gameState === "IN_PLAY" && (!hasPlayerRolledThisTurn || (hasPlayerRolledThisTurn && isPawnMoving && (p1RollVal !== null || p2RollVal !== null))) && isCurrentPlayerTurn) {
             const pName = contestantNames[activePlayer];
             const currentRolled = activePlayer === "goody-contestant-2" ? p2RollVal : p1RollVal;
@@ -3030,6 +3003,7 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
+            // Updated to only allow selection for Solo (top) or vs Goody (middle), ignoring clicks on the disabled 2-player option (bottom)
             if (uv.y >= 0.35 && uv.y < 0.58) {
               chooseHostGameMode("GOODY");
             } else if (uv.y >= 0.58 && uv.y <= 0.82) {
@@ -3083,11 +3057,8 @@
     });
 
     const moveState = { forward: false, backward: false, turnLeft: false, turnRight: false };
-
-    const spawnX = Math.random() > 0.5 ? 14.5 : 53.5;
-    const spawnZ = (Math.random() - 0.5) * 8.0;
-    const plushiePosition = new THREE.Vector3(spawnX, 0.44, spawnZ);
-    const plushieRotation = { yaw: spawnX < 30 ? 0 : Math.PI };
+    const plushiePosition = new THREE.Vector3(32.0, 0.44, 2.5);
+    const plushieRotation = { yaw: 0 };
     const plushieVelocity = new THREE.Vector3(0, 0, 0);
 
     function createCutePlushie(color, initialName = "") {
@@ -3132,7 +3103,7 @@
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
-
+     
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -3220,7 +3191,7 @@
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
-
+   
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -3384,8 +3355,8 @@
       ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(x, y + height - 26, width, 26);
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-
-      let tag = "";
+     
+let tag = "";
       if (isGoodyHostSlot) {
         tag = `[AI HOST: GOODY]`;
       } else if (city === "") {
@@ -3419,6 +3390,7 @@
           sScreenCtx.font = 'bold 12px monospace';
           sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
         } else {
+          // Changed contestantCities["goody-contestant-1"] to "" below:
           drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], "", hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
         }
 
@@ -3589,7 +3561,7 @@
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
-
+     
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
@@ -3601,71 +3573,37 @@
       }
 
       const inPitchArena = plushiePosition.x > 10.0;
-
       if (inPitchArena) {
-        const radius = 0.45;
-        remotePlayers.forEach((pMesh) => {
-          if (pMesh && pMesh.position.x > 10.0) {
-            const dx = plushiePosition.x - pMesh.position.x;
-            const dz = plushiePosition.z - pMesh.position.z;
-            const d = Math.hypot(dx, dz);
-            if (d < radius * 2 && d > 0.0001) {
-              const overlap = (radius * 2) - d;
-              const nx = dx / d;
-              const nz = dz / d;
-              // Pure position separation only — NO velocity injection to prevent slingshots!
-              plushiePosition.x += nx * (overlap * 0.5);
-              plushiePosition.z += nz * (overlap * 0.5);
-            }
-          }
-        });
-
         const ballPos = ballMesh.position;
         const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
 
-        const COLLISION_THRESHOLD = 0.78;
-
-        if (distToBall < COLLISION_THRESHOLD) {
-          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-          const impactSpeed = plushieVelocity.length();
-          const impulseStrength = Math.max(12.0, impactSpeed * 12.0);
-          const kickForce = pushDir.clone().multiplyScalar(impulseStrength);
-
-          if (isBallPhysicsHost) {
-            ballVelocity.add(kickForce);
-            playTone(600, 'triangle', 0.08, 0.1);
-          } else {
-            socket.emit('request_ball_kick', {
-              vx: kickForce.x,
-              vy: kickForce.y,
-              vz: kickForce.z
-            });
-            
-            // STRICT NON-HOST ISOLATION: Clamped visual feedback nudge only
-            ballVelocity.copy(kickForce.clone().multiplyScalar(0.25));
+        if (isBallPhysicsHost) {
+          if (distToBall < 0.78) {
+            const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+            ballVelocity.addScaledVector(pushDir, 13.0);
             playTone(600, 'triangle', 0.08, 0.1);
           }
-        }
 
-        if (isBallPhysicsHost) {
+          remotePlayers.forEach((pMesh) => {
+            if (pMesh) {
+              const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
+              if (remoteXZ.distanceTo(ballXZ) < 0.78) {
+                const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
+                ballVelocity.addScaledVector(pushDir, 13.0);
+                playTone(600, 'triangle', 0.08, 0.1);
+              }
+            }
+          });
+
           ballPos.addScaledVector(ballVelocity, delta);
           ballVelocity.multiplyScalar(0.96);
 
-          // Arena wall bounces
           if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
           if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
 
-          // ROBUST GOAL BOUNDARY CHECK (Requires valid height and goal mouth Z span)
-          const GOAL_MIN_Z = -2.5;
-          const GOAL_MAX_Z = 2.5;
-          const GOAL_MAX_Y = 3.0;
-
-          const isInsideGoalMouthY = ballPos.y <= GOAL_MAX_Y;
-          const isInsideGoalMouthZ = ballPos.z >= GOAL_MIN_Z && ballPos.z <= GOAL_MAX_Z;
-
-          if (ballPos.x < 16.2 && isInsideGoalMouthY && isInsideGoalMouthZ) {
+          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
             redScore++;
             renderPitchScoreboard(blueScore, redScore);
             playTone(200, 'sawtooth', 0.3, 0.15);
@@ -3674,7 +3612,7 @@
             if (socket && socket.connected) {
               socket.emit('score_update', { blue: blueScore, red: redScore });
             }
-          } else if (ballPos.x > 51.8 && isInsideGoalMouthY && isInsideGoalMouthZ) {
+          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
             blueScore++;
             renderPitchScoreboard(blueScore, redScore);
             playTone(800, 'sine', 0.3, 0.15);
@@ -3683,13 +3621,9 @@
             if (socket && socket.connected) {
               socket.emit('score_update', { blue: blueScore, red: redScore });
             }
-          } else {
-            // Side netting / outer walls bounce cleanly instead of resetting
-            if (ballPos.x < 16.2) { ballPos.x = 16.2; ballVelocity.x *= -0.7; playTone(400, 'sine', 0.05, 0.05); }
-            if (ballPos.x > 51.8) { ballPos.x = 51.8; ballVelocity.x *= -0.7; playTone(400, 'sine', 0.05, 0.05); }
           }
 
-          ballPos.x = Math.max(15.5, Math.min(52.5, ballPos.x));
+          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
           if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
             lastBallSyncTime = time;
@@ -3699,7 +3633,7 @@
               z: ballPos.z,
               vx: ballVelocity.x,
               vy: ballVelocity.y,
-              vz: ballVelocity.z
+              vz: ballVelocity.vz
             });
           }
         } else {
@@ -3721,17 +3655,9 @@
           z: plushiePosition.z,
           yaw: plushieRotation.yaw,
           team: assignedTeam,
-          teamColor: teamColorHex,
-          isSolid: plushiePosition.x > 10.0
+          teamColor: teamColorHex
         });
       }
-
-      remotePlayers.forEach((pMesh) => {
-        if (pMesh) {
-          pMesh.position.lerp(pMesh.userData.targetPosition, 0.2);
-          pMesh.rotation.y += (pMesh.userData.targetYaw - pMesh.rotation.y) * 0.2;
-        }
-      });
 
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
       const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
@@ -3818,15 +3744,8 @@
         updatePlushieVisibility(sp, false, false);
       });
 
-      remotePlayers.forEach((pMesh) => {
-        if (pMesh) {
-          updatePlushieVisibility(pMesh, false, false);
-        }
-      });
-
-      camera.updateMatrixWorld();
       const camRot = camera.quaternion;
-
+     
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
