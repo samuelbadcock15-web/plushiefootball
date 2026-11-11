@@ -134,11 +134,12 @@
 </head>
 <body>
   <div id="start-screen" style="position:fixed;inset:0;background:rgba(5,2,10,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;">
-  <h1 style="color:#ffda66;font-family:monospace;letter-spacing:2px;margin-bottom:20px;">THE GOODY TONIGHT SHOW</h1>
-  <button id="start-btn" style="padding:16px 36px;font-size:1.2rem;font-weight:bold;color:#05020a;background:#00f0ff;border:3px solid #39ff14;border-radius:14px;cursor:pointer;box-shadow:0 0 25px #00f0ff;font-family:monospace;">
-    CLICK TO ENTER STUDIO
-  </button>
-</div>
+    <h1 style="color:#ffda66;font-family:monospace;letter-spacing:2px;margin-bottom:20px;">THE GOODY TONIGHT SHOW</h1>
+    <button id="start-btn" style="padding:16px 36px;font-size:1.2rem;font-weight:bold;color:#05020a;background:#00f0ff;border:3px solid #39ff14;border-radius:14px;cursor:pointer;box-shadow:0 0 25px #00f0ff;font-family:monospace;">
+      CLICK TO ENTER STUDIO
+    </button>
+  </div>
+
   <div id="hud">
     <div class="hud-title" id="mode-title" style="color: #ffda66;">STUDIO FLOOR & WIDE PLUSHIE RUGBY-FOOTIE ARENA</div>
     <div class="hud-sub" id="mode-sub">Bump into the ball with your belly & bash into friends!</div>
@@ -177,8 +178,8 @@
     const remotePlayers = new Map();
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
-let lastKickTime = 0;
-    
+    let lastKickTime = 0;
+
     function unlockHostEnvironment() {
       isHostAuthorized = true;
       initAudio();
@@ -464,8 +465,8 @@ startBtn.addEventListener('click', () => {
         });
 socket.on('apply_ball_kick', (kData) => {
           if (ballVelocity) {
-            // Apply kick impulse immediately across all clients, especially the physics host
-            ballVelocity.add(new THREE.Vector3(kData.vx, kData.vy || 0, kData.vz));
+            ballVelocity.x = kData.vx;
+            ballVelocity.z = kData.vz;
           }
         });
         socket.on('score_sync', (sData) => {
@@ -3580,45 +3581,47 @@ const inPitchArena = plushiePosition.x > 10.0;
         const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
         const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
         const distToBall = plushXZ.distanceTo(ballXZ);
-        const minDistance = 0.72;
+        const minDistance = 0.78;
 
-        // Generous hitbox (0.85) so glancing touches still trigger a kick
-        const kickTriggerDist = 0.85;
+        const nowMs = performance.now();
 
-        if (distToBall < kickTriggerDist) {
-          // Calculate direct line to ball
+        // 1. Kick triggers only once every 450ms (hard cooldown to kill machine-gun beeps)
+        if (distToBall < minDistance && (nowMs - lastKickTime > 450)) {
+          lastKickTime = nowMs;
+
           let pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-
-          // Blend movement direction so glancing blows kick forward instead of sliding around
-          if (plushieVelocity.lengthSq() > 0.1) {
+          
+          // If moving, steer kick towards running direction so glancing hits work
+          if (plushieVelocity.lengthSq() > 0.05) {
             const moveDir = plushieVelocity.clone().normalize();
-            pushDir.lerp(moveDir, 0.45).normalize();
+            pushDir.lerp(moveDir, 0.5).normalize();
           }
 
-          // Gentle physical repulsion only when deeply penetrating
-          if (distToBall < minDistance && distToBall > 0.001) {
-            const overlap = minDistance - distToBall;
-            plushiePosition.x -= pushDir.x * (overlap * 0.3);
-            plushiePosition.z -= pushDir.z * (overlap * 0.3);
+          const kickStrength = 11.0;
+          const impulse = pushDir.clone().multiplyScalar(kickStrength);
+
+          // Apply immediately on local screen so there is zero visual lag
+          ballVelocity.copy(impulse);
+          ballPos.x += pushDir.x * 0.35;
+          ballPos.z += pushDir.z * 0.35;
+
+          playTone(600, 'triangle', 0.08, 0.1);
+
+          if (socket && socket.connected) {
+            socket.emit('ball_kick', {
+              vx: impulse.x,
+              vy: impulse.y,
+              vz: impulse.z
+            });
           }
+        }
 
-          const nowMs = performance.now();
-          if (nowMs - (window.lastKickTime || 0) > 220) {
-            window.lastKickTime = nowMs;
-            const kickStrength = 10.5;
-            const impulse = pushDir.clone().multiplyScalar(kickStrength);
-
-            ballVelocity.copy(impulse);
-            playTone(600, 'triangle', 0.08, 0.1);
-
-            if (socket && socket.connected) {
-              socket.emit('ball_kick', {
-                vx: impulse.x,
-                vy: impulse.y,
-                vz: impulse.z
-              });
-            }
-          }
+        // 2. Solid pushback so plushie cannot walk through the ball
+        if (distToBall < 0.65 && distToBall > 0.001) {
+          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+          const overlap = 0.65 - distToBall;
+          plushiePosition.x -= pushDir.x * overlap;
+          plushiePosition.z -= pushDir.z * overlap;
         }
 
         // Host ball physics calculations
