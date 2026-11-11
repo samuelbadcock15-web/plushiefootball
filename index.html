@@ -172,51 +172,51 @@
     let localMyGuestName = "Guest 1";
     let isBallPhysicsHost = false;
 
-    let assignedTeam = 'BLUE';
-    let teamColorHex = '#00f0ff';
-    let plushieColorHex = 0x00f0ff;
-    let localPlushie = null;
+    function unlockHostEnvironment() {
+      isHostAuthorized = true;
+      initAudio();
+      initStudioWebRTC();
+      initSocketConnection();
+      triggerImmediateModePrompt();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      unlockHostEnvironment();
+    });
 
     const lookPad = document.getElementById('look-pad');
     const lookPadThumb = document.getElementById('look-pad-thumb');
 
     let isLooking = false;
     let lookTouchId = null;
-    let lookPadCenterX = 0;
-    let lookPadCenterY = 0;
-
-    function updateLookPadCenter() {
-      const rect = lookPad.getBoundingClientRect();
-      lookPadCenterX = rect.left + rect.width / 2;
-      lookPadCenterY = rect.top + rect.height / 2;
-    }
+    let lookStartX = 0;
+    let lookStartY = 0;
 
     function handleLookStart(clientX, clientY, identifier = null) {
       isLooking = true;
       lookTouchId = identifier;
-      updateLookPadCenter();
-      handleLookMove(clientX, clientY);
+      lookStartX = clientX;
+      lookStartY = clientY;
     }
 
     function handleLookMove(clientX, clientY) {
       if (!isLooking) return;
 
-      const deltaX = clientX - lookPadCenterX;
-      const deltaY = clientY - lookPadCenterY;
-      const lookSensitivity = 0.0008;
+      const deltaX = clientX - lookStartX;
+      const deltaY = clientY - lookStartY;
+      const lookSensitivity = 0.005;
 
       if (typeof plushieRotation !== 'undefined') {
         plushieRotation.yaw -= deltaX * lookSensitivity;
       }
 
       const maxThumbOffset = 40;
-      const dist = Math.hypot(deltaX, deltaY);
-      const angle = Math.atan2(deltaY, deltaX);
-      const clampedDist = Math.min(dist, maxThumbOffset);
-      const thumbX = Math.cos(angle) * clampedDist;
-      const thumbY = Math.sin(angle) * clampedDist;
+      const clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      const clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
 
-      lookPadThumb.style.transform = `translate(${thumbX}px, ${thumbY}px)`;
+      lookStartX = clientX;
+      lookStartY = clientY;
     }
 
     function handleLookEnd() {
@@ -272,8 +272,12 @@
     const studioRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
     document.getElementById('hud-code-val').textContent = studioRoomCode;
 
+    let currentMode = 'BEDROOM';
     let studioPower = false;
     let isGoodySpeaking = false;
+
+    let showPlayer1 = false;
+    let showPlayer2 = false;
 
     const videoPlayer1 = document.createElement('video');
     videoPlayer1.autoplay = true; videoPlayer1.playsInline = true; videoPlayer1.muted = false;
@@ -307,7 +311,7 @@
     let matchTimerSeconds = 20 * 60;
     let matchTimerInterval = null;
     let isTimeExpired = false;
-    const gameClockValEl = document.getElementById('game-clock-val');
+    let gameClockValEl = document.getElementById('game-clock-val');
 
     let activePlayer = "goody-contestant-1";
     let activeQuestion = null;
@@ -324,6 +328,7 @@
     let audienceCount = 1;
     const audienceCountEl = document.getElementById('audience-count');
     const countdownPill = document.getElementById('countdown-pill');
+    const timerValEl = document.getElementById('timer-val');
 
     let blueScore = 0;
     let redScore = 0;
@@ -339,7 +344,7 @@
     };
 
     const contestantCities = {
-      "goody-contestant-1": "",
+      "goody-contestant-1": "London",
       "goody-contestant-2": "Nottingham"
     };
 
@@ -379,7 +384,9 @@
           assignedTeam = data.team;
           teamColorHex = data.teamColor;
           plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
-          if (data.name) localMyGuestName = data.name;
+          if (data.name) {
+            localMyGuestName = data.name;
+          }
 
           if (localPlushie) {
             localPlushie.userData.team = assignedTeam;
@@ -408,18 +415,19 @@
           } else {
             pMesh.userData.team = remoteTeam;
             pMesh.traverse(child => {
-              if (child.isMesh && child.material && child !== pMesh.userData.badgeMesh) {
+              if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
                 child.material.color.setHex(remotePlushieHex);
               }
             });
           }
-
+         
           pMesh.position.set(data.x, data.y, data.z);
           pMesh.rotation.y = data.yaw + Math.PI;
-
+         
           if (data.name) {
             updatePlushieNameBadge(pMesh, data.name, remoteTeamColor);
           }
+         
           setPlushieVisualMode(pMesh, data.isSolid ? 'opaque' : 'transparent');
         });
 
@@ -450,7 +458,7 @@
           renderPitchScoreboard(blueScore, redScore);
         });
 
-        socket.on('start_podium_countdown', () => {
+        socket.on('start_podium_countdown', (data) => {
           countdownPill.innerHTML = `STATUS: <span style="color:#ffda66;">PODIUM 1 SECURED! 10S PRIORITY COUNTDOWN ACTIVE</span>`;
         });
 
@@ -486,16 +494,12 @@
         activePlayer = soloPlayerId;
         p2RollVal = null;
         isDiceRollingP2 = false;
-
+       
         pawn2.visible = false;
         pawn1.visible = true;
         if (window.p2PodiumGroup) window.p2PodiumGroup.visible = false;
 
         bootStudio();
-        gameState = "IN_PLAY";
-        startTwentyMinuteMatchTimer();
-        broadcastBoardState();
-
         const speech = `Welcome to The Goody Tonight Show! We are starting in 1-Player Solo mode with ${soloName}! Let's begin our 20-minute race to tile 32!`;
         speakGoody(speech, () => {
           startTurnCleanly(soloPlayerId);
@@ -1067,6 +1071,7 @@
               videoPlayer2.muted = false;
               videoPlayer2.play().catch(console.error);
               hasLivePlayer2Stream = true;
+              showPlayer2 = true;
               broadcastNewStreamToAllAudience(remoteStream, "goody-contestant-2");
             } else {
               rawPlayer1Stream = remoteStream;
@@ -1074,6 +1079,7 @@
               videoPlayer1.muted = false;
               videoPlayer1.play().catch(console.error);
               hasLivePlayer1Stream = true;
+              showPlayer1 = true;
               broadcastNewStreamToAllAudience(remoteStream, "goody-contestant-1");
             }
             broadcastBoardState();
@@ -1148,10 +1154,10 @@
               return;
             }
 
-            const cId = conn.metadata ? conn.metadata.contestant : null;
             const clientName = (conn.metadata && conn.metadata.name) ? conn.metadata.name.trim() : (cId === "goody-contestant-2" ? "Player 2" : "Player 1");
-            const clientCity = (conn.metadata && conn.metadata.city) ? conn.metadata.city.trim() : (cId === "goody-contestant-2" ? "Nottingham" : "");
+            const clientCity = (conn.metadata && conn.metadata.city) ? conn.metadata.city.trim() : (cId === "goody-contestant-2" ? "Nottingham" : "London");
             const clientToken = conn.metadata ? conn.metadata.sessionToken : null;
+            const cId = conn.metadata ? conn.metadata.contestant : null;
 
             if (cId === "goody-contestant-1") {
               isP1Connected = true;
@@ -1300,10 +1306,9 @@
     function initAudio() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      if (videoPlayer1.srcObject) videoPlayer1.play().catch(() => {});
-      if (videoPlayer2.srcObject) videoPlayer2.play().catch(() => {});
+      if (videoPlayer1.srcObject) videoPlayer1.play();
+      if (videoPlayer2.srcObject) videoPlayer2.play();
     }
-
     function playTone(freq, type, duration, gainVal = 0.05) {
       if (!audioCtx) return;
       try {
@@ -1326,7 +1331,7 @@
         if (onComplete) onComplete();
         return;
       }
-
+     
       window.speechSynthesis.cancel();
       goodyUtterance = new SpeechSynthesisUtterance(text);
       goodyUtterance.rate = 0.95;
@@ -1418,7 +1423,7 @@
         stopDiceCountdown();
         hasPlayerRolledThisTurn = true;
         isPawnMoving = true;
-
+       
         if (contestant === "goody-contestant-2") {
           p2RollVal = roll; isDiceRollingP2 = false;
         } else {
@@ -1449,7 +1454,7 @@
         const mins = Math.max(0, Math.floor(matchTimerSeconds / 60)).toString().padStart(2, '0');
         const secs = Math.max(0, (matchTimerSeconds % 60)).toString().padStart(2, '0');
         const timeStr = `${mins}:${secs}`;
-
+       
         gameClockValEl.textContent = timeStr;
         renderWallClockTexture(timeStr);
 
@@ -1545,6 +1550,7 @@
 
           const elapsed = now - hopStartTime;
           const progress = Math.min(1.0, elapsed / hopDurationMs);
+
           const jumpArc = 4.0 * 0.35 * progress * (1.0 - progress);
 
           pawn.position.x = startPos.x + (endPos.x - startPos.x) * progress;
@@ -1592,7 +1598,7 @@
         const landedCountry = boardTileCoords[currentTileIdx].country;
         const qPool = COUNTRY_QUESTIONS[landedCountry] || COUNTRY_QUESTIONS["UK"];
         const rawQ = qPool[Math.floor(Math.random() * qPool.length)];
-
+       
         activeQuestion = {
           country: landedCountry,
           text: rawQ.q,
@@ -1878,7 +1884,7 @@
       speakGoody(speech);
       broadcastGameOver(winner, "TIME_EXPIRED_LEADER");
     }
-
+   
     function triggerTieBreakerDuel() {
       isTieBreakerActive = true;
       tieBreakerAnswered = false;
@@ -2047,7 +2053,8 @@
       color: 0x1f113a,
       roughness: 0.3,
       metalness: 0.4,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      transparent: false
     });
 
     const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.0, 14.0), studioWallMat);
@@ -2071,6 +2078,8 @@
       color: 0x1f113a,
       roughness: 0.3,
       metalness: 0.4,
+      transparent: false,
+      opacity: 1.0,
       side: THREE.DoubleSide
     });
 
@@ -2093,12 +2102,15 @@
         metalness: 0.85,
         emissive: 0x111115,
         emissiveIntensity: 0.2,
+        transparent: false,
+        opacity: 1.0,
         side: THREE.DoubleSide
       })
     );
     gateMesh.position.set(0, 2.1, 0);
     gateGroup.add(gateMesh);
     partitionGroup.add(gateGroup);
+
     miniDiorama.add(partitionGroup);
 
     const pitchSbCanvas = document.createElement('canvas');
@@ -2162,6 +2174,7 @@
 
       pitchSbTexture.needsUpdate = true;
     }
+
     renderPitchScoreboard(0, 0);
 
     const foosballGroup = new THREE.Group();
@@ -2203,7 +2216,7 @@
     function createVibrantGoal(isLeft) {
       const goalGroup = new THREE.Group();
       const postMat = new THREE.MeshStandardMaterial({ color: isLeft ? 0x00f0ff : 0xff3838, metalness: 0.8, roughness: 0.2 });
-
+     
       const goalSpan = 5.0;
       const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 16), postMat);
       post1.position.set(0, 1.5, goalSpan / 2);
@@ -2483,7 +2496,7 @@
       let fontSize = 48;
       if (cleanName.length > 8) fontSize = 36;
       if (cleanName.length > 12) fontSize = 28;
-
+     
       ctx.font = `bold ${fontSize}px sans-serif`;
       ctx.fillText(cleanName, w / 2, h / 2 + 2);
 
@@ -2647,18 +2660,21 @@
           qBoardCtx.font = '14px sans-serif';
           qBoardCtx.fillText("SELECT START MODE (TAP OR PRESS 1-2):", 256, 85);
 
+          // 1-PLAYER SOLO RACE (Active)
           qBoardCtx.fillStyle = '#3498db';
           qBoardCtx.fillRect(40, 102, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[1] 1-PLAYER SOLO RACE", 256, 134);
 
+          // 1-PLAYER VS GOODY (Active)
           qBoardCtx.fillStyle = '#e74c3c';
           qBoardCtx.fillRect(40, 168, 432, 55);
           qBoardCtx.fillStyle = '#ffffff';
           qBoardCtx.font = 'bold 16px monospace';
           qBoardCtx.fillText("[2] 1-PLAYER VS GOODY", 256, 200);
 
+          // 2-PLAYER MODE (Greyed Out / Disabled)
           qBoardCtx.fillStyle = '#2d2d3d';
           qBoardCtx.fillRect(40, 234, 432, 55);
           qBoardCtx.fillStyle = '#7f8c8d';
@@ -2845,7 +2861,7 @@
           qBoardCtx.fillText("THE GOODY TONIGHT SHOW", 256, 110);
         } else {
           const isCurrentPlayerTurn = isSoloMode ? (activePlayer === soloPlayerId) : (activePlayer !== goodyPlayerSlot);
-
+         
           if (gameState === "IN_PLAY" && (!hasPlayerRolledThisTurn || (hasPlayerRolledThisTurn && isPawnMoving && (p1RollVal !== null || p2RollVal !== null))) && isCurrentPlayerTurn) {
             const pName = contestantNames[activePlayer];
             const currentRolled = activePlayer === "goody-contestant-2" ? p2RollVal : p1RollVal;
@@ -2987,6 +3003,7 @@
         if (gameState === "MODE_PROMPT" && isLocalOnPodium1) {
           const uv = hit.uv;
           if (uv) {
+            // Updated to only allow selection for Solo (top) or vs Goody (middle), ignoring clicks on the disabled 2-player option (bottom)
             if (uv.y >= 0.35 && uv.y < 0.58) {
               chooseHostGameMode("GOODY");
             } else if (uv.y >= 0.58 && uv.y <= 0.82) {
@@ -3076,16 +3093,17 @@
         const badgeMat = new THREE.MeshBasicMaterial({
           map: bTex,
           transparent: true,
-          opacity: 0.85,
+          opacity: 0.3,
           side: THREE.DoubleSide,
           depthWrite: false
         });
         badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.185), badgeMat);
         badgeMesh.position.set(0, 0.95, 0);
+        badgeMesh.matrixAutoUpdate = true;
         miniDiorama.add(badgeMesh);
         updatePlushieNameBadge(pGroup, initialName);
       }
-
+     
       pGroup.userData = {
         badgeCanvas: bCanvas, badgeTexture: bTex, badgeMesh: badgeMesh
       };
@@ -3113,7 +3131,7 @@
       ctx.fillStyle = teamColor;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 38px sans-serif';
-      ctx.fillText((displayName || "PLAYER 1").toUpperCase(), w / 2, h / 2 + 2);
+      ctx.fillText((displayName || "GUEST 1").toUpperCase(), w / 2, h / 2 + 2);
 
       if (pGroup.userData.badgeTexture) {
         pGroup.userData.badgeTexture.needsUpdate = true;
@@ -3147,9 +3165,33 @@
       });
     }
 
+    let assignedTeam = 'BLUE';
+    let teamColorHex = '#00f0ff';
+    let plushieColorHex = 0x00f0ff;
+    let localPlushie = null;
+
+    if (socket) {
+      socket.on('assign_team', (data) => {
+        assignedTeam = data.team;
+        teamColorHex = data.teamColor;
+        plushieColorHex = assignedTeam === 'RED' ? 0xff3838 : 0x00f0ff;
+
+        if (localPlushie) {
+          localPlushie.userData.team = assignedTeam;
+          localPlushie.traverse(child => {
+            if (child.isMesh && child.material && child !== localPlushie.userData.badgeMesh) {
+              child.material.color.setHex(plushieColorHex);
+            }
+          });
+          updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+        }
+      });
+    }
+
     localPlushie = createCutePlushie(plushieColorHex, localMyGuestName);
     localPlushie.userData.team = assignedTeam;
     updatePlushieNameBadge(localPlushie, localMyGuestName, teamColorHex);
+   
     localPlushie.position.copy(plushiePosition);
     miniDiorama.add(localPlushie);
     setPlushieVisualMode(localPlushie, 'opaque');
@@ -3313,8 +3355,8 @@
       ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(x, y + height - 26, width, 26);
       ctx.fillStyle = isGoodyHostSlot ? '#00f0ff' : (isLive ? '#39ff14' : '#ffda66');
       ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-
-      let tag = "";
+     
+let tag = "";
       if (isGoodyHostSlot) {
         tag = `[AI HOST: GOODY]`;
       } else if (city === "") {
@@ -3348,7 +3390,8 @@
           sScreenCtx.font = 'bold 12px monospace';
           sScreenCtx.fillText("1 PLAYER SOLO MODE", 127, 135);
         } else {
-          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], contestantCities["goody-contestant-1"], hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
+          // Changed contestantCities["goody-contestant-1"] to "" below:
+          drawScreenFeed(sScreenCtx, 15, 20, 225, 215, contestantNames["goody-contestant-1"], "", hasLivePlayer1Stream, videoPlayer1, true, p1RollVal, isDiceRollingP1, isP1Goody);
         }
 
         if (isSoloMode) {
@@ -3518,7 +3561,7 @@
 
       plushiePosition.x = Math.max(-6.5, Math.min(54.0, plushiePosition.x));
       plushiePosition.z = Math.max(-13.5, Math.min(13.5, plushiePosition.z));
-
+     
       if (Math.abs(plushiePosition.x - 10.0) < 0.4) {
         if (plushiePosition.z < -5.5 || plushiePosition.z > -2.5) {
           if (plushiePosition.x < 10.0) {
@@ -3590,7 +3633,7 @@
               z: ballPos.z,
               vx: ballVelocity.x,
               vy: ballVelocity.y,
-              vz: ballVelocity.z
+              vz: ballVelocity.vz
             });
           }
         } else {
@@ -3658,7 +3701,7 @@
         }
       }
 
-      function updatePlushieVisibility(plushieMesh) {
+      function updatePlushieVisibility(plushieMesh, isP1Contestant, isP2Contestant) {
         if (!plushieMesh) return;
         const pos = plushieMesh.position;
         const dP1 = pos.distanceTo(p1Pos);
@@ -3666,8 +3709,8 @@
         const onPodium1 = dP1 < 0.65;
         const onPodium2 = dP2 < 0.65;
 
-        const isInsidePitch = pos.x > 10.0;
-        if (isInsidePitch) {
+        const inPitchArena = pos.x > 10.0;
+        if (inPitchArena) {
           setPlushieVisualMode(plushieMesh, 'opaque');
           return;
         }
@@ -3682,24 +3725,34 @@
         }
       }
 
-      updatePlushieVisibility(localPlushie);
+      const isLocalContestant = (isSoloMode && activePlayer === soloPlayerId) ||
+                            (isVsGoodyMode && activePlayer !== goodyPlayerSlot && isLocalOnPodium1) ||
+                            (!isSoloMode && !isVsGoodyMode && (isLocalOnPodium1 || isLocalOnPodium2));
 
-      if (playerPlushie1) updatePlushieVisibility(playerPlushie1);
-      if (playerPlushie2) updatePlushieVisibility(playerPlushie2);
+      updatePlushieVisibility(localPlushie, isLocalOnPodium1 && isLocalContestant, isLocalOnPodium2 && isLocalContestant);
+
+      if (playerPlushie1) {
+        const isP1InGame = studioPower && isP1Connected;
+        updatePlushieVisibility(playerPlushie1, isP1InGame, false);
+      }
+      if (playerPlushie2) {
+        const isP2InGame = studioPower && isP2Connected && !isVsGoodyMode;
+        updatePlushieVisibility(playerPlushie2, false, isP2InGame);
+      }
 
       spectatorPlushies.forEach(sp => {
-        updatePlushieVisibility(sp);
+        updatePlushieVisibility(sp, false, false);
       });
 
       const camRot = camera.quaternion;
-
+     
       if (localPlushie && localPlushie.userData && localPlushie.userData.badgeMesh) {
         const badge = localPlushie.userData.badgeMesh;
         badge.position.copy(localPlushie.position).add(new THREE.Vector3(0, 0.95, 0));
         badge.quaternion.copy(camRot);
       }
 
-      remotePlayers.forEach((pMesh) => {
+      remotePlayers.forEach((pMesh, id) => {
         if (pMesh && pMesh.userData && pMesh.userData.badgeMesh) {
           const badge = pMesh.userData.badgeMesh;
           badge.position.copy(pMesh.position).add(new THREE.Vector3(0, 0.95, 0));
@@ -3731,6 +3784,7 @@
       }
 
       prevTime = time;
+
       renderer.render(scene, camera);
     }
 
@@ -3770,7 +3824,7 @@
     let isSwipingScreen = false;
 
     window.addEventListener('touchstart', (e) => {
-      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner') || e.target.closest('#look-pad')) return;
+      if (e.target.closest('#mobile-dpad') || e.target.closest('#hud') || e.target.closest('#mode-banner')) return;
       if (e.touches.length > 0) {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -3799,6 +3853,7 @@
         }
 
         const moveThreshold = 4;
+
         if (deltaY < -moveThreshold) {
           moveState.forward = true;
           moveState.backward = false;
@@ -3830,18 +3885,6 @@
       btnRight.classList.remove('active');
       btnUp.classList.remove('active');
       btnDown.classList.remove('active');
-    });
-
-    function unlockHostEnvironment() {
-      isHostAuthorized = true;
-      initAudio();
-      initStudioWebRTC();
-      initSocketConnection();
-      triggerImmediateModePrompt();
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      unlockHostEnvironment();
     });
 
     animate();
