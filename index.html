@@ -33,11 +33,11 @@
     #match-clock-hud { margin-top: 4px; font-weight: bold; color: #00f0ff; font-size: 0.95rem; }
     #audience-pill { margin-top: 4px; font-weight: bold; color: #39ff14; }
 
-    #mobile-dpad {
+#mobile-dpad {
       position: absolute;
       bottom: 80px;
       left: 80px;
-      display: none;
+      display: none; /* Hidden by default on PC */
       grid-template-areas:
         ". up ."
         "left down right";
@@ -45,6 +45,11 @@
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
+    }
+
+    /* Shows the d-pad ONLY on touch devices */
+    @media (pointer: coarse), (max-width: 900px) {
+      #mobile-dpad { display: grid; }
     }
 
     @media (pointer: coarse), (max-width: 900px) {
