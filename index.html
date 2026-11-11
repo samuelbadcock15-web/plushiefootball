@@ -3538,11 +3538,6 @@
       renderBackstageScreens();
       renderGoodyFace(time);
 
-      const isPlayerTurnRoll = gameState === "IN_PLAY" && !hasPlayerRolledThisTurn && (isSoloMode ? activePlayer === soloPlayerId : activePlayer !== goodyPlayerSlot);
-      if (gameState === "OPENING_DUEL" || isPlayerTurnRoll) {
-        renderStageQuestionBoard();
-      }
-
       if (moveState.turnLeft) plushieRotation.yaw += 2.2 * delta;
       if (moveState.turnRight) plushieRotation.yaw -= 2.2 * delta;
 
@@ -3582,7 +3577,7 @@
         if (isBallPhysicsHost) {
           if (distToBall < 0.78) {
             const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-            ballVelocity.addScaledVector(pushDir, 13.0);
+            ballVelocity.addScaledVector(pushDir, 16.0);
             playTone(600, 'triangle', 0.08, 0.1);
           }
 
@@ -3591,7 +3586,7 @@
               const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
               if (remoteXZ.distanceTo(ballXZ) < 0.78) {
                 const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
-                ballVelocity.addScaledVector(pushDir, 13.0);
+                ballVelocity.addScaledVector(pushDir, 16.0);
                 playTone(600, 'triangle', 0.08, 0.1);
               }
             }
@@ -3625,7 +3620,7 @@
 
           ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
 
-          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+          if (socket && socket.connected && (time - lastBallSyncTime > 25)) {
             lastBallSyncTime = time;
             socket.emit('ball_move', {
               x: ballPos.x,
@@ -3638,7 +3633,7 @@
           }
         } else {
           if (hasRemoteBallUpdate) {
-            ballMesh.position.lerp(remoteBallTarget, 0.35);
+            ballMesh.position.lerp(remoteBallTarget, 0.4);
           }
         }
       } else {
