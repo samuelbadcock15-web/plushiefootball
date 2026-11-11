@@ -1,39 +1,20 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { ExpressPeerServer } = require('peer');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Host private PeerJS broker on /peerjs
-const peerServer = ExpressPeerServer(server, {
-  debug: true,
-  path: '/'
-});
-app.use('/peerjs', peerServer);
-
 // Serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
 
-// Track active players and authoritative ball state
+// Track active players connected to the studio
 const activePlayers = new Map();
-let ballPhysicsHostId = null;
+let ballPhysicsHostId = null; // Tracks which client has physics authority over the ball
 let connectionCount = 0;
-let guestCounter = 0;
-
-// Persistent ball state on the server
-let currentBallState = {
-  x: 34.0,
-  y: 0.82,
-  z: 0.0,
-  vx: 0,
-  vy: 0,
-  vz: 0
-};
-let currentScores = { blue: 0, red: 0 };
+let guestCounter = 0; // Sequential counter for Guest names
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -45,7 +26,8 @@ io.on('connection', (socket) => {
   const teamColorHex = assignedTeam === 'RED' ? '#ff3838' : '#00f0ff';
   const defaultName = `Guest ${guestCounter}`;
 
-  const newPlayerData = {
+  // Store the player in activePlayers map with their unique guest name
+  activePlayers.set(socket.id, {
     id: socket.id,
     name: defaultName,
     x: 32.0,
@@ -54,32 +36,27 @@ io.on('connection', (socket) => {
     yaw: 0,
     team: assignedTeam,
     teamColor: teamColorHex
-  };
+  });
 
-  activePlayers.set(socket.id, newPlayerData);
-
-  // 1. Send team assignment
+  // Send the team assignment and guest name just once cleanly
   socket.emit('assign_team', {
     team: assignedTeam,
     teamColor: teamColorHex,
     name: defaultName
   });
 
-  // 2. Assign or maintain physics host
+  // If this is the first connected player, make them the official ball physics host
   if (!ballPhysicsHostId) {
     ballPhysicsHostId = socket.id;
   }
+ 
+  // Inform this client whether they are the designated ball physics host
   socket.emit('ball_host_assignment', { isHost: socket.id === ballPhysicsHostId });
 
-  // 3. Immediately send current ball position and score to the new joiner
-  socket.emit('ball_sync', currentBallState);
-  socket.emit('score_sync', currentScores);
-
-  // 4. Send existing players to the new joiner, and announce the new joiner to everyone
+  // Send current players list to the newly connected client
   socket.emit('current_players', Array.from(activePlayers.values()));
-  socket.broadcast.emit('update_player', newPlayerData);
 
-  // Handle avatar movement
+  // Handle player avatar movement, rotation, & team updates
   socket.on('player_move', (data) => {
     const player = activePlayers.get(socket.id);
     if (player) {
@@ -91,39 +68,21 @@ io.on('connection', (socket) => {
       player.team = data.team || player.team;
       player.teamColor = data.teamColor || player.teamColor;
 
+      // Broadcast updated player position and team data to everyone else
       socket.broadcast.emit('update_player', player);
     }
   });
 
-  // Handle host ball movement sync
+  // Handle real-time ball movement and physics synchronization from the host
   socket.on('ball_move', (bData) => {
-    currentBallState = bData;
+    // Broadcast ball coordinates and velocity to all other connected clients
     socket.broadcast.emit('ball_sync', bData);
   });
 
-// Handle kick impulses from ANY player (Host or Non-Host)
-  socket.on('ball_kick', (kData) => {
-    // Give the server's authoritative ball state an immediate velocity boost
-    currentBallState.vx = kData.vx;
-    currentBallState.vy = kData.vy;
-    currentBallState.vz = kData.vz;
-    
-    // Broadcast the kick and updated velocity to everyone immediately
-    io.emit('apply_ball_kick', {
-      vx: kData.vx,
-      vy: kData.vy,
-      vz: kData.vz,
-      ballX: kData.ballX,
-      ballZ: kData.ballZ
-    });
-  });
-
-  // Handle goal scores
+  // Handle goal scores and reset triggers
   socket.on('score_update', (sData) => {
-    currentScores = sData;
-    currentBallState = { x: 34.0, y: 0.82, z: 0.0, vx: 0, vy: 0, vz: 0 };
+    // Broadcast updated score to all clients (including sender)
     io.emit('score_sync', sData);
-    io.emit('ball_sync', currentBallState);
   });
 
   // Handle disconnects
@@ -132,6 +91,7 @@ io.on('connection', (socket) => {
     activePlayers.delete(socket.id);
     io.emit('remove_player', socket.id);
 
+    // If the current ball physics host disconnects, reassign to the next available player
     if (socket.id === ballPhysicsHostId) {
       const remainingIds = Array.from(activePlayers.keys());
       ballPhysicsHostId = remainingIds.length > 0 ? remainingIds[0] : null;
