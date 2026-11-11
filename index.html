@@ -462,7 +462,12 @@ startBtn.addEventListener('click', () => {
             hasRemoteBallUpdate = true;
           }
         });
-
+socket.on('apply_ball_kick', (kData) => {
+          if (ballVelocity) {
+            // Apply kick impulse immediately across all clients, especially the physics host
+            ballVelocity.add(new THREE.Vector3(kData.vx, kData.vy || 0, kData.vz));
+          }
+        });
         socket.on('score_sync', (sData) => {
           blueScore = sData.blue;
           redScore = sData.red;
@@ -3577,21 +3582,30 @@ const inPitchArena = plushiePosition.x > 10.0;
         const distToBall = plushXZ.distanceTo(ballXZ);
         const minDistance = 0.72;
 
-        // Solid impact + kick for the local player
-        if (distToBall < minDistance && distToBall > 0.001) {
-          const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-          const overlap = minDistance - distToBall;
+        // Generous hitbox (0.85) so glancing touches still trigger a kick
+        const kickTriggerDist = 0.85;
 
-          ballPos.x += pushDir.x * (overlap * 0.6);
-          ballPos.z += pushDir.z * (overlap * 0.6);
+        if (distToBall < kickTriggerDist) {
+          // Calculate direct line to ball
+          let pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
 
-          plushiePosition.x -= pushDir.x * (overlap * 0.4);
-          plushiePosition.z -= pushDir.z * (overlap * 0.4);
+          // Blend movement direction so glancing blows kick forward instead of sliding around
+          if (plushieVelocity.lengthSq() > 0.1) {
+            const moveDir = plushieVelocity.clone().normalize();
+            pushDir.lerp(moveDir, 0.45).normalize();
+          }
+
+          // Gentle physical repulsion only when deeply penetrating
+          if (distToBall < minDistance && distToBall > 0.001) {
+            const overlap = minDistance - distToBall;
+            plushiePosition.x -= pushDir.x * (overlap * 0.3);
+            plushiePosition.z -= pushDir.z * (overlap * 0.3);
+          }
 
           const nowMs = performance.now();
-          if (nowMs - (window.lastKickTime || 0) > 300) {
+          if (nowMs - (window.lastKickTime || 0) > 220) {
             window.lastKickTime = nowMs;
-            const kickStrength = 9.0;
+            const kickStrength = 10.5;
             const impulse = pushDir.clone().multiplyScalar(kickStrength);
 
             ballVelocity.copy(impulse);
@@ -3607,7 +3621,7 @@ const inPitchArena = plushiePosition.x > 10.0;
           }
         }
 
-// Host ball physics calculations
+        // Host ball physics calculations
         if (isBallPhysicsHost) {
           if (remotePlayers && remotePlayers.size > 0) {
             remotePlayers.forEach((pMesh) => {
