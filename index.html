@@ -30,15 +30,16 @@
     #match-clock-hud { margin-top: 4px; font-weight: bold; color: #00f0ff; font-size: 0.95rem; }
     #audience-pill { margin-top: 4px; font-weight: bold; color: #39ff14; }
 
+/* GIANT D-PAD (Bottom-Left) */
     #mobile-dpad {
       position: absolute;
-      bottom: 30px;
-      left: 30px;
+      bottom: 40px;
+      left: 40px;
       display: none;
       grid-template-areas:
         ". up ."
         "left down right";
-      gap: 12px;
+      gap: 16px;
       z-index: 30;
       pointer-events: auto;
       touch-action: none;
@@ -49,36 +50,36 @@
     }
 
     .dpad-btn {
-      width: 68px;
-      height: 68px;
-      background: rgba(22, 9, 44, 0.85);
-      border: 3px solid #00f0ff;
-      border-radius: 16px;
+      width: 100px;  /* Much larger buttons */
+      height: 100px; /* Much larger buttons */
+      background: rgba(22, 9, 44, 0.9);
+      border: 4px solid #00f0ff;
+      border-radius: 22px;
       color: #00f0ff;
-      font-size: 28px;
+      font-size: 40px; /* Larger arrow symbols */
       display: flex;
       align-items: center;
       justify-content: center;
       user-select: none;
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
     }
 
     .dpad-btn.active, .dpad-btn:active {
-      background: rgba(0, 240, 255, 0.45);
+      background: rgba(0, 240, 255, 0.5);
       border-color: #39ff14;
       color: #39ff14;
-      box-shadow: 0 0 18px #39ff14;
+      box-shadow: 0 0 22px #39ff14;
     }
 
-    /* FIXED LOOK-PAD / JOYSTICK */
+    /* GIANT LOOK-PAD / JOYSTICK (Bottom-Right) */
     #look-pad {
       position: absolute;
-      bottom: 30px;
-      right: 30px;
-      width: 150px;
-      height: 150px;
-      background: rgba(22, 9, 44, 0.75);
-      border: 3px solid rgba(0, 240, 255, 0.8);
+      bottom: 40px;
+      right: 40px;
+      width: 200px;  /* Huge outer circle */
+      height: 200px; /* Huge outer circle */
+      background: rgba(22, 9, 44, 0.8);
+      border: 4px solid rgba(0, 240, 255, 0.9);
       border-radius: 50%;
       z-index: 30;
       pointer-events: auto;
@@ -86,7 +87,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
       user-select: none;
     }
 
@@ -95,14 +96,14 @@
     }
 
     #look-pad-thumb {
-      width: 60px;
-      height: 60px;
-      background: rgba(0, 240, 255, 0.35);
-      border: 3px solid #39ff14;
+      width: 80px;   /* Big movable inner puck */
+      height: 80px;  /* Big movable inner puck */
+      background: rgba(0, 240, 255, 0.4);
+      border: 4px solid #39ff14;
       border-radius: 50%;
       color: #39ff14;
       font-family: monospace;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: bold;
       display: flex;
       align-items: center;
@@ -112,38 +113,9 @@
       will-change: transform;
     }
 
-    /* FIXED GIANT CROSSHAIR */
+    /* COMPLETELY DESTROY / HIDE THE CROSSHAIR */
     #mobile-crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 80px;  /* Significantly larger base width */
-      height: 80px; /* Significantly larger base height */
-      border: 6px solid rgba(0, 240, 255, 0.95); /* Bold, highly visible stroke */
-      border-radius: 50%;
-      pointer-events: none;
-      display: none;
-      z-index: 15;
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
-    }
-
-    /* Optional: Add a center dot to the crosshair for ultimate aiming precision */
-    #mobile-crosshair::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 10px;
-      height: 10px;
-      background-color: #39ff14;
-      border-radius: 50%;
-      box-shadow: 0 0 8px #39ff14;
-    }
-
-    @media (pointer: coarse), (max-width: 900px) {
-      #mobile-crosshair { display: block; }
+      display: none !important;
     }
   </style>
 </head>
