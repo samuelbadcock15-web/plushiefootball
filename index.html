@@ -379,7 +379,13 @@
         socket.on('ball_host_assignment', (data) => {
           isBallPhysicsHost = data.isHost;
         });
-
+socket.on('apply_remote_hit', (data) => {
+      if (isBallPhysicsHost) {
+        const pushDir = new THREE.Vector3(data.pushX, 0, data.pushZ);
+        ballVelocity.addScaledVector(pushDir, 13.0);
+        playTone(600, 'triangle', 0.08, 0.1);
+      }
+    });
         socket.on('assign_team', (data) => {
           assignedTeam = data.team;
           teamColorHex = data.teamColor;
@@ -3574,87 +3580,116 @@
       }
 
       const inPitchArena = plushiePosition.x > 10.0;
-    if (inPitchArena) {
-      const ballPos = ballMesh.position;
-      const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
-      const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
-      const distToBall = plushXZ.distanceTo(ballXZ);
+if (inPitchArena) {
+  const ballPos = ballMesh.position;
+  const plushXZ = new THREE.Vector3(plushiePosition.x, 0, plushiePosition.z);
+  const ballXZ = new THREE.Vector3(ballPos.x, 0, ballPos.z);
+  const distToBall = plushXZ.distanceTo(ballXZ);
 
-      // INSTANT LOCAL COLLISION FOR ANY PLAYER (Guest or Host)
-      if (distToBall < 0.78) {
-        const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
-        ballVelocity.addScaledVector(pushDir, 13.0);
-        playTone(600, 'triangle', 0.08, 0.1);
-        
-        if (!isBallPhysicsHost && socket && socket.connected) {
-          socket.emit('ball_move', {
-            x: ballPos.x, y: ballPos.y, z: ballPos.z,
-            vx: ballVelocity.x, vy: ballVelocity.y, vz: ballVelocity.vz
-          });
-        }
-      }
-
-      if (isBallPhysicsHost) {
-        ballPos.addScaledVector(ballVelocity, delta);
-        ballVelocity.multiplyScalar(0.96);
-
-        if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-        if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
-        ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
-
-        // Goal Scored Check (Host)
-        if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-          redScore++;
-          renderPitchScoreboard(blueScore, redScore);
-          playTone(200, 'sawtooth', 0.3, 0.15);
-          ballMesh.position.set(34.0, 0.82, 0.0);
-          ballVelocity.set(0, 0, 0);
-          if (socket && socket.connected) {
-            socket.emit('score_update', { blue: blueScore, red: redScore });
-          }
-        } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
-          blueScore++;
-          renderPitchScoreboard(blueScore, redScore);
-          playTone(800, 'sine', 0.3, 0.15);
-          ballMesh.position.set(34.0, 0.82, 0.0);
-          ballVelocity.set(0, 0, 0);
-          if (socket && socket.connected) {
-            socket.emit('score_update', { blue: blueScore, red: redScore });
-          }
-        }
-
-        if (socket && socket.connected && (time - lastBallSyncTime > 20)) {
-          lastBallSyncTime = time;
-          socket.emit('ball_move', {
-            x: ballPos.x, y: ballPos.y, z: ballPos.z,
-            vx: ballVelocity.x, vy: ballVelocity.y, vz: ballVelocity.vz
-          });
-        }
-      } else {
-        // GUEST CLIENT: Smoothly interpolate host sync
-        if (hasRemoteBallUpdate) {
-          ballMesh.position.lerp(remoteBallTarget, 0.3);
-        }
-        ballMesh.position.addScaledVector(ballVelocity, delta);
-        ballVelocity.multiplyScalar(0.96);
-      }
-    } else {
-      ballMesh.position.set(34.0, 0.82, 0.0);
-      ballVelocity.set(0, 0, 0);
-      hasRemoteBallUpdate = false;
+  // STEP 1: Proximity cushion / soft braking for non-hosts
+  if (!isBallPhysicsHost && distToBall < 1.5) {
+    const toBall = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+    const movingTowardBall = plushieVelocity.dot(toBall);
+    if (movingTowardBall > 2.0) {
+      plushieVelocity.subScaledVector(toBall, movingTowardBall * 0.4);
     }
+  }
+
+  // STEP 2: Non-host instant impact prediction (zero lag feedback)
+  if (!isBallPhysicsHost && distToBall < 0.78) {
+    playTone(600, 'triangle', 0.08, 0.1);
+    const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+    ballPos.addScaledVector(pushDir, 0.2); // Instant local visual nudge
 
     if (socket && socket.connected) {
-      socket.emit('player_move', {
-        name: localMyGuestName,
-        x: plushiePosition.x,
-        y: plushiePosition.y,
-        z: plushiePosition.z,
-        yaw: plushieRotation.yaw,
-        team: assignedTeam,
-        teamColor: teamColorHex
+      socket.emit('player_hit_ball', {
+        pushX: pushDir.x,
+        pushZ: pushDir.z
       });
     }
+  }
+
+  if (isBallPhysicsHost) {
+    if (distToBall < 0.78) {
+      const pushDir = new THREE.Vector3().subVectors(ballXZ, plushXZ).normalize();
+      ballVelocity.addScaledVector(pushDir, 13.0);
+      playTone(600, 'triangle', 0.08, 0.1);
+    }
+
+    remotePlayers.forEach((pMesh) => {
+      if (pMesh) {
+        const remoteXZ = new THREE.Vector3(pMesh.position.x, 0, pMesh.position.z);
+        if (remoteXZ.distanceTo(ballXZ) < 0.78) {
+          const pushDir = new THREE.Vector3().subVectors(ballXZ, remoteXZ).normalize();
+          ballVelocity.addScaledVector(pushDir, 13.0);
+          playTone(600, 'triangle', 0.08, 0.1);
+        }
+      }
+    });
+  }
+}
+
+          ballPos.addScaledVector(ballVelocity, delta);
+          ballVelocity.multiplyScalar(0.96);
+
+          if (ballPos.z > 11.7) { ballPos.z = 11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+          if (ballPos.z < -11.7) { ballPos.z = -11.7; ballVelocity.z *= -0.8; playTone(300, 'sine', 0.05, 0.05); }
+
+          if (ballPos.x < 16.2 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            redScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(200, 'sawtooth', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
+          } else if (ballPos.x > 51.8 && ballPos.z > -2.5 && ballPos.z < 2.5) {
+            blueScore++;
+            renderPitchScoreboard(blueScore, redScore);
+            playTone(800, 'sine', 0.3, 0.15);
+            ballMesh.position.set(34.0, 0.82, 0.0);
+            ballVelocity.set(0, 0, 0);
+            if (socket && socket.connected) {
+              socket.emit('score_update', { blue: blueScore, red: redScore });
+            }
+          }
+
+          ballPos.x = Math.max(16.3, Math.min(51.7, ballPos.x));
+
+          if (socket && socket.connected && (time - lastBallSyncTime > 30)) {
+            lastBallSyncTime = time;
+            socket.emit('ball_move', {
+              x: ballPos.x,
+              y: ballPos.y,
+              z: ballPos.z,
+              vx: ballVelocity.x,
+              vy: ballVelocity.y,
+              vz: ballVelocity.vz
+            });
+          }
+        } else {
+          if (hasRemoteBallUpdate) {
+            ballMesh.position.lerp(remoteBallTarget, 0.35);
+          }
+        }
+      } else {
+        ballMesh.position.set(34.0, 0.82, 0.0);
+        ballVelocity.set(0, 0, 0);
+        hasRemoteBallUpdate = false;
+      }
+
+      if (socket && socket.connected) {
+        socket.emit('player_move', {
+          name: localMyGuestName,
+          x: plushiePosition.x,
+          y: plushiePosition.y,
+          z: plushiePosition.z,
+          yaw: plushieRotation.yaw,
+          team: assignedTeam,
+          teamColor: teamColorHex
+        });
+      }
 
       const dioramaWorldPos = new THREE.Vector3(0, 3.95, -9);
       const plushieWorldPos = plushiePosition.clone().add(dioramaWorldPos);
