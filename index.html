@@ -1108,10 +1108,11 @@
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 150);
     camera.position.set(0, 5.8, -5.0);
 
-    const canvas = document.getElementById('canvas3d');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 900;
+        const canvas = document.getElementById('gameCanvas');
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: !isMobile, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
 
     const canvasPlayer1 = document.createElement('canvas');
@@ -3233,31 +3234,32 @@
     }
 
     function setPlushieVisualMode(group, mode) {
-      if (!group) return;
-      if (mode === 'invisible') {
-        group.visible = false;
-        return;
-      }
-      group.visible = true;
-      const isOpaque = (mode === 'opaque');
-      group.traverse(child => {
-        if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(m => {
-            if (isOpaque) {
-              m.transparent = false;
-              m.opacity = 1.0;
-              m.depthWrite = true;
-            } else {
-              m.transparent = true;
-              m.opacity = 0.45;
-              m.depthWrite = false;
-            }
-            m.needsUpdate = true;
-          });
+        if (!group || group.userData.visualMode === mode) return;
+        group.userData.visualMode = mode;
+        if (mode === 'invisible') {
+          group.visible = false;
+          return;
         }
-      });
-    }
+        group.visible = true;
+        const isOpaque = (mode === 'opaque');
+        group.traverse(child => {
+          if (child.isMesh && child.material && child !== group.userData.badgeMesh) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(m => {
+              if (isOpaque) {
+                m.transparent = false;
+                m.opacity = 1.0;
+                m.depthWrite = true;
+              } else {
+                m.transparent = true;
+                m.opacity = 0.45;
+                m.depthWrite = false;
+              }
+              m.needsUpdate = true;
+            });
+          }
+        });
+      }
 
     let assignedTeam = 'BLUE';
     let teamColorHex = '#00f0ff';
@@ -3772,14 +3774,14 @@ plushiePosition.addScaledVector(plushieVelocity, delta);
       localPlushie.rotation.y = plushieRotation.yaw + Math.PI;
 
       const camTargetX = plushieWorldPos.x + Math.sin(plushieRotation.yaw) * 1.8;
-      const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
-      const camTargetY = plushieWorldPos.y + 1.0;
+            const camTargetZ = plushieWorldPos.z + Math.cos(plushieRotation.yaw) * 1.8;
+            const camTargetY = plushieWorldPos.y + 1.0;
 
-      const smoothFactor = 1.0 - Math.exp(-12.0 * delta);
+            const camSmooth = 1.0 - Math.exp(-18.0 * delta);
 
-      camera.position.x += (camTargetX - camera.position.x) * smoothFactor;
-      camera.position.y += (camTargetY - camera.position.y) * smoothFactor;
-      camera.position.z += (camTargetZ - camera.position.z) * smoothFactor;
+            camera.position.x += (camTargetX - camera.position.x) * camSmooth;
+            camera.position.y += (camTargetY - camera.position.y) * camSmooth;
+            camera.position.z += (camTargetZ - camera.position.z) * camSmooth;
 
       camera.lookAt(plushieWorldPos.x, plushieWorldPos.y + 0.6, plushieWorldPos.z);
 
