@@ -220,41 +220,51 @@
     }
 
     function handleLookMove(clientX, clientY) {
-      if (!isLooking) return;
+  if (!isLooking) return;
 
-      const deltaX = clientX - padCenterX;
-      const deltaY = clientY - padCenterY;
+  const deltaX = clientX - padCenterX;
+  const deltaY = clientY - padCenterY;
 
-      const maxThumbOffset = 40;
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      const angle = Math.atan2(deltaY, deltaX);
+  const maxThumbOffset = 40;
+  const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+  const neutralZone = 14;
 
-      const clampedDist = Math.min(maxThumbOffset, distance);
-      const clampedX = Math.cos(angle) * clampedDist;
-      const clampedY = Math.sin(angle) * clampedDist;
+  let clampedX = 0;
+  let clampedY = 0;
+  let requestedGear = 'NEUTRAL';
 
-      lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
-
-      const threshold = 12;
-      const neutralZone = 10;
-      let requestedGear = 'NEUTRAL';
-
-      if (distance > neutralZone) {
-        if (Math.abs(deltaY) > Math.abs(deltaX)) {
-          if (deltaY < -threshold) requestedGear = 'FORWARD';
-          else if (deltaY > threshold) requestedGear = 'BACKWARD';
-        } else {
-          if (deltaX < -threshold) requestedGear = 'TURN_LEFT';
-          else if (deltaX > threshold) requestedGear = 'TURN_RIGHT';
-        }
-      } else {
-        requestedGear = 'NEUTRAL';
-      }
-
-      // Lock in the new gear selection
-      currentLockedGear = requestedGear;
-      applyGearboxStates();
+  if (distance > neutralZone) {
+    // Enforce strict Cross / Plus-gate (+ shape):
+    // Whichever axis is pulled further locks out the other axis entirely.
+    if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+      // Vertical slot (Forward / Backward)
+      clampedY = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaY));
+      clampedX = 0; // Lock X to center cross slot
+      
+      if (deltaY < -15) requestedGear = 'FORWARD';
+      else if (deltaY > 15) requestedGear = 'BACKWARD';
+    } else {
+      // Horizontal slot (Turn Left / Turn Right)
+      clampedX = Math.max(-maxThumbOffset, Math.min(maxThumbOffset, deltaX));
+      clampedY = 0; // Lock Y to center cross slot
+      
+      if (deltaX < -15) requestedGear = 'TURN_LEFT';
+      else if (deltaX > 15) requestedGear = 'TURN_RIGHT';
     }
+  } else {
+    // Inside neutral center square/zone
+    requestedGear = 'NEUTRAL';
+    clampedX = 0;
+    clampedY = 0;
+  }
+
+  // Snap thumb visually into the strict cross channels
+  lookPadThumb.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+
+  // Lock in the new gear selection
+  currentLockedGear = requestedGear;
+  applyGearboxStates();
+}
 
     function handleLookEnd() {
       isLooking = false;
